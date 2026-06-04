@@ -454,7 +454,8 @@ function computeEmi(principal, ratePct, years) {
 function monthsElapsed(startISO) {
   const start = new Date(startISO);
   const now = new Date();
-  const months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+  let months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+  if (now.getDate() < start.getDate()) months--;
   return Math.max(0, months);
 }
 
