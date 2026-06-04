@@ -227,34 +227,39 @@ textarea.input { height: 72px; padding: 10px 12px; resize: none; }
 
 /* ── Portfolio items ── */
 .p-item {
-  border: 1.5px solid var(--border); border-radius: var(--radius-md);
+  border: 1px solid var(--border); border-radius: var(--radius-md);
   margin-bottom: 8px; overflow: hidden;
 }
 .p-item-hdr {
-  display: flex; align-items: flex-start; gap: 8px;
-  padding: 12px; cursor: pointer;
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px;
 }
 .p-chevron {
-  width: 28px; height: 28px; border-radius: 6px; background: var(--muted);
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;
+  width: 24px; height: 24px; border-radius: 6px; background: var(--muted);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
-.p-chevron svg { width: 14px; height: 14px; stroke-width: 2.5; transition: transform 0.2s; }
+.p-chevron svg { width: 13px; height: 13px; stroke-width: 2.5; transition: transform 0.2s; }
 .p-chevron.open svg { transform: rotate(90deg); }
 .p-info { flex: 1; min-width: 0; }
-.p-name { font-size: 14px; font-weight: 700; }
-.p-sub { font-size: 11px; color: var(--muted-fg); margin-top: 2px; line-height: 1.5; }
-.p-val { text-align: right; flex-shrink: 0; }
-.p-val-main { font-size: 15px; font-weight: 800; }
+.p-name { font-size: 13px; font-weight: 700; }
+.p-sub { font-size: 11px; color: var(--muted-fg); margin-top: 1px; line-height: 1.5; }
+.p-val { text-align: right; flex-shrink: 0; margin-right: 6px; }
+.p-val-main { font-size: 14px; font-weight: 800; }
 .p-val-main.red { color: var(--expense); }
 .p-val-main.green { color: var(--income); }
 .p-val-main.amber { color: var(--gold); }
-.p-val-sub { font-size: 10px; color: var(--muted-fg); margin-top: 2px; }
-.p-actions { display: flex; gap: 4px; padding: 4px 10px 8px; justify-content: flex-end; }
-.p-actions button { width: 26px; height: 26px; border-radius: 6px; padding: 0; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: opacity 0.15s; }
-.p-actions button:active { opacity: 0.6; }
-.p-actions button svg { width: 14px; height: 14px; flex-shrink: 0; }
-.p-edit-btn { color: var(--muted-fg); border: 1px solid var(--border); background: var(--card); }
-.p-edit-btn:hover { color: var(--fg); }
+.p-val-sub { font-size: 10px; color: var(--muted-fg); margin-top: 1px; }
+.p-item-btns { display: flex; gap: 2px; flex-shrink: 0; align-items: center; }
+.p-edit-btn, .p-del-btn {
+  width: 28px; height: 28px; border-radius: 6px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: background 0.15s;
+  border: none; background: transparent;
+}
+.p-edit-btn { color: var(--muted-fg); }
+.p-edit-btn:hover { background: var(--muted); color: var(--fg); }
+.p-del-btn { color: var(--muted-fg); }
+.p-del-btn:hover { background: rgba(232,80,58,.08); color: var(--expense); }
 .p-del-btn { color: var(--expense); border: 1px solid rgba(232,80,58,.2); background: transparent; }
 .p-del-btn:hover { background: rgba(232,80,58,.08); }
 
@@ -732,32 +737,29 @@ function renderSavings() {
     }
     return `
     <div class="p-item">
-      <div class="p-item-hdr" style="cursor:default">
+      <div class="p-item-hdr">
         <div class="p-info">
           <div class="p-name">${esc(item.name)} <span class="cur-badge">${c}</span></div>
-          <div class="p-sub">${item.institution?esc(item.institution)+'  ·  ':''}${item.interestRate?item.interestRate+'% p.a.':''}</div>
-          ${item.note?`<div class="p-sub">${esc(item.note)}</div>`:''}
+          <div class="p-sub">${item.institution?'Institution: '+esc(item.institution):''}${item.interestRate?' · '+item.interestRate+'% p.a.':''}</div>
         </div>
-        <div class="p-val">
-          <div class="p-val-main green">${formatMoney(item.amount,c)}</div>
+        <div class="p-val"><div class="p-val-main green">${formatMoney(item.amount,c)}</div></div>
+        <div class="p-item-btns">
+          <button class="p-edit-btn" title="Edit" data-action="edit-saving" data-id="${item.id}">${svgEdit}</button>
+          <button class="p-del-btn" title="Delete" data-action="del-saving" data-id="${item.id}">${svgTrash}</button>
         </div>
-      </div>
-      <div class="p-actions">
-        <button class="p-edit-btn" title="Edit" data-action="edit-saving" data-id="${item.id}">${svgEdit}</button>
-        <button class="p-del-btn" data-action="del-saving" data-id="${item.id}" title="Delete">${svgTrash}</button>
       </div>
     </div>`;
   }).join('');
 
   const addHtml = S.addingSaving
     ? `<div class="p-item"><div class="add-form">${savingForm(null)}</div></div>`
-    : `<button class="add-row-btn" data-action="toggle-add-saving">${svgPlus} Add Saving</button>`;
+    : `<button class="add-row-btn" data-action="toggle-add-saving">${svgPlus} Add entry</button>`;
 
   return `
   <div class="card">
     <div class="sec-hdr">
-      <div><div class="sec-title">Savings</div><div class="sec-sub">Bank accounts, deposits, cash</div></div>
-      ${items.length?`<div class="sec-total" style="color:var(--income)">${formatMoney(total,cur)}</div>`:''}
+      <div><div class="sec-title">Savings</div><div class="sec-sub">Bank accounts, deposits, cash reserves.</div></div>
+      ${items.length?`<div style="text-align:right"><div style="font-size:10px;font-weight:600;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.6px">Total Balance</div><div class="sec-total" style="color:var(--income)">${formatMoney(total,cur)}</div></div>`:''}
     </div>
     ${itemsHtml}
     ${addHtml}
@@ -840,32 +842,31 @@ function renderLoans() {
         <div class="p-info">
           <div class="p-name">${esc(loan.name)} <span class="cur-badge">${c}</span></div>
           <div class="p-sub">
-            ${loan.lender?esc(loan.lender)+' · ':''}${formatMoney(loan.principal,c)} · ${loan.tenureYears}yr · ${loan.interestRate}%<br>
-            EMI ${formatMoney(emi,c)}/mo · Payoff ${fmtDateFull(payoff.toISOString())}
+            ${loan.lender?'Lender: '+esc(loan.lender)+' · ':''}Principal: ${formatMoney(loan.principal,c)} · Start: ${fmtDateFull(loan.startDate)} · Tenure: ${loan.tenureYears} yr · Rate: ${loan.interestRate}% · EMI: ${formatMoney(emi,c)} · Payoff: ${fmtDateFull(payoff.toISOString())}
           </div>
         </div>
         <div class="p-val">
+          <div class="p-val-sub">OUTSTANDING</div>
           <div class="p-val-main red">${formatMoney(outstanding,c)}</div>
-          <div class="p-val-sub">outstanding</div>
+        </div>
+        <div class="p-item-btns" onclick="event.stopPropagation()">
+          <button class="p-edit-btn" title="Edit" data-action="edit-loan" data-id="${loan.id}">${svgEdit}</button>
+          <button class="p-del-btn" title="Delete" data-action="del-loan" data-id="${loan.id}">${svgTrash}</button>
         </div>
       </div>
       ${schedHtml}
-      <div class="p-actions">
-        <button class="p-edit-btn" title="Edit" data-action="edit-loan" data-id="${loan.id}">${svgEdit}</button>
-        <button class="p-del-btn" data-action="del-loan" data-id="${loan.id}" title="Delete">${svgTrash}</button>
-      </div>
     </div>`;
   }).join('');
 
   const addHtml = S.addingLoan
     ? `<div class="p-item"><div class="add-form">${loanForm(null)}</div></div>`
-    : `<button class="add-row-btn" data-action="toggle-add-loan">${svgPlus} Add Loan</button>`;
+    : `<button class="add-row-btn" data-action="toggle-add-loan">${svgPlus} Add loan</button>`;
 
   return `
   <div class="card">
     <div class="sec-hdr">
       <div><div class="sec-title">Loans</div><div class="sec-sub">EMI-based amortising loans</div></div>
-      ${Object.keys(totals).length?`<div class="sec-total" style="color:var(--expense)">${totalStr}</div>`:''}
+      ${Object.keys(totals).length?`<div style="text-align:right"><div style="font-size:10px;font-weight:600;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.6px">Outstanding Today</div><div class="sec-total" style="color:var(--expense)">${totalStr}</div></div>`:''}
     </div>
     ${itemsHtml}
     ${addHtml}
@@ -963,20 +964,20 @@ function renderGoldLoans() {
         <div class="p-info">
           <div class="p-name">${esc(loan.name)} <span class="cur-badge">${c}</span></div>
           <div class="p-sub">
-            ${loan.lender?esc(loan.lender)+' · ':''}${formatMoney(loan.principal,c)} · ${loan.interestRate}% p.a.<br>
-            ${loan.startDate?`Started ${fmtDate(loan.startDate)} · Payoff ${payoff?fmtDateFull(payoff.toISOString()):'—'}`:'No start date'}
+            ${loan.lender?'Lender: '+esc(loan.lender)+' · ':''}${formatMoney(loan.principal,c)} · ${loan.interestRate}% p.a.
+            ${loan.startDate?` · Started ${fmtDate(loan.startDate)}`:''}
           </div>
         </div>
         <div class="p-val">
+          <div class="p-val-sub">TOTAL OWED</div>
           <div class="p-val-main amber">${formatMoney(totalOwed,c)}</div>
-          <div class="p-val-sub">total owed</div>
+        </div>
+        <div class="p-item-btns" onclick="event.stopPropagation()">
+          <button class="p-edit-btn" title="Edit" data-action="edit-gold" data-id="${loan.id}">${svgEdit}</button>
+          <button class="p-del-btn" title="Delete" data-action="del-gold" data-id="${loan.id}">${svgTrash}</button>
         </div>
       </div>
       ${schedHtml}
-      <div class="p-actions">
-        <button class="p-edit-btn" title="Edit" data-action="edit-gold" data-id="${loan.id}">${svgEdit}</button>
-        <button class="p-del-btn" data-action="del-gold" data-id="${loan.id}" title="Delete">${svgTrash}</button>
-      </div>
     </div>`;
   }).join('');
 
