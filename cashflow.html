@@ -980,7 +980,7 @@ function renderGoldLoans() {
         </div>
         <div class="p-right">
           <div class="p-val">
-            <div class="p-val-sub">Total Owed</div>
+            <div class="p-val-sub">${payoff ? 'Payoff '+fmtDateFull(payoff.toISOString()) : 'Total Owed'}</div>
             <div class="p-val-main amber">${formatMoney(totalOwed,c)}</div>
           </div>
           <div class="p-item-btns">
