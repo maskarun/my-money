@@ -465,11 +465,10 @@ function computeOutstanding(loan) {
   const elapsed = Math.min(monthsElapsed(startDate), n);
   if (!interestRate) return Math.max(0, principal - (principal / n) * elapsed);
   const r = interestRate / 100 / 12;
-  const pow = Math.pow(1 + r, n);
-  const emi = (principal * r * pow) / (pow - 1);
+  const emi = computeEmi(principal, interestRate, tenureYears);
   const epow = Math.pow(1 + r, elapsed);
-  const paidPrincipal = (epow === 1) ? 0 : emi * (epow - 1) / (r * epow);
-  return Math.max(0, principal - paidPrincipal);
+  // Standard amortisation formula: outstanding = P×(1+r)^k − EMI×((1+r)^k − 1)/r
+  return Math.max(0, principal * epow - emi * (epow - 1) / r);
 }
 
 function computeScheduleToDate(loan) {
