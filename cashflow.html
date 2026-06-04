@@ -849,7 +849,7 @@ function renderLoans() {
           <div class="p-val-sub">OUTSTANDING</div>
           <div class="p-val-main red">${formatMoney(outstanding,c)}</div>
         </div>
-        <div class="p-item-btns" onclick="event.stopPropagation()">
+        <div class="p-item-btns">
           <button class="p-edit-btn" title="Edit" data-action="edit-loan" data-id="${loan.id}">${svgEdit}</button>
           <button class="p-del-btn" title="Delete" data-action="del-loan" data-id="${loan.id}">${svgTrash}</button>
         </div>
@@ -972,7 +972,7 @@ function renderGoldLoans() {
           <div class="p-val-sub">TOTAL OWED</div>
           <div class="p-val-main amber">${formatMoney(totalOwed,c)}</div>
         </div>
-        <div class="p-item-btns" onclick="event.stopPropagation()">
+        <div class="p-item-btns">
           <button class="p-edit-btn" title="Edit" data-action="edit-gold" data-id="${loan.id}">${svgEdit}</button>
           <button class="p-del-btn" title="Delete" data-action="del-gold" data-id="${loan.id}">${svgTrash}</button>
         </div>
