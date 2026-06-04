@@ -248,8 +248,9 @@ textarea.input { height: 72px; padding: 10px 12px; resize: none; }
 .p-val-main.green { color: var(--income); }
 .p-val-main.amber { color: var(--gold); }
 .p-val-sub { font-size: 10px; color: var(--muted-fg); margin-top: 2px; }
-.p-actions { display: flex; gap: 4px; padding: 0 12px 10px; justify-content: flex-end; }
-.p-actions button { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; min-height: 24px; }
+.p-actions { display: flex; gap: 6px; padding: 0 12px 10px; justify-content: flex-end; }
+.p-actions button { width: 28px; height: 28px; border-radius: 50%; padding: 0; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.p-actions button svg { width: 14px; height: 14px; stroke-width: 2; pointer-events: none; }
 .p-edit-btn { color: var(--fg); border: 1px solid var(--border); background: var(--card); }
 .p-del-btn { color: var(--expense); border: 1px solid rgba(232,80,58,.25); background: rgba(232,80,58,.05); }
 
@@ -738,8 +739,8 @@ function renderSavings() {
         </div>
       </div>
       <div class="p-actions">
-        <button class="p-edit-btn btn-sm" data-action="edit-saving" data-id="${item.id}">${svgEdit} Edit</button>
-        <button class="p-del-btn btn-sm" data-action="del-saving" data-id="${item.id}">${svgTrash} Delete</button>
+        <button class="p-edit-btn" title="Edit" data-action="edit-saving" data-id="${item.id}">${svgEdit}</button>
+        <button class="p-del-btn" data-action="del-saving" data-id="${item.id}" title="Delete">${svgTrash}</button>
       </div>
     </div>`;
   }).join('');
@@ -846,8 +847,8 @@ function renderLoans() {
       </div>
       ${schedHtml}
       <div class="p-actions">
-        <button class="p-edit-btn btn-sm" data-action="edit-loan" data-id="${loan.id}">${svgEdit} Edit</button>
-        <button class="p-del-btn btn-sm" data-action="del-loan" data-id="${loan.id}">${svgTrash} Delete</button>
+        <button class="p-edit-btn" title="Edit" data-action="edit-loan" data-id="${loan.id}">${svgEdit}</button>
+        <button class="p-del-btn" data-action="del-loan" data-id="${loan.id}" title="Delete">${svgTrash}</button>
       </div>
     </div>`;
   }).join('');
@@ -969,8 +970,8 @@ function renderGoldLoans() {
       </div>
       ${schedHtml}
       <div class="p-actions">
-        <button class="p-edit-btn btn-sm" data-action="edit-gold" data-id="${loan.id}">${svgEdit} Edit</button>
-        <button class="p-del-btn btn-sm" data-action="del-gold" data-id="${loan.id}">${svgTrash} Delete</button>
+        <button class="p-edit-btn" title="Edit" data-action="edit-gold" data-id="${loan.id}">${svgEdit}</button>
+        <button class="p-del-btn" data-action="del-gold" data-id="${loan.id}" title="Delete">${svgTrash}</button>
       </div>
     </div>`;
   }).join('');
