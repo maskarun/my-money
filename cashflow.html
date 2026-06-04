@@ -731,8 +731,8 @@ function renderPortfolioSummary() {
 // ── Savings ──────────────────────────────────────────────────────────────────
 function renderSavings() {
   const items = S.portfolio.savings;
-  const total = items.reduce((a,i)=>a+(i.amount||0),0);
-  const cur = items[0] ? getCur(items[0]) : 'USD';
+  const totals = {};
+  for (const i of items) { const c = getCur(i); totals[c] = (totals[c]||0) + (i.amount||0); }
 
   const itemsHtml = items.map(item => {
     const c = getCur(item);
@@ -765,7 +765,7 @@ function renderSavings() {
   <div class="card">
     <div class="sec-hdr">
       <div><div class="sec-title">Savings</div><div class="sec-sub">Bank accounts, deposits, cash reserves.</div></div>
-      ${items.length?`<div style="text-align:right"><div style="font-size:10px;font-weight:600;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.6px">Total Balance</div><div class="sec-total" style="color:var(--income)">${formatMoney(total,cur)}</div></div>`:''}
+      ${items.length?`<div style="text-align:right"><div style="font-size:10px;font-weight:600;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.6px;margin-bottom:2px">Total Balance</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total" style="color:var(--income)">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
     </div>
     ${itemsHtml}
     ${addHtml}
@@ -874,7 +874,7 @@ function renderLoans() {
   <div class="card">
     <div class="sec-hdr">
       <div><div class="sec-title">Loans</div><div class="sec-sub">EMI-based amortising loans</div></div>
-      ${Object.keys(totals).length?`<div style="text-align:right"><div style="font-size:10px;font-weight:600;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.6px">Outstanding Today</div><div class="sec-total" style="color:var(--expense)">${totalStr}</div></div>`:''}
+      ${Object.keys(totals).length?`<div style="text-align:right"><div style="font-size:10px;font-weight:600;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.6px;margin-bottom:2px">Outstanding Today</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total" style="color:var(--expense)">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
     </div>
     ${itemsHtml}
     ${addHtml}
@@ -999,7 +999,7 @@ function renderGoldLoans() {
   <div class="card">
     <div class="sec-hdr">
       <div><div class="sec-title">Gold Loans</div><div class="sec-sub">Bullet repayment, daily interest</div></div>
-      ${Object.keys(totals).length?`<div class="sec-total" style="color:var(--gold)">${totalStr}</div>`:''}
+      ${Object.keys(totals).length?`<div style="text-align:right"><div style="font-size:10px;font-weight:600;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.6px;margin-bottom:2px">Total Owed</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total" style="color:var(--gold)">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
     </div>
     ${itemsHtml}
     ${addHtml}
