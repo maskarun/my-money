@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Money — Logo Options</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800;14..32,900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', sans-serif; background: #f0f4ff; color: #0f172a; min-height: 100vh; padding: 32px 16px 48px; }
+
+h1 { text-align: center; font-size: 22px; font-weight: 800; letter-spacing: -.4px; margin-bottom: 6px; }
+.subtitle { text-align: center; font-size: 13px; color: #64748b; margin-bottom: 32px; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; max-width: 980px; margin: 0 auto; }
+
+.card {
+  background: #fff;
+  border-radius: 20px;
+  border: 1.5px solid #e0e7ff;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(2,132,199,.06);
+}
+
+.card-label {
+  padding: 10px 16px 8px;
+  font-size: 10px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; color: #94a3b8;
+  border-bottom: 1px solid #f0f4ff;
+  display: flex; align-items: center; gap: 6px;
+}
+.option-badge {
+  background: #0284c7; color: #fff; font-size: 9px; font-weight: 900; border-radius: 5px; padding: 1px 6px; letter-spacing: .4px;
+}
+
+/* App header simulation */
+.header-sim {
+  background: #f0f4ff;
+  padding: 14px 18px;
+  display: flex; align-items: center; gap: 12px;
+  border-bottom: 1px solid #e0e7ff;
+}
+
+/* Lockup section */
+.lockup-section {
+  padding: 22px 18px 16px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+
+.lockup-row {
+  display: flex; align-items: center; gap: 14px;
+}
+.lockup-icon-only {
+  display: flex; align-items: center; justify-content: center;
+}
+
+.wordmark { display: flex; flex-direction: column; justify-content: center; }
+.wm-title { line-height: 1.1; }
+.wm-sub { margin-top: 2px; }
+
+/* Choose button */
+.choose-btn {
+  display: block; width: calc(100% - 36px); margin: 0 18px 18px;
+  padding: 10px; border: 1.5px solid #e0e7ff; border-radius: 10px;
+  background: #f8faff; color: #0284c7; font-family: inherit;
+  font-size: 12px; font-weight: 700; cursor: pointer; letter-spacing: .2px;
+  transition: background .15s, border-color .15s;
+}
+.choose-btn:hover { background: #0284c7; color: #fff; border-color: #0284c7; }
+
+/* ── OPTION A: Coin Stack ───────────────────────────────────────────────── */
+.logo-a-mark {
+  width: 44px; height: 44px; flex-shrink: 0;
+}
+.logo-a-title {
+  font-size: 17px; font-weight: 900; letter-spacing: -.3px; color: #0f172a;
+}
+.logo-a-badge {
+  display: inline-block; background: #0284c7; color: #fff;
+  font-size: 8px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase;
+  border-radius: 4px; padding: 2px 6px; margin-top: 3px;
+}
+
+/* ── OPTION B: M Monogram ──────────────────────────────────────────────── */
+.logo-b-circle {
+  width: 44px; height: 44px; border-radius: 13px; flex-shrink: 0;
+  background: linear-gradient(135deg, #0369a1 0%, #0284c7 60%, #38bdf8 100%);
+  display: flex; align-items: center; justify-content: center;
+}
+.logo-b-letter {
+  color: #fff; font-size: 24px; font-weight: 900; letter-spacing: -1px; line-height: 1;
+}
+.logo-b-title {
+  font-size: 17px; font-weight: 800; color: #0f172a; letter-spacing: -.3px;
+}
+.logo-b-tag {
+  font-size: 9px; color: #64748b; font-weight: 600; letter-spacing: .4px; margin-top: 2px;
+}
+
+/* ── OPTION C: Chart Arrow ─────────────────────────────────────────────── */
+.logo-c-mark {
+  width: 44px; height: 44px; flex-shrink: 0;
+}
+.logo-c-title {
+  font-size: 17px; letter-spacing: -.2px;
+}
+.logo-c-my { font-weight: 300; color: #64748b; }
+.logo-c-money { font-weight: 900; color: #059669; }
+
+/* ── OPTION D: Shield Wallet ───────────────────────────────────────────── */
+.logo-d-mark { width: 44px; height: 44px; flex-shrink: 0; }
+.logo-d-title {
+  font-size: 15px; font-weight: 900; letter-spacing: 2.5px; text-transform: uppercase; color: #0f172a;
+}
+.logo-d-sub { font-size: 9px; color: #94a3b8; font-weight: 500; letter-spacing: .3px; margin-top: 3px; }
+
+/* ── OPTION E: Leaf + Coin ─────────────────────────────────────────────── */
+.logo-e-wrap {
+  width: 44px; height: 44px; flex-shrink: 0; position: relative;
+}
+.logo-e-title {
+  font-size: 17px; font-weight: 800; font-style: italic; color: #0f172a; letter-spacing: -.2px;
+}
+.logo-e-sub { font-size: 9px; color: #94a3b8; font-weight: 500; letter-spacing: .5px; text-transform: uppercase; margin-top: 3px; }
+
+/* ── OPTION F: Minimal Bar M ───────────────────────────────────────────── */
+.logo-f-mark { width: 44px; height: 44px; flex-shrink: 0; }
+.logo-f-title {
+  font-size: 18px; font-weight: 500; color: #0f172a; letter-spacing: -.3px;
+}
+.logo-f-money { font-weight: 900; }
+
+/* Divider label */
+.sim-label { font-size: 10px; color: #94a3b8; font-weight: 600; margin-bottom: 10px; }
+</style>
+</head>
+<body>
+
+<h1>Choose Your Logo</h1>
+<p class="subtitle">6 design directions for My Money — pick one to apply to the app</p>
+
+<div class="grid">
+
+  <!-- ── OPTION A: Coin Stack ── -->
+  <div class="card">
+    <div class="card-label"><span class="option-badge">A</span> Coin Stack</div>
+    <div class="lockup-section">
+      <div>
+        <div class="sim-label">HEADER PREVIEW</div>
+        <div class="header-sim">
+          <svg class="logo-a-mark" viewBox="0 0 44 44" fill="none">
+            <defs>
+              <linearGradient id="coinA1" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#0284c7"/>
+                <stop offset="100%" stop-color="#38bdf8"/>
+              </linearGradient>
+            </defs>
+            <!-- coin 3 (bottom) -->
+            <ellipse cx="22" cy="33" rx="14" ry="5" fill="url(#coinA1)" opacity=".5"/>
+            <!-- coin 2 (middle) -->
+            <ellipse cx="22" cy="26" rx="14" ry="5" fill="url(#coinA1)" opacity=".75"/>
+            <!-- coin 1 (top) -->
+            <ellipse cx="22" cy="19" rx="14" ry="5" fill="url(#coinA1)"/>
+            <ellipse cx="22" cy="16" rx="14" ry="5" fill="#38bdf8"/>
+            <text x="22" y="20" text-anchor="middle" font-family="Inter,sans-serif" font-size="7" font-weight="800" fill="#fff">₹ $</text>
+          </svg>
+          <div class="wordmark">
+            <div class="logo-a-title">My Money</div>
+            <span class="logo-a-badge">Finance</span>
+          </div>
+        </div>
+      </div>
+      <div class="lockup-icon-only">
+        <svg width="64" height="64" viewBox="0 0 44 44" fill="none">
+          <defs>
+            <linearGradient id="coinA2" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#0284c7"/>
+              <stop offset="100%" stop-color="#38bdf8"/>
+            </linearGradient>
+          </defs>
+          <ellipse cx="22" cy="33" rx="14" ry="5" fill="url(#coinA2)" opacity=".5"/>
+          <ellipse cx="22" cy="26" rx="14" ry="5" fill="url(#coinA2)" opacity=".75"/>
+          <ellipse cx="22" cy="19" rx="14" ry="5" fill="url(#coinA2)"/>
+          <ellipse cx="22" cy="16" rx="14" ry="5" fill="#38bdf8"/>
+          <text x="22" y="20" text-anchor="middle" font-family="Inter,sans-serif" font-size="7" font-weight="800" fill="#fff">₹ $</text>
+        </svg>
+      </div>
+    </div>
+    <button class="choose-btn">Choose Option A</button>
+  </div>
+
+  <!-- ── OPTION B: M Monogram ── -->
+  <div class="card">
+    <div class="card-label"><span class="option-badge">B</span> M Monogram</div>
+    <div class="lockup-section">
+      <div>
+        <div class="sim-label">HEADER PREVIEW</div>
+        <div class="header-sim">
+          <div class="logo-b-circle">
+            <span class="logo-b-letter">M</span>
+          </div>
+          <div class="wordmark">
+            <div class="logo-b-title">My Money</div>
+            <div class="logo-b-tag">Track · Save · Grow</div>
+          </div>
+        </div>
+      </div>
+      <div class="lockup-icon-only">
+        <div style="width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#0369a1,#0284c7 60%,#38bdf8);display:flex;align-items:center;justify-content:center;">
+          <span style="color:#fff;font-size:36px;font-weight:900;letter-spacing:-2px;line-height:1;">M</span>
+        </div>
+      </div>
+    </div>
+    <button class="choose-btn">Choose Option B</button>
+  </div>
+
+  <!-- ── OPTION C: Chart Arrow ── -->
+  <div class="card">
+    <div class="card-label"><span class="option-badge">C</span> Chart Arrow</div>
+    <div class="lockup-section">
+      <div>
+        <div class="sim-label">HEADER PREVIEW</div>
+        <div class="header-sim">
+          <svg class="logo-c-mark" viewBox="0 0 44 44" fill="none">
+            <!-- bars -->
+            <rect x="6"  y="28" width="7" height="10" rx="2" fill="#059669" opacity=".4"/>
+            <rect x="16" y="20" width="7" height="18" rx="2" fill="#059669" opacity=".65"/>
+            <rect x="26" y="13" width="7" height="25" rx="2" fill="#059669"/>
+            <!-- arrow -->
+            <polyline points="8,26 18,18 28,11 36,7" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            <polyline points="31,7 36,7 36,12" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
+          <div class="wordmark">
+            <div class="logo-c-title"><span class="logo-c-my">My </span><span class="logo-c-money">Money</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="lockup-icon-only">
+        <svg width="64" height="64" viewBox="0 0 44 44" fill="none">
+          <rect x="6"  y="28" width="7" height="10" rx="2" fill="#059669" opacity=".4"/>
+          <rect x="16" y="20" width="7" height="18" rx="2" fill="#059669" opacity=".65"/>
+          <rect x="26" y="13" width="7" height="25" rx="2" fill="#059669"/>
+          <polyline points="8,26 18,18 28,11 36,7" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <polyline points="31,7 36,7 36,12" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+      </div>
+    </div>
+    <button class="choose-btn">Choose Option C</button>
+  </div>
+
+  <!-- ── OPTION D: Shield Wallet ── -->
+  <div class="card">
+    <div class="card-label"><span class="option-badge">D</span> Shield Wallet</div>
+    <div class="lockup-section">
+      <div>
+        <div class="sim-label">HEADER PREVIEW</div>
+        <div class="header-sim">
+          <svg class="logo-d-mark" viewBox="0 0 44 44" fill="none">
+            <!-- shield -->
+            <path d="M22 5L8 11v10c0 8 6 14.5 14 17 8-2.5 14-9 14-17V11L22 5z" fill="#e0f2fe" stroke="#0284c7" stroke-width="1.8" stroke-linejoin="round"/>
+            <!-- currency symbols -->
+            <text x="16" y="26" font-family="Inter,sans-serif" font-size="9" font-weight="900" fill="#0284c7">₹$</text>
+          </svg>
+          <div class="wordmark">
+            <div class="logo-d-title">My Money</div>
+            <div class="logo-d-sub">Secure Personal Finance</div>
+          </div>
+        </div>
+      </div>
+      <div class="lockup-icon-only">
+        <svg width="64" height="64" viewBox="0 0 44 44" fill="none">
+          <path d="M22 5L8 11v10c0 8 6 14.5 14 17 8-2.5 14-9 14-17V11L22 5z" fill="#e0f2fe" stroke="#0284c7" stroke-width="1.8" stroke-linejoin="round"/>
+          <text x="16" y="26" font-family="Inter,sans-serif" font-size="9" font-weight="900" fill="#0284c7">₹$</text>
+        </svg>
+      </div>
+    </div>
+    <button class="choose-btn">Choose Option D</button>
+  </div>
+
+  <!-- ── OPTION E: Leaf + Coin ── -->
+  <div class="card">
+    <div class="card-label"><span class="option-badge">E</span> Leaf &amp; Coin</div>
+    <div class="lockup-section">
+      <div>
+        <div class="sim-label">HEADER PREVIEW</div>
+        <div class="header-sim">
+          <svg class="logo-e-wrap" viewBox="0 0 44 44" fill="none">
+            <!-- coin circle -->
+            <circle cx="26" cy="26" r="13" fill="#fef9c3" stroke="#d97706" stroke-width="1.5"/>
+            <text x="26" y="31" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" font-weight="900" fill="#d97706">₹</text>
+            <!-- leaf -->
+            <path d="M20 8 C10 10 8 24 18 28 C14 18 22 10 32 12 C30 6 22 6 20 8Z" fill="#059669" opacity=".9"/>
+          </svg>
+          <div class="wordmark">
+            <div class="logo-e-title">My Money</div>
+            <div class="logo-e-sub">Personal Finance</div>
+          </div>
+        </div>
+      </div>
+      <div class="lockup-icon-only">
+        <svg width="64" height="64" viewBox="0 0 44 44" fill="none">
+          <circle cx="26" cy="26" r="13" fill="#fef9c3" stroke="#d97706" stroke-width="1.5"/>
+          <text x="26" y="31" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" font-weight="900" fill="#d97706">₹</text>
+          <path d="M20 8 C10 10 8 24 18 28 C14 18 22 10 32 12 C30 6 22 6 20 8Z" fill="#059669" opacity=".9"/>
+        </svg>
+      </div>
+    </div>
+    <button class="choose-btn">Choose Option E</button>
+  </div>
+
+  <!-- ── OPTION F: Minimal M Bar ── -->
+  <div class="card">
+    <div class="card-label"><span class="option-badge">F</span> Minimal M</div>
+    <div class="lockup-section">
+      <div>
+        <div class="sim-label">HEADER PREVIEW</div>
+        <div class="header-sim">
+          <svg class="logo-f-mark" viewBox="0 0 44 44" fill="none">
+            <!-- Geometric M made of bars -->
+            <rect x="6"  y="10" width="5" height="24" rx="2.5" fill="#0284c7"/>
+            <rect x="34" y="10" width="5" height="24" rx="2.5" fill="#0284c7"/>
+            <!-- left diagonal -->
+            <rect x="9" y="9" width="5" height="16" rx="2" fill="#0284c7" transform="rotate(25 9 9)"/>
+            <!-- right diagonal -->
+            <rect x="30" y="9" width="5" height="16" rx="2" fill="#0284c7" transform="rotate(-25 35 9)"/>
+            <!-- bottom bar accent -->
+            <rect x="6" y="32" width="32" height="3" rx="1.5" fill="#38bdf8" opacity=".6"/>
+          </svg>
+          <div class="wordmark">
+            <div class="logo-f-title">My <span class="logo-f-money">Money</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="lockup-icon-only">
+        <svg width="64" height="64" viewBox="0 0 44 44" fill="none">
+          <rect x="6"  y="10" width="5" height="24" rx="2.5" fill="#0284c7"/>
+          <rect x="34" y="10" width="5" height="24" rx="2.5" fill="#0284c7"/>
+          <rect x="9" y="9" width="5" height="16" rx="2" fill="#0284c7" transform="rotate(25 9 9)"/>
+          <rect x="30" y="9" width="5" height="16" rx="2" fill="#0284c7" transform="rotate(-25 35 9)"/>
+          <rect x="6" y="32" width="32" height="3" rx="1.5" fill="#38bdf8" opacity=".6"/>
+        </svg>
+      </div>
+    </div>
+    <button class="choose-btn">Choose Option F</button>
+  </div>
+
+</div>
+
+<p style="text-align:center;margin-top:32px;font-size:12px;color:#94a3b8;">Tell me which option you like — it will be applied to portfolio.html</p>
+
+</body>
+</html>
