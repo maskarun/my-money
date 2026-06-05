@@ -305,9 +305,23 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 <body>
 
 <div id="header">
-  <div style="display:flex;align-items:center">
-    <span class="header-title">My Money</span>
-    <span class="header-badge">Finance</span>
+  <div style="display:flex;align-items:center;gap:10px">
+    <svg width="32" height="32" viewBox="0 0 44 44" fill="none" style="flex-shrink:0">
+      <defs>
+        <linearGradient id="logoInf" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#d97706"/>
+          <stop offset="50%" stop-color="#059669"/>
+          <stop offset="100%" stop-color="#d97706"/>
+        </linearGradient>
+      </defs>
+      <path d="M9 22 C9 16 14 13 18 16 C20 18 22 20 22 22 C22 20 24 18 26 16 C30 13 35 16 35 22 C35 28 30 31 26 28 C24 26 22 24 22 22 C22 24 20 26 18 28 C14 31 9 28 9 22Z"
+        stroke="url(#logoInf)" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+      <circle cx="13" cy="22" r="2.5" fill="#d97706"/>
+      <circle cx="31" cy="22" r="2.5" fill="#059669"/>
+    </svg>
+    <div>
+      <span class="header-title">My Money</span>
+    </div>
   </div>
   <div class="header-actions">
     <button class="hbtn" data-action="import-trigger">
