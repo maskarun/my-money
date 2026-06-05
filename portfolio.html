@@ -308,16 +308,21 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
   <div style="display:flex;align-items:center;gap:10px">
     <svg width="44" height="44" viewBox="0 0 44 44" fill="none" style="flex-shrink:0">
       <defs>
-        <linearGradient id="logoInf" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stop-color="#d97706"/>
-          <stop offset="50%" stop-color="#059669"/>
+        <linearGradient id="logoDiam" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#fbbf24"/>
           <stop offset="100%" stop-color="#d97706"/>
         </linearGradient>
       </defs>
-      <path d="M9 22 C9 16 14 13 18 16 C20 18 22 20 22 22 C22 20 24 18 26 16 C30 13 35 16 35 22 C35 28 30 31 26 28 C24 26 22 24 22 22 C22 24 20 26 18 28 C14 31 9 28 9 22Z"
-        stroke="url(#logoInf)" stroke-width="3.5" stroke-linecap="round" fill="none"/>
-      <circle cx="13" cy="22" r="2.5" fill="#d97706"/>
-      <circle cx="31" cy="22" r="2.5" fill="#059669"/>
+      <!-- main diamond body -->
+      <polygon points="22,5 38,19 22,41 6,19" fill="url(#logoDiam)" opacity=".95"/>
+      <!-- top facet highlight -->
+      <polygon points="22,5 38,19 22,21 6,19" fill="#fde68a" opacity=".75"/>
+      <!-- center shadow facet -->
+      <polygon points="22,21 31,19 22,37" fill="#92400e" opacity=".3"/>
+      <!-- horizontal split line -->
+      <line x1="6" y1="19" x2="38" y2="19" stroke="#fff" stroke-width="0.8" opacity=".55"/>
+      <!-- shine dot -->
+      <circle cx="28" cy="12" r="2" fill="#fff" opacity=".45"/>
     </svg>
     <div>
       <span class="header-title">My Money</span>
