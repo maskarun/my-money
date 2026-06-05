@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design Option B — Dark Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', -apple-system, sans-serif; background: #0f1117; color: #e2e8f0; }
+
+.option-banner { background: #6366f1; color: #fff; text-align: center; padding: 8px; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; position: fixed; top: 0; left: 0; right: 0; z-index: 999; }
+
+header { position: fixed; top: 28px; left: 0; right: 0; height: 52px; background: #0f1117; border-bottom: 1px solid #2d3148; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 100; }
+.header-title { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; color: #f1f5f9; }
+.header-badge { background: #6366f1; color: #fff; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-left: 6px; letter-spacing: .5px; }
+.header-btns { display: flex; gap: 6px; }
+.hbtn { height: 28px; padding: 0 10px; border-radius: 8px; font-size: 11px; font-weight: 600; border: 1px solid #2d3148; background: #1c1f2b; color: #94a3b8; cursor: pointer; display: flex; align-items: center; gap: 4px; font-family: inherit; }
+
+.scroll { padding: 100px 14px 80px; max-width: 480px; margin: 0 auto; }
+
+.card { background: #1c1f2b; border-radius: 16px; padding: 16px; border: 1px solid #2d3148; margin-bottom: 14px; }
+
+.sec-hdr { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+.sec-title { font-size: 17px; font-weight: 800; letter-spacing: -0.3px; color: #f1f5f9; }
+.sec-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+.sec-total-block { text-align: right; }
+.sec-total-label { font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 2px; }
+.sec-total-amt { font-size: 14px; font-weight: 800; color: #34d399; line-height: 1.4; }
+.sec-total-amt.red { color: #f87171; }
+
+.p-item { border: 1px solid #2d3148; border-radius: 12px; margin-bottom: 8px; overflow: hidden; background: #141720; }
+.p-item-hdr { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; }
+.p-info { flex: 1; min-width: 0; }
+.p-name { font-size: 13px; font-weight: 700; color: #e2e8f0; display: flex; align-items: center; gap: 6px; }
+.cur-badge { font-size: 9px; font-weight: 700; background: #312e81; color: #a5b4fc; padding: 1px 5px; border-radius: 4px; letter-spacing: .3px; }
+.p-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+.p-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+.p-val-sub { font-size: 9px; color: #64748b; text-transform: uppercase; letter-spacing: .5px; }
+.p-val-main { font-size: 14px; font-weight: 800; color: #34d399; }
+.p-val-main.red { color: #f87171; }
+.p-item-btns { display: flex; gap: 3px; }
+.p-edit-btn, .p-del-btn { width: 26px; height: 26px; border-radius: 6px; border: none; background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.p-edit-btn { color: #64748b; }
+.p-del-btn { color: #f87171; }
+
+.p-chevron { width: 22px; height: 22px; border-radius: 6px; background: #2d3148; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+
+.add-row-btn { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 34px; border-radius: 8px; border: 1.5px dashed #2d3148; background: transparent; font-size: 12px; font-weight: 600; color: #64748b; margin-top: 4px; cursor: pointer; font-family: inherit; }
+
+nav { position: fixed; bottom: 0; left: 0; right: 0; height: 60px; background: #1c1f2b; border-top: 1px solid #2d3148; display: flex; z-index: 100; }
+.nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 10px; font-weight: 600; color: #64748b; border: none; background: transparent; cursor: pointer; font-family: inherit; }
+.nav-btn.active { color: #818cf8; }
+
+.hero { background: linear-gradient(145deg, #1e1b4b 0%, #2e1065 100%); border-radius: 16px; padding: 18px; margin-bottom: 14px; color: #fff; box-shadow: 0 12px 40px -8px rgba(99,102,241,0.4); border: 1px solid #3730a3; }
+.hero-label { font-size: 10px; opacity: 0.6; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+.hero-amount { font-size: 32px; font-weight: 800; letter-spacing: -1px; margin-top: 4px; }
+.hero-row { display: flex; gap: 20px; margin-top: 14px; }
+.hero-stat label { font-size: 10px; opacity: 0.5; display: block; margin-bottom: 2px; }
+.hero-stat span { font-size: 15px; font-weight: 700; }
+.hero-stat span.inc { color: #6ee7b7; }
+.hero-stat span.exp { color: #fca5a5; }
+</style>
+</head>
+<body>
+<div class="option-banner">✦ Design Option B — Dark Pro ✦</div>
+<header>
+  <div style="display:flex;align-items:center">
+    <span class="header-title">My Money</span>
+    <span class="header-badge">FINANCE</span>
+  </div>
+  <div class="header-btns">
+    <button class="hbtn">⬆ Import</button>
+    <button class="hbtn">⬇ Export</button>
+  </div>
+</header>
+
+<div class="scroll">
+  <div class="hero">
+    <div class="hero-label">Net Worth</div>
+    <div class="hero-amount">₹ 18,04,000</div>
+    <div class="hero-row">
+      <div class="hero-stat"><label>Income</label><span class="inc">₹ 42,000</span></div>
+      <div class="hero-stat"><label>Expenses</label><span class="exp">₹ 18,500</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sec-hdr">
+      <div><div class="sec-title">Savings</div><div class="sec-sub">Bank accounts, deposits, cash reserves.</div></div>
+      <div class="sec-total-block">
+        <div class="sec-total-label">Total Balance</div>
+        <div class="sec-total-amt">₹ 15,00,000</div>
+        <div class="sec-total-amt">$4,000</div>
+      </div>
+    </div>
+    <div class="p-item">
+      <div class="p-item-hdr">
+        <div class="p-info">
+          <div class="p-name">Saving <span class="cur-badge">INR</span></div>
+          <div class="p-sub">Institution: SBI</div>
+        </div>
+        <div class="p-right">
+          <div><div class="p-val-sub">Balance</div><div class="p-val-main">₹ 15,00,000</div></div>
+          <div class="p-item-btns">
+            <button class="p-edit-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"/></svg></button>
+            <button class="p-del-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.021-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="p-item">
+      <div class="p-item-hdr">
+        <div class="p-info">
+          <div class="p-name">Saving <span class="cur-badge">USD</span></div>
+          <div class="p-sub">Institution: PNC</div>
+        </div>
+        <div class="p-right">
+          <div><div class="p-val-sub">Balance</div><div class="p-val-main">$4,000</div></div>
+          <div class="p-item-btns">
+            <button class="p-edit-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"/></svg></button>
+            <button class="p-del-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.021-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button class="add-row-btn">+ Add entry</button>
+  </div>
+
+  <div class="card">
+    <div class="sec-hdr">
+      <div><div class="sec-title">Loans</div><div class="sec-sub">EMI-based amortising loans</div></div>
+      <div class="sec-total-block">
+        <div class="sec-total-label">Outstanding Today</div>
+        <div class="sec-total-amt red">₹ 36,35,375</div>
+        <div class="sec-total-amt red">$28,414</div>
+      </div>
+    </div>
+    <div class="p-item">
+      <div class="p-item-hdr">
+        <div class="p-chevron"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"><path d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg></div>
+        <div class="p-info">
+          <div class="p-name">Bangalore Home <span class="cur-badge">INR</span></div>
+          <div class="p-sub">Lender: Canara Bank · ₹32,80,000 · 20 yr · 7.45% · EMI ₹26,323</div>
+        </div>
+        <div class="p-right">
+          <div><div class="p-val-sub">Outstanding</div><div class="p-val-main red">₹ 32,18,708</div></div>
+          <div class="p-item-btns">
+            <button class="p-edit-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"/></svg></button>
+            <button class="p-del-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.021-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button class="add-row-btn">+ Add loan</button>
+  </div>
+</div>
+
+<nav>
+  <button class="nav-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    Dashboard
+  </button>
+  <button class="nav-btn active">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    Portfolio
+  </button>
+</nav>
+</body>
+</html>
