@@ -334,6 +334,18 @@ textarea.input { height: 72px; padding: 10px 12px; resize: none; }
 .text-sm { font-size: 12px; }
 .mt-2 { margin-top: 8px; }
 .hidden { display: none !important; }
+.ov-card { margin: 16px 16px 0; padding: 18px 16px 14px; }
+.ov-cur-label { font-size: 11px; font-weight: 800; letter-spacing: .6px; color: var(--muted-fg); text-transform: uppercase; margin-bottom: 4px; }
+.ov-net { font-size: 28px; font-weight: 800; letter-spacing: -.5px; font-variant-numeric: tabular-nums; margin-bottom: 14px; }
+.ov-divider { height: 1px; background: var(--border); margin-bottom: 12px; }
+.ov-row { display: flex; align-items: center; justify-content: space-between; }
+.ov-row-left { display: flex; align-items: center; gap: 7px; }
+.ov-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.ov-row-label { font-size: 13px; font-weight: 600; color: var(--fg); }
+.ov-row-val { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ov-row-detail { padding-left: 15px; margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.ov-sub { font-size: 11px; color: var(--muted-fg); }
+.ov-sub.muted { font-style: italic; }
 </style>
 </head>
 <body>
@@ -357,6 +369,7 @@ textarea.input { height: 72px; padding: 10px 12px; resize: none; }
 
 <div id="scroll">
   <div id="tab-dashboard" class="tab-panel active"></div>
+  <div id="tab-transactions" class="tab-panel"></div>
   <div id="tab-portfolio" class="tab-panel"></div>
 </div>
 
@@ -364,6 +377,10 @@ textarea.input { height: 72px; padding: 10px 12px; resize: none; }
   <button class="nav-btn active" data-action="switch-tab" data-tab="dashboard">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
     Dashboard
+  </button>
+  <button class="nav-btn" data-action="switch-tab" data-tab="transactions">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7h18M3 12h18M3 17h18"/></svg>
+    Transactions
   </button>
   <button class="nav-btn" data-action="switch-tab" data-tab="portfolio">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
@@ -544,9 +561,55 @@ function catOptions(type, sel) {
   return cats.map(c => `<option value="${c}"${c===sel?' selected':''}>${c}</option>`).join('');
 }
 
+// ─── DASHBOARD OVERVIEW ───────────────────────────────────────────────────────
+function renderOverview() {
+  const allCurs = new Set();
+  for (const t of S.transactions) allCurs.add(getCur(t));
+  for (const i of [...S.portfolio.savings,...S.portfolio.loans,...S.portfolio.goldLoans]) allCurs.add(getCur(i));
+  if (!allCurs.size) allCurs.add('USD');
+
+  const cards = [...allCurs].map(cur => {
+    const sav = S.portfolio.savings.filter(i=>getCur(i)===cur).reduce((a,i)=>a+i.amount,0);
+    let txIncome=0, txExpense=0;
+    for (const t of S.transactions) { if (getCur(t)!==cur) continue; if (t.type==='income') txIncome+=t.amount; else txExpense+=t.amount; }
+    const txNet = txIncome - txExpense;
+    const credit = sav + Math.max(0, txNet);
+    const loans = S.portfolio.loans.filter(i=>getCur(i)===cur).reduce((a,i)=>a+computeOutstanding(i),0);
+    const gold  = S.portfolio.goldLoans.filter(i=>getCur(i)===cur).reduce((a,i)=>a+i.principal+computeGoldLoanInterest(i),0);
+    const debt  = loans + gold;
+    const net = credit - debt;
+    const netColor = net >= 0 ? 'var(--income)' : 'var(--expense)';
+    return `<div class="card ov-card">
+      <div class="ov-cur-label">${cur}</div>
+      <div class="ov-net" style="color:${netColor}">${formatMoney(net, cur)}</div>
+      <div class="ov-divider"></div>
+      <div class="ov-row">
+        <div class="ov-row-left"><span class="ov-dot" style="background:var(--income)"></span><span class="ov-row-label">Credit</span></div>
+        <span class="ov-row-val" style="color:var(--income)">${formatMoney(credit, cur)}</span>
+      </div>
+      <div class="ov-row-detail">
+        ${sav>0?`<span class="ov-sub">Savings ${formatMoney(sav,cur)}</span>`:''}
+        ${txNet>0?`<span class="ov-sub">Income surplus ${formatMoney(txNet,cur)}</span>`:''}
+        ${!sav&&txNet<=0?`<span class="ov-sub muted">No savings or income surplus</span>`:''}
+      </div>
+      <div class="ov-row" style="margin-top:10px">
+        <div class="ov-row-left"><span class="ov-dot" style="background:var(--expense)"></span><span class="ov-row-label">Debt</span></div>
+        <span class="ov-row-val" style="color:var(--expense)">${formatMoney(debt, cur)}</span>
+      </div>
+      <div class="ov-row-detail">
+        ${loans>0?`<span class="ov-sub">Loans ${formatMoney(loans,cur)}</span>`:''}
+        ${gold>0?`<span class="ov-sub" style="color:var(--gold)">Gold ${formatMoney(gold,cur)}</span>`:''}
+        ${!debt?`<span class="ov-sub muted">No outstanding debt</span>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('tab-dashboard').innerHTML = cards;
+}
+
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 function renderDashboard() {
-  const el = document.getElementById('tab-dashboard');
+  const el = document.getElementById('tab-transactions');
   el.innerHTML = renderSummaryCards() + renderAddTxForm() + renderCatBreakdown() + renderActivity();
 }
 
@@ -1075,7 +1138,7 @@ function handleSubmit(e) {
     const amount = parseFloat(d.amount);
     if (!amount || amount <= 0) return toast('Enter a valid amount');
     S.transactions.unshift({ id: uid(), type: S.txType, amount, category: d.category, note: d.note || undefined, date: new Date().toISOString(), currency: d.currency });
-    save(); renderDashboard(); toast('Transaction added');
+    save(); renderOverview(); renderDashboard(); toast('Transaction added');
     return;
   }
 
@@ -1138,6 +1201,9 @@ function handleClick(e) {
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     document.getElementById('tab-'+S.tab).classList.add('active');
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === S.tab));
+    if (S.tab==='dashboard') renderOverview();
+    else if (S.tab==='transactions') renderDashboard();
+    else if (S.tab==='portfolio') renderPortfolio();
     return;
   }
 
@@ -1149,7 +1215,7 @@ function handleClick(e) {
   if (action === 'del-tx') {
     if (!confirm('Delete this transaction?')) return;
     S.transactions = S.transactions.filter(t => t.id !== btn.dataset.id);
-    save(); renderDashboard(); return;
+    save(); renderOverview(); renderDashboard(); return;
   }
 
   // Savings
@@ -1276,7 +1342,7 @@ document.getElementById('file-input').addEventListener('change', async function(
     }
     S.transactions = transactions;
     S.portfolio = portfolio;
-    save(); renderDashboard(); renderPortfolio();
+    save(); renderOverview(); renderDashboard(); renderPortfolio();
     toast(`Imported ${transactions.length} transactions`);
   } catch(err) {
     toast('Import failed — invalid JSON');
@@ -1290,6 +1356,7 @@ document.addEventListener('click', handleClick);
 document.addEventListener('input', handleInput);
 
 load();
+renderOverview();
 renderDashboard();
 renderPortfolio();
 </script>
