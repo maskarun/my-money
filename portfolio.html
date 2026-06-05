@@ -189,6 +189,9 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .cur-pill { font-size: 8px; font-weight: 800; background: #e0f2fe; color: var(--accent); padding: 1px 5px; border-radius: 4px; letter-spacing: .3px; }
 .cur-pill.red { background: #fff1f2; color: var(--expense); }
 .cur-pill.amb { background: #fef9c3; color: var(--gold); }
+.ov-port-row { display: grid; grid-template-columns: 1fr auto; row-gap: 8px; column-gap: 8px; align-items: center; margin-bottom: 4px; }
+.ov-port-label { font-size: 13px; color: var(--muted-fg); display: flex; align-items: center; gap: 5px; }
+.ov-port-val { font-size: 14px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
 .p-row-sub { font-size: 10px; color: var(--muted-fg); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
 .p-row-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
 .p-row-amt-lbl { font-size: 8px; font-weight: 600; letter-spacing: .7px; color: var(--muted-fg); text-transform: uppercase; }
@@ -309,6 +312,7 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 
 <div id="scroll">
   <div id="tab-dashboard" class="tab-panel active"></div>
+  <div id="tab-transactions" class="tab-panel"></div>
   <div id="tab-portfolio" class="tab-panel"></div>
 </div>
 
@@ -316,6 +320,10 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
   <button class="nav-btn active" data-action="switch-tab" data-tab="dashboard">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
     Dashboard
+  </button>
+  <button class="nav-btn" data-action="switch-tab" data-tab="transactions">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7h18M3 12h18M3 17h18"/></svg>
+    Transactions
   </button>
   <button class="nav-btn" data-action="switch-tab" data-tab="portfolio">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
@@ -439,9 +447,47 @@ const svgGold      = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none
 function curOptions(sel) { return CURRENCIES.map(c=>`<option value="${c}"${c===sel?' selected':''}>${c}</option>`).join(''); }
 function catOptions(type, sel) { return (type==='income'?INCOME_CATS:EXPENSE_CATS).map(c=>`<option value="${c}"${c===sel?' selected':''}>${c}</option>`).join(''); }
 
-// ── Dashboard ──────────────────────────────────────────────────────────────────
+// ── Dashboard Overview ─────────────────────────────────────────────────────────
+function renderOverview() {
+  const byCur = {};
+  for (const t of S.transactions) {
+    const c = getCur(t); if (!byCur[c]) byCur[c] = {income:0,expense:0};
+    if (t.type==='income') byCur[c].income+=t.amount; else byCur[c].expense+=t.amount;
+  }
+  if (!Object.keys(byCur).length) byCur['USD'] = {income:0,expense:0};
+
+  // Portfolio totals per currency
+  const portCurs = new Set();
+  for (const i of [...S.portfolio.savings,...S.portfolio.loans,...S.portfolio.goldLoans]) portCurs.add(getCur(i));
+  const portRows = [...portCurs].map(cur => {
+    const sav = S.portfolio.savings.filter(i=>getCur(i)===cur).reduce((a,i)=>a+i.amount,0);
+    const loans = S.portfolio.loans.filter(i=>getCur(i)===cur).reduce((a,i)=>a+computeOutstanding(i),0);
+    const gold = S.portfolio.goldLoans.filter(i=>getCur(i)===cur).reduce((a,i)=>a+i.principal+computeGoldLoanInterest(i),0);
+    return `<div class="ov-port-row">
+      <span class="ov-port-label">Savings <span class="cur-pill">${cur}</span></span><span class="ov-port-val income">${formatMoney(sav,cur)}</span>
+      <span class="ov-port-label">Loans <span class="cur-pill red">${cur}</span></span><span class="ov-port-val expense">${formatMoney(loans,cur)}</span>
+      ${gold>0?`<span class="ov-port-label">Gold <span class="cur-pill amb">${cur}</span></span><span class="ov-port-val" style="color:var(--gold)">${formatMoney(gold,cur)}</span>`:''}
+    </div>`;
+  }).join('');
+
+  const heroHtml = Object.entries(byCur).map(([cur,{income,expense}]) => `
+  <div class="card-hero">
+    <div class="eyebrow">${cur} Balance</div>
+    <div class="amount">${formatMoney(income-expense,cur)}</div>
+    <div class="chips">
+      <div class="chip"><div class="chip-lbl">Income</div><div class="chip-val inc">${formatMoney(income,cur)}</div></div>
+      <div class="chip"><div class="chip-lbl">Expenses</div><div class="chip-val exp">${formatMoney(expense,cur)}</div></div>
+    </div>
+  </div>`).join('');
+
+  const portSection = portRows ? `<div class="card" style="margin:0 16px 16px"><div class="sec-header" style="padding:14px 16px 10px"><span class="sec-title">Portfolio</span></div><div style="padding:0 16px 14px">${portRows}</div></div>` : '';
+
+  document.getElementById('tab-dashboard').innerHTML = heroHtml + portSection;
+}
+
+// ── Transactions ───────────────────────────────────────────────────────────────
 function renderDashboard() {
-  document.getElementById('tab-dashboard').innerHTML =
+  document.getElementById('tab-transactions').innerHTML =
     renderHeroCards() + renderAddTxForm() + renderCatBreakdown() + renderActivity();
 }
 
@@ -733,7 +779,7 @@ function handleSubmit(e) {
   if (action==='add-tx') {
     const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
     S.transactions.unshift({id:uid(),type:S.txType,amount,category:d.category,note:d.note||undefined,date:new Date().toISOString(),currency:d.currency});
-    save(); renderDashboard(); toast('Transaction added'); return;
+    save(); renderOverview(); renderDashboard(); toast('Transaction added'); return;
   }
   if (action==='add-saving') {
     if (!d.name.trim()) return toast('Name is required');
@@ -775,12 +821,15 @@ function handleClick(e) {
     document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
     document.getElementById('tab-'+S.tab).classList.add('active');
     document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===S.tab));
+    if (S.tab==='dashboard') renderOverview();
+    else if (S.tab==='transactions') renderDashboard();
+    else if (S.tab==='portfolio') renderPortfolio();
     return;
   }
   if (action==='set-tx-type') { S.txType=btn.dataset.type; renderDashboard(); return; }
   if (action==='del-tx') {
     if (!confirm('Delete this transaction?')) return;
-    S.transactions=S.transactions.filter(t=>t.id!==btn.dataset.id); save(); renderDashboard(); return;
+    S.transactions=S.transactions.filter(t=>t.id!==btn.dataset.id); save(); renderOverview(); renderDashboard(); return;
   }
   if (action==='toggle-add-saving') { S.addingSaving=!S.addingSaving; S.editingId=null; renderPortfolio(); return; }
   if (action==='cancel-saving') { S.addingSaving=false; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
@@ -855,7 +904,7 @@ document.getElementById('file-input').addEventListener('change', async function(
     if (Array.isArray(data)) { transactions=data; portfolio={savings:[],loans:[],goldLoans:[]}; }
     else { transactions=data.transactions||[]; portfolio=Object.assign({savings:[],loans:[],goldLoans:[]},data.portfolio||{}); }
     S.transactions=transactions; S.portfolio=portfolio;
-    save(); renderDashboard(); renderPortfolio(); toast(`Imported ${transactions.length} transactions`);
+    save(); renderOverview(); renderDashboard(); renderPortfolio(); toast(`Imported ${transactions.length} transactions`);
   } catch(err) { toast('Import failed — invalid JSON'); }
   this.value='';
 });
@@ -864,7 +913,7 @@ document.addEventListener('submit', handleSubmit);
 document.addEventListener('click', handleClick);
 document.addEventListener('input', handleInput);
 
-load(); renderDashboard(); renderPortfolio();
+load(); renderOverview(); renderDashboard(); renderPortfolio();
 </script>
 </body>
 </html>
