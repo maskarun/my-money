@@ -360,11 +360,11 @@ textarea.input { height: 72px; padding: 10px 12px; resize: none; }
           <rect x="4" y="4" width="36" height="36" rx="12"/>
         </clipPath>
       </defs>
-      <rect x="4" y="4" width="36" height="36" rx="12" fill="#0369a1"/>
+      <rect x="4" y="4" width="36" height="36" rx="12" fill="#1a1d24"/>
       <g clip-path="url(#logoClip)">
-        <path d="M4 34 Q11 28 18 34 Q25 40 32 34 Q39 28 46 34 L46 44 L4 44Z" fill="#0284c7"/>
-        <path d="M4 26 Q11 20 18 26 Q25 32 32 26 Q39 20 46 26 L46 36 L4 36Z" fill="#0ea5e9"/>
-        <path d="M4 18 Q11 12 18 18 Q25 24 32 18 Q39 12 46 18 L46 28 L4 28Z" fill="#38bdf8"/>
+        <path d="M4 34 Q11 28 18 34 Q25 40 32 34 Q39 28 46 34 L46 44 L4 44Z" fill="#3a4a1a"/>
+        <path d="M4 26 Q11 20 18 26 Q25 32 32 26 Q39 20 46 26 L46 36 L4 36Z" fill="#7ab220"/>
+        <path d="M4 18 Q11 12 18 18 Q25 24 32 18 Q39 12 46 18 L46 28 L4 28Z" fill="#c8f53a"/>
       </g>
       <circle cx="22" cy="14" r="7" fill="#fbbf24"/>
       <text x="22" y="18" text-anchor="middle" font-family="Inter,sans-serif" font-size="7" font-weight="900" fill="#92400e">₹$</text>
@@ -1391,7 +1391,7 @@ renderPortfolio();
   ctx.lineTo(r,180); ctx.quadraticCurveTo(0,180,0,180-r);
   ctx.lineTo(0,r); ctx.quadraticCurveTo(0,0,r,0);
   ctx.closePath();
-  ctx.fillStyle='#0369a1'; ctx.fill();
+  ctx.fillStyle='#1a1d24'; ctx.fill();
   ctx.save(); ctx.clip();
   // Wave layers (scale 44→180: multiply coords by 180/44 ≈ 4.09)
   function wave(y1,cp,y2,fill){
@@ -1404,9 +1404,9 @@ renderPortfolio();
     ctx.closePath();
     ctx.fillStyle=fill; ctx.fill();
   }
-  wave(139,115,163,'#0284c7');
-  wave(106,82,130,'#0ea5e9');
-  wave(74,49,98,'#38bdf8');
+  wave(139,115,163,'#3a4a1a');
+  wave(106,82,130,'#7ab220');
+  wave(74,49,98,'#c8f53a');
   ctx.restore();
   // Gold coin
   ctx.beginPath(); ctx.arc(90,57,28,0,Math.PI*2);
