@@ -310,21 +310,18 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
   <div style="display:flex;align-items:center;gap:10px">
     <svg width="44" height="44" viewBox="0 0 44 44" fill="none" style="flex-shrink:0">
       <defs>
-        <linearGradient id="logoDiam" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#fbbf24"/>
-          <stop offset="100%" stop-color="#d97706"/>
-        </linearGradient>
+        <clipPath id="logoClip">
+          <rect x="4" y="4" width="36" height="36" rx="12"/>
+        </clipPath>
       </defs>
-      <!-- main diamond body -->
-      <polygon points="22,5 38,19 22,41 6,19" fill="url(#logoDiam)" opacity=".95"/>
-      <!-- top facet highlight -->
-      <polygon points="22,5 38,19 22,21 6,19" fill="#fde68a" opacity=".75"/>
-      <!-- center shadow facet -->
-      <polygon points="22,21 31,19 22,37" fill="#92400e" opacity=".3"/>
-      <!-- horizontal split line -->
-      <line x1="6" y1="19" x2="38" y2="19" stroke="#fff" stroke-width="0.8" opacity=".55"/>
-      <!-- shine dot -->
-      <circle cx="28" cy="12" r="2" fill="#fff" opacity=".45"/>
+      <rect x="4" y="4" width="36" height="36" rx="12" fill="#0369a1"/>
+      <g clip-path="url(#logoClip)">
+        <path d="M4 34 Q11 28 18 34 Q25 40 32 34 Q39 28 46 34 L46 44 L4 44Z" fill="#0284c7"/>
+        <path d="M4 26 Q11 20 18 26 Q25 32 32 26 Q39 20 46 26 L46 36 L4 36Z" fill="#0ea5e9"/>
+        <path d="M4 18 Q11 12 18 18 Q25 24 32 18 Q39 12 46 18 L46 28 L4 28Z" fill="#38bdf8"/>
+      </g>
+      <circle cx="22" cy="14" r="7" fill="#fbbf24"/>
+      <text x="22" y="18" text-anchor="middle" font-family="Inter,sans-serif" font-size="7" font-weight="900" fill="#92400e">₹$</text>
     </svg>
     <div>
       <span class="header-title">My Money</span>
@@ -977,21 +974,29 @@ load(); renderOverview(); renderDashboard(); renderPortfolio();
   ctx.lineTo(r,180); ctx.quadraticCurveTo(0,180,0,180-r);
   ctx.lineTo(0,r); ctx.quadraticCurveTo(0,0,r,0);
   ctx.closePath();
-  const g = ctx.createLinearGradient(0,0,0,180);
-  g.addColorStop(0,'#fbbf24'); g.addColorStop(1,'#d97706');
-  ctx.fillStyle = g; ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(90,22); ctx.lineTo(158,80); ctx.lineTo(90,160); ctx.lineTo(22,80);
-  ctx.closePath();
-  ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(90,22); ctx.lineTo(158,80); ctx.lineTo(90,88); ctx.lineTo(22,80);
-  ctx.closePath();
-  ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.fill();
-  ctx.beginPath(); ctx.moveTo(22,80); ctx.lineTo(158,80);
-  ctx.strokeStyle='rgba(255,255,255,0.45)'; ctx.lineWidth=1; ctx.stroke();
-  ctx.beginPath(); ctx.arc(120,46,6,0,Math.PI*2);
-  ctx.fillStyle='rgba(255,255,255,0.4)'; ctx.fill();
+  ctx.fillStyle='#0369a1'; ctx.fill();
+  ctx.save(); ctx.clip();
+  function wave(y1,cp,y2,fill){
+    ctx.beginPath();
+    ctx.moveTo(0,y1);
+    ctx.quadraticCurveTo(45,cp,73,y1);
+    ctx.quadraticCurveTo(102,y2,131,y1);
+    ctx.quadraticCurveTo(160,cp,180,y1);
+    ctx.lineTo(180,180); ctx.lineTo(0,180);
+    ctx.closePath();
+    ctx.fillStyle=fill; ctx.fill();
+  }
+  wave(139,115,163,'#0284c7');
+  wave(106,82,130,'#0ea5e9');
+  wave(74,49,98,'#38bdf8');
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(90,57,28,0,Math.PI*2);
+  ctx.fillStyle='#fbbf24'; ctx.fill();
+  ctx.beginPath(); ctx.arc(90,57,22,0,Math.PI*2);
+  ctx.strokeStyle='#d97706'; ctx.lineWidth=3; ctx.stroke();
+  ctx.font='900 26px Inter,sans-serif';
+  ctx.fillStyle='#92400e'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('₹$',90,59);
   document.getElementById('ati').href = c.toDataURL('image/png');
 })();
 </script>
