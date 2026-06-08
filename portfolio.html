@@ -186,6 +186,7 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .p-row-icon.sav { background: #e0f2fe; }
 .p-row-icon.loan { background: #fff1f2; }
 .p-row-icon.gold { background: #fef9c3; }
+.p-row-icon.inv { background: #f3e8ff; }
 .p-row-meta { flex: 1; min-width: 0; }
 .p-row-name { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 5px; letter-spacing: -.1px; }
 .cur-pill { font-size: 8px; font-weight: 800; background: #e0f2fe; color: var(--accent); padding: 1px 5px; border-radius: 4px; letter-spacing: .3px; }
@@ -341,6 +342,7 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
   <div id="tab-dashboard" class="tab-panel active"></div>
   <div id="tab-transactions" class="tab-panel"></div>
   <div id="tab-portfolio" class="tab-panel"></div>
+  <div id="tab-investments" class="tab-panel"></div>
 </div>
 
 <nav id="nav">
@@ -356,6 +358,10 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
     Portfolio
   </button>
+  <button class="nav-btn" data-action="switch-tab" data-tab="investments">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 17l6-6 4 4 8-8M21 7v6m0-6h-6"/></svg>
+    Investments
+  </button>
 </nav>
 
 <div id="toast-wrap"></div>
@@ -368,9 +374,9 @@ const CURRENCIES   = ['USD','INR'];
 
 const S = {
   tab: 'dashboard', transactions: [],
-  portfolio: { savings: [], loans: [], goldLoans: [] },
+  portfolio: { savings: [], loans: [], goldLoans: [], investments: [] },
   txType: 'expense', txCurrency: 'USD',
-  addingSaving: false, addingLoan: false, addingGoldLoan: false,
+  addingSaving: false, addingLoan: false, addingGoldLoan: false, addingInvestment: false,
   editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null,
 };
 
@@ -384,10 +390,10 @@ function save() {
 
 function load() {
   try { const tx = localStorage.getItem('mmc.tx.v1'); if (tx) S.transactions = JSON.parse(tx); } catch(e) { S.transactions = []; }
-  try { const p = localStorage.getItem('mmc.portfolio.v1'); if (p) S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[]}, JSON.parse(p)); } catch(e) {}
+  try { const p = localStorage.getItem('mmc.portfolio.v1'); if (p) S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[]}, JSON.parse(p)); } catch(e) {}
   // also try old keys for migration
   if (!S.transactions.length) { try { const tx = localStorage.getItem('budget.tx.v1'); if (tx) S.transactions = JSON.parse(tx); } catch(e) {} }
-  if (!S.portfolio.savings.length && !S.portfolio.loans.length) { try { const p = localStorage.getItem('budget.portfolio.v1'); if (p) S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[]}, JSON.parse(p)); } catch(e) {} }
+  if (!S.portfolio.savings.length && !S.portfolio.loans.length) { try { const p = localStorage.getItem('budget.portfolio.v1'); if (p) S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[]}, JSON.parse(p)); } catch(e) {} }
   S.txCurrency = localStorage.getItem('mmc.lastCurrency.v1') || localStorage.getItem('budget.lastCurrency.v1') || 'USD';
 }
 
@@ -470,6 +476,7 @@ const svgEdit      = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none
 const svgBank      = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3H8L2 7h20l-6-4z"/></svg>`;
 const svgHome      = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`;
 const svgGold      = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 3"/></svg>`;
+const svgChart     = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7v6h-6"/></svg>`;
 
 function curOptions(sel) { return CURRENCIES.map(c=>`<option value="${c}"${c===sel?' selected':''}>${c}</option>`).join(''); }
 function catOptions(type, sel) { return (type==='income'?INCOME_CATS:EXPENSE_CATS).map(c=>`<option value="${c}"${c===sel?' selected':''}>${c}</option>`).join(''); }
@@ -685,6 +692,54 @@ function savingForm(item) {
   </form>`;
 }
 
+function renderInvestments() {
+  document.getElementById('tab-investments').innerHTML = renderInvestmentsCard();
+}
+
+function renderInvestmentsCard() {
+  const items = S.portfolio.investments;
+  const totals = {};
+  for (const i of items) { const c=getCur(i); totals[c]=(totals[c]||0)+(i.currentValue||0); }
+  const rows = items.map(item => {
+    const c = getCur(item);
+    if (S.editingId===item.id && S.editSection==='investment') return `<div class="add-form">${investmentForm(item)}</div>`;
+    return `<div class="p-row">
+      <div class="p-row-icon inv">${svgChart.replace('stroke="currentColor"','stroke="#9333ea"')}</div>
+      <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span></div><div class="p-row-sub">${item.type?esc(item.type):''}${item.note?' · '+esc(item.note):''}</div></div>
+      <div class="p-row-right">
+        <div><div class="p-row-amt-lbl">Current · Invested</div><div class="p-row-amt grn">${formatMoney(item.currentValue,c)}</div><div class="p-row-sub">${formatMoney(item.amountInvested,c)} invested</div></div>
+        <div class="p-row-btns">
+          <button class="ibtn" title="Edit" data-action="edit-investment" data-id="${item.id}">${svgEdit}</button>
+          <button class="ibtn del" title="Delete" data-action="del-investment" data-id="${item.id}">${svgTrash}</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  const addHtml = S.addingInvestment ? `<div class="add-form">${investmentForm(null)}</div>` : `<button class="add-row-btn" data-action="toggle-add-investment">${svgPlus} Add entry</button>`;
+  return `<div class="card">
+    <div class="sec-hdr">
+      <div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Investments</span></div><div class="sec-sub">Stocks, mutual funds, FDs, and more</div></div>
+      ${items.length?`<div class="sec-totals"><div class="sec-total-lbl">Current Value</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt grn">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
+    </div>
+    ${rows}${addHtml}</div>`;
+}
+
+function investmentForm(item) {
+  const isEdit = !!item;
+  return `<div class="add-form-title">${isEdit?'Edit':'New'} Investment</div>
+  <form data-action="${isEdit?'update-investment':'add-investment'}" data-id="${isEdit?item.id:''}">
+    <div class="form-row"><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(isEdit?getCur(item):'USD')}</select></div></div>
+    <div class="form-row"><label class="form-label">Name *</label><input class="input" type="text" name="name" value="${isEdit?esc(item.name):''}" placeholder="e.g. Nifty 50 Index Fund" required></div>
+    <div class="form-row"><label class="form-label">Type</label><input class="input" type="text" name="type" value="${isEdit?esc(item.type||''):''}" placeholder="e.g. Mutual Fund, Stock, FD"></div>
+    <div class="form-row-2">
+      <div><label class="form-label">Amount Invested *</label><input class="input" type="number" name="amountInvested" value="${isEdit?item.amountInvested:''}" inputmode="decimal" min="0" step="0.01" required></div>
+      <div><label class="form-label">Current Value *</label><input class="input" type="number" name="currentValue" value="${isEdit?item.currentValue:''}" inputmode="decimal" min="0" step="0.01" required></div>
+    </div>
+    <div class="form-row"><label class="form-label">Note</label><input class="input" type="text" name="note" value="${isEdit?esc(item.note||''):''}" placeholder="Optional"></div>
+    <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-investment">Cancel</button><button type="submit" class="btn btn-accent">${isEdit?'Save':'Add'}</button></div>
+  </form>`;
+}
+
 function renderLoans() {
   const items = S.portfolio.loans;
   const totals = {};
@@ -839,6 +894,18 @@ function handleSubmit(e) {
     S.portfolio.savings = S.portfolio.savings.map(i=>i.id===form.dataset.id?{...i,name:d.name.trim(),institution:d.institution||undefined,amount,interestRate:d.interestRate?parseFloat(d.interestRate):undefined,note:d.note||undefined,currency:d.currency}:i);
     S.editingId=null; S.editSection=null; save(); renderPortfolio(); toast('Saving updated'); return;
   }
+  if (action==='add-investment') {
+    if (!d.name.trim()) return toast('Name is required');
+    const amountInvested = parseFloat(d.amountInvested); const currentValue = parseFloat(d.currentValue);
+    if (!(amountInvested>=0) || !(currentValue>=0)) return toast('Enter valid amounts');
+    S.portfolio.investments.unshift({id:uid(),name:d.name.trim(),type:d.type||undefined,amountInvested,currentValue,note:d.note||undefined,currency:d.currency,createdAt:todayISO()});
+    S.addingInvestment=false; save(); renderInvestments(); toast('Investment added'); return;
+  }
+  if (action==='update-investment') {
+    const amountInvested = parseFloat(d.amountInvested); const currentValue = parseFloat(d.currentValue);
+    S.portfolio.investments = S.portfolio.investments.map(i=>i.id===form.dataset.id?{...i,name:d.name.trim(),type:d.type||undefined,amountInvested,currentValue,note:d.note||undefined,currency:d.currency}:i);
+    S.editingId=null; S.editSection=null; save(); renderInvestments(); toast('Investment updated'); return;
+  }
   if (action==='add-loan') {
     if (!d.name.trim()) return toast('Name is required');
     S.portfolio.loans.unshift({id:uid(),name:d.name.trim(),lender:d.lender||undefined,principal:parseFloat(d.principal),startDate:d.startDate,tenureYears:parseFloat(d.tenureYears),interestRate:parseFloat(d.interestRate),note:d.note||undefined,currency:d.currency,createdAt:todayISO()});
@@ -871,12 +938,20 @@ function handleClick(e) {
     if (S.tab==='dashboard') renderOverview();
     else if (S.tab==='transactions') renderDashboard();
     else if (S.tab==='portfolio') renderPortfolio();
+    else if (S.tab==='investments') renderInvestments();
     return;
   }
   if (action==='set-tx-type') { S.txType=btn.dataset.type; renderDashboard(); return; }
   if (action==='del-tx') {
     if (!confirm('Delete this transaction?')) return;
     S.transactions=S.transactions.filter(t=>t.id!==btn.dataset.id); save(); renderOverview(); renderDashboard(); return;
+  }
+  if (action==='toggle-add-investment') { S.addingInvestment=!S.addingInvestment; S.editingId=null; renderInvestments(); return; }
+  if (action==='cancel-investment') { S.addingInvestment=false; S.editingId=null; S.editSection=null; renderInvestments(); return; }
+  if (action==='edit-investment') { S.editingId=btn.dataset.id; S.editSection='investment'; S.addingInvestment=false; renderInvestments(); return; }
+  if (action==='del-investment') {
+    if (!confirm('Delete this investment?')) return;
+    S.portfolio.investments=S.portfolio.investments.filter(i=>i.id!==btn.dataset.id); save(); renderInvestments(); return;
   }
   if (action==='toggle-add-saving') { S.addingSaving=!S.addingSaving; S.editingId=null; renderPortfolio(); return; }
   if (action==='cancel-saving') { S.addingSaving=false; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
@@ -951,7 +1026,7 @@ document.getElementById('file-input').addEventListener('change', async function(
     if (Array.isArray(data)) { transactions=data; portfolio={savings:[],loans:[],goldLoans:[]}; }
     else { transactions=data.transactions||[]; portfolio=Object.assign({savings:[],loans:[],goldLoans:[]},data.portfolio||{}); }
     S.transactions=transactions; S.portfolio=portfolio;
-    save(); renderOverview(); renderDashboard(); renderPortfolio(); toast(`Imported ${transactions.length} transactions`);
+    save(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); toast(`Imported ${transactions.length} transactions`);
   } catch(err) { toast('Import failed — invalid JSON'); }
   this.value='';
 });
@@ -960,7 +1035,7 @@ document.addEventListener('submit', handleSubmit);
 document.addEventListener('click', handleClick);
 document.addEventListener('input', handleInput);
 
-load(); renderOverview(); renderDashboard(); renderPortfolio();
+load(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments();
 </script>
 <script>
 (function(){
