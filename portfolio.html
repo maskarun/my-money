@@ -894,7 +894,7 @@ function renderHeroCards() {
     const c = getCur(t); if (!byCur[c]) byCur[c] = {income:0,expense:0};
     if (t.type==='income') byCur[c].income+=t.amount; else byCur[c].expense+=t.amount;
   }
-  if (!Object.keys(byCur).length) byCur['INR'] = {income:0,expense:0};
+  if (!Object.keys(byCur).length) byCur['USD'] = {income:0,expense:0};
   return Object.entries(byCur).map(([cur,{income,expense}]) => `
   <div class="card-hero">
     <div class="eyebrow">${cur} · ${monthLabel}</div>
