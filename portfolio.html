@@ -925,14 +925,13 @@ function renderActivity() {
   </div>` : '';
 
   const hdr = `<div class="sec-hdr-pad">
-    <div style="font-size:14px;font-weight:800">Recent Activity</div>
-    <div style="display:flex;align-items:center;gap:8px">
-      ${S.transactions.length?`<span class="text-muted text-sm">${S.transactions.length} total</span>`:''}
-      <button class="add-row-btn" style="width:auto;margin:0;min-height:26px;padding:0 10px" data-action="toggle-add-tx">${S.addingTx?'Cancel':svgPlus+' Add'}</button>
-    </div>
+    <div style="font-size:14px;font-weight:800">Transactions</div>
+    ${S.transactions.length?`<span class="text-muted text-sm">${S.transactions.length} total</span>`:''}
   </div>`;
 
-  if (!S.transactions.length && !S.addingTx) return `<div class="card">${hdr}<div class="empty"><p>Nothing here yet</p></div></div>`;
+  const addBtn = S.addingTx ? '' : `<button class="add-row-btn" data-action="toggle-add-tx">${svgPlus} Add Transaction</button>`;
+
+  if (!S.transactions.length && !S.addingTx) return `<div class="card">${hdr}<div class="empty"><p>Nothing here yet</p></div>${addBtn}</div>`;
 
   const sorted = [...S.transactions].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12);
   const rows = sorted.map(t => {
@@ -944,7 +943,7 @@ function renderActivity() {
       <button class="tx-del" data-action="del-tx" data-id="${t.id}" title="Delete">${svgTrash}</button>
     </li>`;
   }).join('');
-  return `<div class="card">${hdr}${addForm}<ul class="tx-list">${rows}</ul></div>`;
+  return `<div class="card">${hdr}${addForm}<ul class="tx-list">${rows}</ul>${addBtn}</div>`;
 }
 
 // ── Portfolio ──────────────────────────────────────────────────────────────────
