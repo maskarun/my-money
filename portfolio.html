@@ -242,15 +242,21 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .schedule-tbl tbody td:first-child { text-align: left; color: var(--muted-fg); }
 .schedule-tbl tbody tr:last-child td { border-bottom: none; }
 .pp-section { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--muted); }
-.pp-hdr { font-size: 11px; font-weight: 700; color: var(--muted-fg); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.pp-hdr-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.pp-hdr-title { font-size: 11px; font-weight: 700; color: var(--muted-fg); text-transform: uppercase; letter-spacing: .05em; }
 .pp-count { background: var(--accent); color: #fff; border-radius: 99px; padding: 1px 6px; font-size: 10px; }
-.pp-total { color: var(--fg); font-weight: 600; margin-left: auto; }
-.pp-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--muted); font-size: 12px; }
-.pp-row:last-of-type { border-bottom: none; }
-.pp-date { color: var(--muted-fg); min-width: 72px; }
-.pp-amt { font-weight: 700; color: var(--income); flex: 1; }
-.pp-note { color: var(--muted-fg); font-size: 11px; flex: 2; }
-.pp-form { margin-top: 10px; }
+.pp-total { font-size: 12px; color: var(--fg); font-weight: 600; }
+.pp-toggle-btn { margin-left: auto; font-size: 11px; padding: 4px 10px; height: auto; }
+.pp-tbl-wrap { border: 1px solid var(--muted); border-radius: 8px; overflow: hidden; margin-bottom: 10px; }
+.pp-tbl { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+.pp-tbl thead th { background: var(--muted); padding: 5px 8px; text-align: left; font-weight: 700; font-size: 11px; color: var(--muted-fg); white-space: nowrap; }
+.pp-tbl thead th:nth-child(2) { text-align: right; }
+.pp-tbl tbody td { padding: 6px 8px; border-bottom: 1px solid var(--muted); vertical-align: middle; }
+.pp-tbl tbody tr:last-child td { border-bottom: none; }
+.pp-tbl-amt { text-align: right; font-weight: 700; color: var(--income); }
+.pp-tbl-note { color: var(--muted-fg); font-size: 11px; }
+.pp-tbl td:last-child { text-align: right; width: 28px; }
+.pp-form { margin-top: 2px; }
 
 /* Preview row */
 .preview-row { background: var(--muted); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 10px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
@@ -387,7 +393,7 @@ const S = {
   portfolio: { savings: [], loans: [], goldLoans: [], investments: [] },
   txType: 'expense', txCurrency: 'USD',
   addingSaving: false, addingLoan: false, addingGoldLoan: false, addingInvestment: false,
-  editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null,
+  editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, showingPPForm: null,
 };
 
 function save() {
@@ -766,17 +772,22 @@ function renderLoans() {
     const isExpanded = S.expandedLoan===loan.id;
     const schedule = isExpanded ? computeScheduleToDate(loan) : [];
     const partPayments = loan.partPayments||[];
+    const ppFormOpen = S.showingPPForm===loan.id;
     const partHtml = `<div class="pp-section">
-      <div class="pp-hdr">Part Payments${partPayments.length?` <span class="pp-count">${partPayments.length}</span>`:''}${partPayments.length?` <span class="pp-total">Total: ${formatMoney(partPayments.reduce((s,p)=>s+p.amount,0),c)}</span>`:''}</div>
-      ${partPayments.map(p=>`<div class="pp-row"><span class="pp-date">${p.date}</span><span class="pp-amt">${formatMoney(p.amount,c)}</span>${p.note?`<span class="pp-note">${esc(p.note)}</span>`:''}<button class="ibtn del" data-action="del-part-payment" data-loan-id="${loan.id}" data-payment-id="${p.id}" title="Delete">${svgTrash}</button></div>`).join('')}
-      <form class="pp-form" data-action="add-part-payment" data-id="${loan.id}">
+      <div class="pp-hdr-row">
+        <span class="pp-hdr-title">Part Payments${partPayments.length?` <span class="pp-count">${partPayments.length}</span>`:''}</span>
+        ${partPayments.length?`<span class="pp-total">Total: ${formatMoney(partPayments.reduce((s,p)=>s+p.amount,0),c)}</span>`:''}
+        <button class="btn btn-outline pp-toggle-btn" data-action="toggle-pp-form" data-id="${loan.id}">${ppFormOpen?'Cancel':'+ Record Payment'}</button>
+      </div>
+      ${partPayments.length?`<div class="pp-tbl-wrap"><table class="pp-tbl"><thead><tr><th>Date</th><th>Amount</th><th>Note</th><th></th></tr></thead><tbody>${partPayments.map(p=>`<tr><td>${p.date}</td><td class="pp-tbl-amt">${formatMoney(p.amount,c)}</td><td class="pp-tbl-note">${p.note?esc(p.note):''}</td><td><button class="ibtn del" data-action="del-part-payment" data-loan-id="${loan.id}" data-payment-id="${p.id}" title="Delete">${svgTrash}</button></td></tr>`).join('')}</tbody></table></div>`:''}
+      ${ppFormOpen?`<form class="pp-form" data-action="add-part-payment" data-id="${loan.id}">
         <div class="form-row-2">
           <div><label class="form-label">Date</label><input class="input" type="date" name="date" value="${todayISO()}"></div>
           <div><label class="form-label">Amount *</label><input class="input" type="number" name="amount" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required></div>
         </div>
         <div class="form-row" style="margin-top:6px"><label class="form-label">Note</label><input class="input" type="text" name="note" placeholder="Optional"></div>
         <div style="margin-top:8px"><button type="submit" class="btn btn-accent" style="width:100%">Record Part Payment</button></div>
-      </form>
+      </form>`:''}
     </div>`;
     const schedHtml = isExpanded ? `<div class="schedule-wrap">
       <div class="text-sm text-muted" style="margin-bottom:6px">${schedule.length} months amortised · Interest: ${formatMoney(schedule.reduce((a,r)=>a+r.interest,0),c)}</div>
@@ -948,7 +959,7 @@ function handleSubmit(e) {
     if (!loan) return;
     if (!loan.partPayments) loan.partPayments = [];
     loan.partPayments.unshift({id:uid(), date:d.date||todayISO(), amount, note:d.note||undefined});
-    save(); renderPortfolio(); toast('Part payment recorded'); return;
+    S.showingPPForm=null; save(); renderPortfolio(); toast('Part payment recorded'); return;
   }
   if (action==='add-gold') {
     if (!d.name.trim()) return toast('Name is required');
@@ -1002,7 +1013,8 @@ function handleClick(e) {
     if (!confirm('Delete this loan?')) return;
     S.portfolio.loans=S.portfolio.loans.filter(i=>i.id!==btn.dataset.id); save(); renderPortfolio(); return;
   }
-  if (action==='toggle-loan') { S.expandedLoan=S.expandedLoan===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
+  if (action==='toggle-loan') { S.expandedLoan=S.expandedLoan===btn.dataset.id?null:btn.dataset.id; S.showingPPForm=null; renderPortfolio(); return; }
+  if (action==='toggle-pp-form') { S.showingPPForm=S.showingPPForm===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
   if (action==='del-part-payment') {
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.loanId);
     if (loan) { loan.partPayments=(loan.partPayments||[]).filter(p=>p.id!==btn.dataset.paymentId); save(); renderPortfolio(); }
