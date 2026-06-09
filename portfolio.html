@@ -233,6 +233,26 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .rec-badge.pending { background: #fef9c3; color: #92400e; }
 .rec-btn { font-size: 11px; padding: 5px 10px; height: auto; min-width: 62px; white-space: nowrap; }
 .rec-amt-input { width: 90px; height: 32px; font-size: 13px; padding: 0 8px; flex-shrink: 0; }
+.month-card { border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 10px; overflow: hidden; background: var(--card); }
+.month-hdr { display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; user-select: none; }
+.month-hdr:active { background: var(--muted); }
+.month-label { font-size: 14px; font-weight: 800; letter-spacing: -.2px; flex: 1; }
+.month-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.month-chip { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 99px; }
+.month-chip.inc { background: #d1fae5; color: #065f46; }
+.month-chip.exp { background: #fee2e2; color: #991b1b; }
+.month-chip.net.pos { background: #dbeafe; color: #1e40af; }
+.month-chip.net.neg { background: #fce7f3; color: #9d174d; }
+.month-detail { border-top: 1px solid var(--border); padding: 10px 14px; }
+.month-sec-hdr { font-size: 10px; font-weight: 800; color: var(--muted-fg); text-transform: uppercase; letter-spacing: .08em; margin: 10px 0 6px; }
+.month-sec-hdr:first-child { margin-top: 0; }
+.month-rec-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--muted); font-size: 12px; }
+.month-rec-row:last-child { border-bottom: none; }
+.month-rec-name { flex: 1; font-weight: 600; }
+.month-rec-type { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 99px; }
+.month-rec-type.inc { background: #d1fae5; color: #065f46; }
+.month-rec-type.exp { background: #fee2e2; color: #991b1b; }
+.month-rec-amt { font-weight: 700; font-variant-numeric: tabular-nums; }
 
 /* Inline add form */
 .add-form { border-top: 1px solid var(--muted); padding: 14px 16px; }
@@ -365,6 +385,7 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
   <div id="tab-transactions" class="tab-panel"></div>
   <div id="tab-portfolio" class="tab-panel"></div>
   <div id="tab-investments" class="tab-panel"></div>
+  <div id="tab-history" class="tab-panel"></div>
 </div>
 
 <nav id="nav">
@@ -384,6 +405,10 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 17l6-6 4 4 8-8M21 7v6m0-6h-6"/></svg>
     Investments
   </button>
+  <button class="nav-btn" data-action="switch-tab" data-tab="history">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><path stroke-linecap="round" d="M16 2v4M8 2v4M3 10h18"/><path stroke-linecap="round" d="M8 14h4m-4 4h8"/></svg>
+    History
+  </button>
 </nav>
 
 <div id="toast-wrap"></div>
@@ -401,7 +426,7 @@ const S = {
   txType: 'expense', txCurrency: 'USD',
   addingSaving: false, addingLoan: false, addingGoldLoan: false, addingInvestment: false,
   addingRecurringIncome: false, addingBill: false, addingCard: false,
-  editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, showingPPForm: null,
+  editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, showingPPForm: null, expandedMonth: null,
 };
 
 function save() {
@@ -591,6 +616,107 @@ function renderOverview() {
 
 // ── Transactions ───────────────────────────────────────────────────────────────
 const thisMonth = () => todayISO().slice(0,7);
+
+function fmtMonth(mon) {
+  return new Date(mon+'-02').toLocaleDateString('en-US',{month:'long',year:'numeric'});
+}
+
+function renderHistory() {
+  // Collect all unique months across transactions and recurring data
+  const months = new Set();
+  for (const t of S.transactions) if (t.date) months.add(t.date.slice(0,7));
+  for (const item of S.recurring.items) for (const mon of Object.keys(item.months||{})) months.add(mon);
+  for (const card of S.recurring.creditCards) for (const mon of Object.keys(card.months||{})) months.add(mon);
+
+  if (!months.size) {
+    document.getElementById('tab-history').innerHTML =
+      `<div class="card"><div class="sec-hdr-pad"><div style="font-size:14px;font-weight:800">Monthly History</div></div><div class="empty"><p>No activity yet</p></div></div>`;
+    return;
+  }
+
+  const sorted = [...months].sort((a,b)=>b.localeCompare(a));
+  const cards = sorted.map(mon => {
+    // Aggregate transactions for this month per currency
+    const byCur = {};
+    const monTxs = S.transactions.filter(t=>t.date&&t.date.slice(0,7)===mon);
+    for (const t of monTxs) {
+      const c = getCur(t); if (!byCur[c]) byCur[c]={income:0,expense:0};
+      if (t.type==='income') byCur[c].income+=t.amount; else byCur[c].expense+=t.amount;
+    }
+
+    // Recurring items confirmed/paid this month
+    const recItems = S.recurring.items.filter(i=>i.months?.[mon]?.paid);
+    // Credit cards paid this month
+    const recCards = S.recurring.creditCards.filter(c=>c.months?.[mon]?.paid);
+
+    // Build chip summary (primary currency — most activity)
+    const primaryCur = Object.keys(byCur)[0] || (recItems[0]?.currency) || (recCards[0]?.currency) || 'INR';
+    const allIncome = Object.values(byCur).reduce((s,v)=>s+v.income,0) +
+      recItems.filter(i=>i.type==='income').reduce((s,i)=>s+(i.months[mon]?.amount||i.amount||0),0);
+    const allExpense = Object.values(byCur).reduce((s,v)=>s+v.expense,0) +
+      recItems.filter(i=>i.type==='expense').reduce((s,i)=>s+(i.months[mon]?.amount||i.amount||0),0) +
+      recCards.reduce((s,c)=>s+(c.months[mon]?.amount||0),0);
+    const net = allIncome - allExpense;
+
+    const chips = `<div class="month-chips">
+      ${allIncome?`<span class="month-chip inc">↑ ${formatMoney(allIncome,primaryCur)}</span>`:''}
+      ${allExpense?`<span class="month-chip exp">↓ ${formatMoney(allExpense,primaryCur)}</span>`:''}
+      ${(allIncome||allExpense)?`<span class="month-chip net ${net>=0?'pos':'neg'}">${net>=0?'+':''}${formatMoney(net,primaryCur)}</span>`:''}
+    </div>`;
+
+    const isExpanded = S.expandedMonth===mon;
+    let detail = '';
+    if (isExpanded) {
+      // Transaction list
+      const txRows = monTxs.sort((a,b)=>b.date.localeCompare(a.date)).map(t=>{
+        const isInc=t.type==='income', c=getCur(t);
+        return `<li class="tx-row">
+          <div class="tx-icon ${t.type}">${isInc?svgArrowUp:svgArrowDown}</div>
+          <div class="tx-body"><div class="tx-cat">${esc(t.category)}<span class="tx-badge">${c}</span></div><div class="tx-meta">${t.note?esc(t.note):fmtDate(t.date)}</div></div>
+          <div class="tx-right"><div class="tx-amount ${t.type}">${isInc?'+':'−'}${formatMoney(t.amount,c)}</div></div>
+        </li>`;
+      }).join('');
+
+      // Recurring rows
+      const recRows = recItems.map(item=>{
+        const c=item.currency||'INR', amt=item.months[mon]?.amount||item.amount||0;
+        return `<div class="month-rec-row">
+          <span class="month-rec-name">${esc(item.name)}</span>
+          <span class="month-rec-type ${item.type==='income'?'inc':'exp'}">${item.type==='income'?'Income':'Bill'}</span>
+          <span class="month-rec-amt ${item.type==='income'?'grn':'red'}">${item.type==='income'?'+':'−'}${formatMoney(amt,c)}</span>
+        </div>`;
+      }).join('');
+
+      // Credit card rows
+      const cardRows = recCards.map(card=>{
+        const c=card.currency||'INR', amt=card.months[mon]?.amount||0;
+        return `<div class="month-rec-row">
+          <span class="month-rec-name">${esc(card.name)}</span>
+          <span class="month-rec-type exp">Credit Card</span>
+          <span class="month-rec-amt red">−${formatMoney(amt,c)}</span>
+        </div>`;
+      }).join('');
+
+      detail = `<div class="month-detail">
+        ${monTxs.length?`<div class="month-sec-hdr">Transactions</div><ul class="tx-list" style="margin:0">${txRows}</ul>`:''}
+        ${recRows?`<div class="month-sec-hdr">Recurring</div>${recRows}`:''}
+        ${cardRows?`<div class="month-sec-hdr">Credit Cards</div>${cardRows}`:''}
+      </div>`;
+    }
+
+    return `<div class="month-card">
+      <div class="month-hdr" data-action="toggle-month" data-month="${mon}">
+        <div class="p-chev${isExpanded?' open':''}">${svgChevron}</div>
+        <div class="month-label">${fmtMonth(mon)}</div>
+        ${chips}
+      </div>
+      ${detail}
+    </div>`;
+  }).join('');
+
+  document.getElementById('tab-history').innerHTML =
+    `<div style="padding:12px 16px"><div style="font-size:14px;font-weight:800;margin-bottom:12px">Monthly History</div>${cards}</div>`;
+}
 
 function ordinal(n) { const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
 
@@ -1197,6 +1323,7 @@ function handleClick(e) {
     else if (S.tab==='transactions') renderDashboard();
     else if (S.tab==='portfolio') renderPortfolio();
     else if (S.tab==='investments') renderInvestments();
+    else if (S.tab==='history') renderHistory();
     return;
   }
   if (action==='set-tx-type') { S.txType=btn.dataset.type; renderDashboard(); return; }
@@ -1272,6 +1399,7 @@ function handleClick(e) {
   }
   if (action==='toggle-loan') { S.expandedLoan=S.expandedLoan===btn.dataset.id?null:btn.dataset.id; S.showingPPForm=null; renderPortfolio(); return; }
   if (action==='toggle-pp-form') { S.showingPPForm=S.showingPPForm===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
+  if (action==='toggle-month') { S.expandedMonth=S.expandedMonth===btn.dataset.month?null:btn.dataset.month; renderHistory(); return; }
   if (action==='del-part-payment') {
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.loanId);
     if (loan) { loan.partPayments=(loan.partPayments||[]).filter(p=>p.id!==btn.dataset.paymentId); save(); renderPortfolio(); }
@@ -1335,7 +1463,7 @@ document.getElementById('file-input').addEventListener('change', async function(
     if (Array.isArray(data)) { transactions=data; portfolio={savings:[],loans:[],goldLoans:[]}; }
     else { transactions=data.transactions||[]; portfolio=Object.assign({savings:[],loans:[],goldLoans:[]},data.portfolio||{}); }
     S.transactions=transactions; S.portfolio=portfolio;
-    save(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); toast(`Imported ${transactions.length} transactions`);
+    save(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderHistory(); toast(`Imported ${transactions.length} transactions`);
   } catch(err) { toast('Import failed — invalid JSON'); }
   this.value='';
 });
@@ -1344,7 +1472,7 @@ document.addEventListener('submit', handleSubmit);
 document.addEventListener('click', handleClick);
 document.addEventListener('input', handleInput);
 
-load(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments();
+load(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderHistory();
 </script>
 <script>
 (function(){
