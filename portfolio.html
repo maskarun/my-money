@@ -828,7 +828,7 @@ function renderRecurringSection() {
   } else if (S.addEntryType==='recurring-income') {
     entryForm = `<form data-action="add-recurring-income">
       <div class="form-row-2">
-        <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions('INR')}</select></div></div>
+        <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(S.txCurrency)}</select></div></div>
         <div><label class="form-label">Amount *</label><input class="input" type="number" name="amount" inputmode="decimal" min="0.01" step="0.01" required></div>
       </div>
       <div class="form-row"><label class="form-label">Name *</label><input class="input" type="text" name="name" placeholder="e.g. Salary" required></div>
@@ -841,7 +841,7 @@ function renderRecurringSection() {
   } else if (S.addEntryType==='bill') {
     entryForm = `<form data-action="add-bill">
       <div class="form-row-2">
-        <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions('INR')}</select></div></div>
+        <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(S.txCurrency)}</select></div></div>
         <div><label class="form-label">Amount</label><input class="input" type="number" name="amount" inputmode="decimal" min="0" step="0.01" placeholder="0 if variable"></div>
       </div>
       <div class="form-row"><label class="form-label">Name *</label><input class="input" type="text" name="name" placeholder="e.g. Electricity" required></div>
@@ -855,7 +855,7 @@ function renderRecurringSection() {
     entryForm = `<form data-action="add-credit-card">
       <div class="form-row"><label class="form-label">Card name *</label><input class="input" type="text" name="name" placeholder="e.g. HDFC Regalia" required></div>
       <div class="form-row-2">
-        <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions('INR')}</select></div></div>
+        <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(S.txCurrency)}</select></div></div>
         <div><label class="form-label">Due day *</label><input class="input" type="number" name="dueDay" min="1" max="31" placeholder="5" required></div>
       </div>
       <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-entry">Cancel</button><button type="submit" class="btn btn-accent">Add</button></div>
@@ -1236,12 +1236,14 @@ function handleSubmit(e) {
     const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
     const type = S.addEntryType==='tx-income' ? 'income' : 'expense';
     S.transactions.unshift({id:uid(),type,amount,category:d.category,note:d.note||undefined,date:new Date().toISOString(),currency:d.currency});
+    if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
     S.addEntryType=null; save(); renderOverview(); renderDashboard(); toast('Transaction added'); return;
   }
   if (action==='add-recurring-income') {
     if (!d.name.trim()) return toast('Name is required');
     const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
     S.recurring.items.push({id:uid(),name:d.name.trim(),type:'income',category:d.category||'Salary',amount,currency:d.currency,dayOfMonth:d.dayOfMonth?parseInt(d.dayOfMonth):undefined,months:{},createdAt:todayISO()});
+    if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
     S.addEntryType=null; save(); renderDashboard(); toast('Recurring income added'); return;
   }
   if (action==='add-bill') {
@@ -1249,12 +1251,14 @@ function handleSubmit(e) {
     const isVariable = d.isVariable==='1';
     const amount = isVariable ? 0 : (parseFloat(d.amount)||0);
     S.recurring.items.push({id:uid(),name:d.name.trim(),type:'expense',isVariable,amount,currency:d.currency,dayOfMonth:d.dayOfMonth?parseInt(d.dayOfMonth):undefined,months:{},createdAt:todayISO()});
+    if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
     S.addEntryType=null; save(); renderDashboard(); toast('Bill added'); return;
   }
   if (action==='add-credit-card') {
     if (!d.name.trim()) return toast('Card name is required');
     const dueDay = parseInt(d.dueDay); if (!dueDay||dueDay<1||dueDay>31) return toast('Enter a valid due day');
     S.recurring.creditCards.push({id:uid(),name:d.name.trim(),currency:d.currency,dueDay,months:{},createdAt:todayISO()});
+    if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
     S.addEntryType=null; save(); renderDashboard(); toast('Card added'); return;
   }
   if (action==='save-card-bill') {
