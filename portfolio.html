@@ -145,6 +145,11 @@ a { color: inherit; text-decoration: none; }
 .toggle-pill button.active.expense { color: var(--expense); }
 .toggle-pill button.active.income { color: var(--income); }
 
+/* Entry type chip row */
+.toggle-chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.toggle-chip { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; background: var(--muted); color: var(--muted-fg); border: none; cursor: pointer; touch-action: manipulation; transition: background .15s, color .15s; }
+.toggle-chip.active { background: var(--accent); color: #fff; }
+
 /* Form */
 .form-row { margin-bottom: 10px; }
 .form-label { display: block; font-size: 10px; font-weight: 700; color: var(--muted-fg); margin-bottom: 3px; text-transform: uppercase; letter-spacing: .5px; }
@@ -404,9 +409,9 @@ const S = {
   tab: 'dashboard', transactions: [],
   portfolio: { savings: [], loans: [], goldLoans: [], investments: [] },
   recurring: { items: [], creditCards: [] },
-  txType: 'expense', txCurrency: 'USD',
+  txCurrency: 'USD',
   addingSaving: false, addingLoan: false, addingGoldLoan: false, addingInvestment: false,
-  addingRecurringIncome: false, addingBill: false, addingCard: false, addingTx: false,
+  addEntryType: null,
   editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, showingPPForm: null, expandedMonth: null,
 };
 
@@ -796,68 +801,82 @@ function renderRecurringSection() {
     </div>`;
   }).join('');
 
-  // --- Add forms ---
-  const addIncomeHtml = S.addingRecurringIncome
-    ? `<div class="add-form">
-        <div class="add-form-title">New Recurring Income</div>
-        <form data-action="add-recurring-income">
-          <div class="form-row-2">
-            <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions('INR')}</select></div></div>
-            <div><label class="form-label">Amount *</label><input class="input" type="number" name="amount" inputmode="decimal" min="0.01" step="0.01" required></div>
-          </div>
-          <div class="form-row"><label class="form-label">Name *</label><input class="input" type="text" name="name" placeholder="e.g. Salary" required></div>
-          <div class="form-row-2">
-            <div><label class="form-label">Category</label><div class="select-wrap"><select class="input" name="category">${INCOME_CATS.map(c=>`<option>${c}</option>`).join('')}</select></div></div>
-            <div><label class="form-label">Day of month</label><input class="input" type="number" name="dayOfMonth" min="1" max="31" placeholder="1"></div>
-          </div>
-          <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-recurring-income">Cancel</button><button type="submit" class="btn btn-accent">Add</button></div>
-        </form>
-      </div>`
-    : `<button class="add-row-btn" data-action="toggle-add-recurring-income">${svgPlus} Add recurring income</button>`;
+  // --- Unified add entry panel ---
+  const entryTypes = [
+    {type:'tx-expense', label:'Expense'},
+    {type:'tx-income',  label:'Income'},
+    {type:'recurring-income', label:'Recurring Income'},
+    {type:'bill',  label:'Monthly Bill'},
+    {type:'card',  label:'Credit Card'},
+  ];
+  const typeChips = entryTypes.map(({type,label}) =>
+    `<button class="toggle-chip${S.addEntryType===type?' active':''}" data-action="set-entry-type" data-type="${type}">${label}</button>`
+  ).join('');
 
-  const addBillHtml = S.addingBill
-    ? `<div class="add-form">
-        <div class="add-form-title">New Monthly Bill</div>
-        <form data-action="add-bill">
-          <div class="form-row-2">
-            <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions('INR')}</select></div></div>
-            <div><label class="form-label">Amount</label><input class="input" type="number" name="amount" inputmode="decimal" min="0" step="0.01" placeholder="0 if variable"></div>
-          </div>
-          <div class="form-row"><label class="form-label">Name *</label><input class="input" type="text" name="name" placeholder="e.g. Electricity" required></div>
-          <div class="form-row-2">
-            <div><label class="form-label">Type</label><div class="select-wrap"><select class="input" name="isVariable"><option value="0">Fixed</option><option value="1">Variable</option></select></div></div>
-            <div><label class="form-label">Due day</label><input class="input" type="number" name="dayOfMonth" min="1" max="31" placeholder="1"></div>
-          </div>
-          <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-bill">Cancel</button><button type="submit" class="btn btn-accent">Add</button></div>
-        </form>
-      </div>`
-    : `<button class="add-row-btn" data-action="toggle-add-bill">${svgPlus} Add monthly bill</button>`;
+  let entryForm = '';
+  if (S.addEntryType==='tx-expense'||S.addEntryType==='tx-income') {
+    const cats = S.addEntryType==='tx-income' ? INCOME_CATS : EXPENSE_CATS;
+    entryForm = `<form data-action="add-tx">
+      <div class="form-row-2">
+        <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(S.txCurrency)}</select></div></div>
+        <div><label class="form-label">Amount *</label><input class="input" type="number" name="amount" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required></div>
+      </div>
+      <div class="form-row"><label class="form-label">Category</label><div class="select-wrap"><select class="input" name="category">${cats.map(c=>`<option>${c}</option>`).join('')}</select></div></div>
+      <div class="form-row"><label class="form-label">Note <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label><input class="input" type="text" name="note" placeholder="e.g. Lunch with team" maxlength="120"></div>
+      <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-entry">Cancel</button><button type="submit" class="btn btn-accent">${svgPlus} Add ${S.addEntryType==='tx-income'?'Income':'Expense'}</button></div>
+    </form>`;
+  } else if (S.addEntryType==='recurring-income') {
+    entryForm = `<form data-action="add-recurring-income">
+      <div class="form-row-2">
+        <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions('INR')}</select></div></div>
+        <div><label class="form-label">Amount *</label><input class="input" type="number" name="amount" inputmode="decimal" min="0.01" step="0.01" required></div>
+      </div>
+      <div class="form-row"><label class="form-label">Name *</label><input class="input" type="text" name="name" placeholder="e.g. Salary" required></div>
+      <div class="form-row-2">
+        <div><label class="form-label">Category</label><div class="select-wrap"><select class="input" name="category">${INCOME_CATS.map(c=>`<option>${c}</option>`).join('')}</select></div></div>
+        <div><label class="form-label">Day of month</label><input class="input" type="number" name="dayOfMonth" min="1" max="31" placeholder="1"></div>
+      </div>
+      <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-entry">Cancel</button><button type="submit" class="btn btn-accent">Add</button></div>
+    </form>`;
+  } else if (S.addEntryType==='bill') {
+    entryForm = `<form data-action="add-bill">
+      <div class="form-row-2">
+        <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions('INR')}</select></div></div>
+        <div><label class="form-label">Amount</label><input class="input" type="number" name="amount" inputmode="decimal" min="0" step="0.01" placeholder="0 if variable"></div>
+      </div>
+      <div class="form-row"><label class="form-label">Name *</label><input class="input" type="text" name="name" placeholder="e.g. Electricity" required></div>
+      <div class="form-row-2">
+        <div><label class="form-label">Type</label><div class="select-wrap"><select class="input" name="isVariable"><option value="0">Fixed</option><option value="1">Variable</option></select></div></div>
+        <div><label class="form-label">Due day</label><input class="input" type="number" name="dayOfMonth" min="1" max="31" placeholder="1"></div>
+      </div>
+      <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-entry">Cancel</button><button type="submit" class="btn btn-accent">Add</button></div>
+    </form>`;
+  } else if (S.addEntryType==='card') {
+    entryForm = `<form data-action="add-credit-card">
+      <div class="form-row"><label class="form-label">Card name *</label><input class="input" type="text" name="name" placeholder="e.g. HDFC Regalia" required></div>
+      <div class="form-row-2">
+        <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions('INR')}</select></div></div>
+        <div><label class="form-label">Due day *</label><input class="input" type="number" name="dueDay" min="1" max="31" placeholder="5" required></div>
+      </div>
+      <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-entry">Cancel</button><button type="submit" class="btn btn-accent">Add</button></div>
+    </form>`;
+  }
 
-  const addCardHtml = S.addingCard
+  const addPanel = S.addEntryType
     ? `<div class="add-form">
-        <div class="add-form-title">New Credit Card</div>
-        <form data-action="add-credit-card">
-          <div class="form-row"><label class="form-label">Card name *</label><input class="input" type="text" name="name" placeholder="e.g. HDFC Regalia" required></div>
-          <div class="form-row-2">
-            <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions('INR')}</select></div></div>
-            <div><label class="form-label">Due day *</label><input class="input" type="number" name="dueDay" min="1" max="31" placeholder="5" required></div>
-          </div>
-          <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-card">Cancel</button><button type="submit" class="btn btn-accent">Add</button></div>
-        </form>
+        <div class="toggle-chip-row">${typeChips}</div>
+        ${entryForm}
       </div>`
-    : `<button class="add-row-btn" data-action="toggle-add-card">${svgPlus} Add credit card</button>`;
+    : `<button class="add-row-btn" data-action="toggle-add-entry">${svgPlus} Add Entry</button>`;
 
-  const hasAny = incomeItems.length || billItems.length || cards.length;
   return `<div class="card">
     <div class="sec-hdr">
       <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Recurring & Bills</span></div><div class="sec-sub">Auto-tracks monthly salary, bills & cards</div></div>
     </div>
     ${incomeItems.length ? `<div class="rec-sub-hdr">Income</div>${incomeRows}` : ''}
-    ${addIncomeHtml}
     ${billItems.length ? `<div class="rec-sub-hdr">Monthly Bills</div>${billRows}` : ''}
-    ${addBillHtml}
     ${cards.length ? `<div class="rec-sub-hdr">Credit Cards</div>${cardRows}` : ''}
-    ${addCardHtml}
+    ${addPanel}
   </div>`;
 }
 
@@ -918,33 +937,11 @@ function renderCatBreakdown() {
 }
 
 function renderActivity() {
-  const cats = S.txType==='income' ? INCOME_CATS : EXPENSE_CATS;
-  const addForm = S.addingTx ? `<div class="add-form" style="margin:0 0 4px">
-    <div class="add-form-title">Add Transaction</div>
-    <div class="toggle-pill" style="margin-bottom:10px">
-      <button class="${S.txType==='expense'?'active expense':''}" data-action="set-tx-type" data-type="expense">Expense</button>
-      <button class="${S.txType==='income'?'active income':''}" data-action="set-tx-type" data-type="income">Income</button>
-    </div>
-    <form data-action="add-tx">
-      <div class="form-row-2">
-        <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(S.txCurrency)}</select></div></div>
-        <div><label class="form-label">Amount</label><input class="input" type="number" name="amount" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required></div>
-      </div>
-      <div class="form-row"><label class="form-label">Category</label><div class="select-wrap"><select class="input" name="category">${cats.map(c=>`<option>${c}</option>`).join('')}</select></div></div>
-      <div class="form-row"><label class="form-label">Note <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label><input class="input" type="text" name="note" placeholder="e.g. Lunch with team" maxlength="120"></div>
-      <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-tx">Cancel</button><button type="submit" class="btn btn-accent">${svgPlus} Add ${S.txType==='income'?'Income':'Expense'}</button></div>
-    </form>
-  </div>` : '';
-
   const hdr = `<div class="sec-hdr-pad">
     <div style="font-size:14px;font-weight:800">Transactions</div>
     ${S.transactions.length?`<span class="text-muted text-sm">${S.transactions.length} total</span>`:''}
   </div>`;
-
-  const addBtn = S.addingTx ? '' : `<button class="add-row-btn" data-action="toggle-add-tx">${svgPlus} Add Transaction</button>`;
-
-  if (!S.transactions.length && !S.addingTx) return `<div class="card">${hdr}<div class="empty"><p>Nothing here yet</p></div>${addBtn}</div>`;
-
+  if (!S.transactions.length) return `<div class="card">${hdr}<div class="empty"><p>Nothing here yet</p></div></div>`;
   const sorted = [...S.transactions].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12);
   const rows = sorted.map(t => {
     const isIncome = t.type==='income';
@@ -955,7 +952,7 @@ function renderActivity() {
       <button class="tx-del" data-action="del-tx" data-id="${t.id}" title="Delete">${svgTrash}</button>
     </li>`;
   }).join('');
-  return `<div class="card">${hdr}${addForm}<ul class="tx-list">${rows}</ul>${addBtn}</div>`;
+  return `<div class="card">${hdr}<ul class="tx-list">${rows}</ul></div>`;
 }
 
 // ── Portfolio ──────────────────────────────────────────────────────────────────
@@ -1234,27 +1231,28 @@ function handleSubmit(e) {
 
   if (action==='add-tx') {
     const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
-    S.transactions.unshift({id:uid(),type:S.txType,amount,category:d.category,note:d.note||undefined,date:new Date().toISOString(),currency:d.currency});
-    S.addingTx=false; save(); renderOverview(); renderDashboard(); toast('Transaction added'); return;
+    const type = S.addEntryType==='tx-income' ? 'income' : 'expense';
+    S.transactions.unshift({id:uid(),type,amount,category:d.category,note:d.note||undefined,date:new Date().toISOString(),currency:d.currency});
+    S.addEntryType=null; save(); renderOverview(); renderDashboard(); toast('Transaction added'); return;
   }
   if (action==='add-recurring-income') {
     if (!d.name.trim()) return toast('Name is required');
     const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
     S.recurring.items.push({id:uid(),name:d.name.trim(),type:'income',category:d.category||'Salary',amount,currency:d.currency,dayOfMonth:d.dayOfMonth?parseInt(d.dayOfMonth):undefined,months:{},createdAt:todayISO()});
-    S.addingRecurringIncome=false; save(); renderDashboard(); toast('Recurring income added'); return;
+    S.addEntryType=null; save(); renderDashboard(); toast('Recurring income added'); return;
   }
   if (action==='add-bill') {
     if (!d.name.trim()) return toast('Name is required');
     const isVariable = d.isVariable==='1';
     const amount = isVariable ? 0 : (parseFloat(d.amount)||0);
     S.recurring.items.push({id:uid(),name:d.name.trim(),type:'expense',isVariable,amount,currency:d.currency,dayOfMonth:d.dayOfMonth?parseInt(d.dayOfMonth):undefined,months:{},createdAt:todayISO()});
-    S.addingBill=false; save(); renderDashboard(); toast('Bill added'); return;
+    S.addEntryType=null; save(); renderDashboard(); toast('Bill added'); return;
   }
   if (action==='add-credit-card') {
     if (!d.name.trim()) return toast('Card name is required');
     const dueDay = parseInt(d.dueDay); if (!dueDay||dueDay<1||dueDay>31) return toast('Enter a valid due day');
     S.recurring.creditCards.push({id:uid(),name:d.name.trim(),currency:d.currency,dueDay,months:{},createdAt:todayISO()});
-    S.addingCard=false; save(); renderDashboard(); toast('Card added'); return;
+    S.addEntryType=null; save(); renderDashboard(); toast('Card added'); return;
   }
   if (action==='save-card-bill') {
     const card = S.recurring.creditCards.find(c=>c.id===form.dataset.id); if (!card) return;
@@ -1342,12 +1340,9 @@ function handleClick(e) {
     else if (S.tab==='history') renderHistory();
     return;
   }
-  if (action==='set-tx-type') { S.txType=btn.dataset.type; renderDashboard(); return; }
-  if (action==='toggle-add-tx') { S.addingTx=!S.addingTx; renderDashboard(); return; }
-  if (action==='cancel-tx') { S.addingTx=false; renderDashboard(); return; }
-  // Recurring income
-  if (action==='toggle-add-recurring-income') { S.addingRecurringIncome=!S.addingRecurringIncome; renderDashboard(); return; }
-  if (action==='cancel-recurring-income') { S.addingRecurringIncome=false; renderDashboard(); return; }
+  if (action==='toggle-add-entry') { S.addEntryType = S.addEntryType ? null : 'tx-expense'; renderDashboard(); return; }
+  if (action==='set-entry-type') { S.addEntryType=btn.dataset.type; renderDashboard(); return; }
+  if (action==='cancel-entry') { S.addEntryType=null; renderDashboard(); return; }
   if (action==='confirm-recurring') {
     const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
     const mon = thisMonth();
@@ -1362,8 +1357,6 @@ function handleClick(e) {
     S.recurring.items = S.recurring.items.filter(i=>i.id!==btn.dataset.id); save(); renderDashboard(); return;
   }
   // Bills
-  if (action==='toggle-add-bill') { S.addingBill=!S.addingBill; renderDashboard(); return; }
-  if (action==='cancel-bill') { S.addingBill=false; renderDashboard(); return; }
   if (action==='mark-bill-paid') {
     const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
     const mon = thisMonth();
@@ -1374,8 +1367,6 @@ function handleClick(e) {
     save(); renderOverview(); renderDashboard(); toast(item.name+' marked paid'); return;
   }
   // Credit cards
-  if (action==='toggle-add-card') { S.addingCard=!S.addingCard; renderDashboard(); return; }
-  if (action==='cancel-card') { S.addingCard=false; renderDashboard(); return; }
   if (action==='mark-card-paid') {
     const card = S.recurring.creditCards.find(c=>c.id===btn.dataset.id); if (!card) return;
     const mon = thisMonth();
