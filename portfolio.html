@@ -233,26 +233,7 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .rec-badge.pending { background: #fef9c3; color: #92400e; }
 .rec-btn { font-size: 11px; padding: 5px 10px; height: auto; min-width: 62px; white-space: nowrap; }
 .rec-amt-input { width: 90px; height: 32px; font-size: 13px; padding: 0 8px; flex-shrink: 0; }
-.month-card { border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 10px; overflow: hidden; background: var(--card); }
-.month-hdr { display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; user-select: none; }
-.month-hdr:active { background: var(--muted); }
-.month-label { font-size: 14px; font-weight: 800; letter-spacing: -.2px; flex: 1; }
-.month-chips { display: flex; gap: 6px; flex-wrap: wrap; }
-.month-chip { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 99px; }
-.month-chip.inc { background: #d1fae5; color: #065f46; }
-.month-chip.exp { background: #fee2e2; color: #991b1b; }
-.month-chip.net.pos { background: #dbeafe; color: #1e40af; }
-.month-chip.net.neg { background: #fce7f3; color: #9d174d; }
-.month-detail { border-top: 1px solid var(--border); padding: 10px 14px; }
-.month-sec-hdr { font-size: 10px; font-weight: 800; color: var(--muted-fg); text-transform: uppercase; letter-spacing: .08em; margin: 10px 0 6px; }
-.month-sec-hdr:first-child { margin-top: 0; }
-.month-rec-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--muted); font-size: 12px; }
-.month-rec-row:last-child { border-bottom: none; }
-.month-rec-name { flex: 1; font-weight: 600; }
-.month-rec-type { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 99px; }
-.month-rec-type.inc { background: #d1fae5; color: #065f46; }
-.month-rec-type.exp { background: #fee2e2; color: #991b1b; }
-.month-rec-amt { font-weight: 700; font-variant-numeric: tabular-nums; }
+.hist-note { font-size: 10px; color: var(--muted-fg); font-weight: 400; margin-top: 1px; }
 
 /* Inline add form */
 .add-form { border-top: 1px solid var(--muted); padding: 14px 16px; }
@@ -622,7 +603,6 @@ function fmtMonth(mon) {
 }
 
 function renderHistory() {
-  // Collect all unique months across transactions and recurring data
   const months = new Set();
   for (const t of S.transactions) if (t.date) months.add(t.date.slice(0,7));
   for (const item of S.recurring.items) for (const mon of Object.keys(item.months||{})) months.add(mon);
@@ -630,92 +610,113 @@ function renderHistory() {
 
   if (!months.size) {
     document.getElementById('tab-history').innerHTML =
-      `<div class="card"><div class="sec-hdr-pad"><div style="font-size:14px;font-weight:800">Monthly History</div></div><div class="empty"><p>No activity yet</p></div></div>`;
+      `<div class="card"><div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Monthly History</span></div></div></div><div class="empty"><p>No activity yet</p></div></div>`;
     return;
   }
 
   const sorted = [...months].sort((a,b)=>b.localeCompare(a));
-  const cards = sorted.map(mon => {
-    // Aggregate transactions for this month per currency
-    const byCur = {};
+  const monthCards = sorted.map(mon => {
     const monTxs = S.transactions.filter(t=>t.date&&t.date.slice(0,7)===mon);
-    for (const t of monTxs) {
-      const c = getCur(t); if (!byCur[c]) byCur[c]={income:0,expense:0};
-      if (t.type==='income') byCur[c].income+=t.amount; else byCur[c].expense+=t.amount;
-    }
-
-    // Recurring items confirmed/paid this month
     const recItems = S.recurring.items.filter(i=>i.months?.[mon]?.paid);
-    // Credit cards paid this month
     const recCards = S.recurring.creditCards.filter(c=>c.months?.[mon]?.paid);
 
-    // Build chip summary (primary currency — most activity)
-    const primaryCur = Object.keys(byCur)[0] || (recItems[0]?.currency) || (recCards[0]?.currency) || 'INR';
-    const allIncome = Object.values(byCur).reduce((s,v)=>s+v.income,0) +
-      recItems.filter(i=>i.type==='income').reduce((s,i)=>s+(i.months[mon]?.amount||i.amount||0),0);
-    const allExpense = Object.values(byCur).reduce((s,v)=>s+v.expense,0) +
-      recItems.filter(i=>i.type==='expense').reduce((s,i)=>s+(i.months[mon]?.amount||i.amount||0),0) +
-      recCards.reduce((s,c)=>s+(c.months[mon]?.amount||0),0);
-    const net = allIncome - allExpense;
-
-    const chips = `<div class="month-chips">
-      ${allIncome?`<span class="month-chip inc">↑ ${formatMoney(allIncome,primaryCur)}</span>`:''}
-      ${allExpense?`<span class="month-chip exp">↓ ${formatMoney(allExpense,primaryCur)}</span>`:''}
-      ${(allIncome||allExpense)?`<span class="month-chip net ${net>=0?'pos':'neg'}">${net>=0?'+':''}${formatMoney(net,primaryCur)}</span>`:''}
-    </div>`;
+    const byCur = {};
+    for (const t of monTxs) {
+      const c=getCur(t); if(!byCur[c]) byCur[c]={income:0,expense:0};
+      if(t.type==='income') byCur[c].income+=t.amount; else byCur[c].expense+=t.amount;
+    }
+    const primaryCur = Object.keys(byCur)[0]||recItems[0]?.currency||recCards[0]?.currency||'INR';
+    const totIncome = Object.values(byCur).reduce((s,v)=>s+v.income,0)
+      + recItems.filter(i=>i.type==='income').reduce((s,i)=>s+(i.months[mon]?.amount||i.amount||0),0);
+    const totExpense = Object.values(byCur).reduce((s,v)=>s+v.expense,0)
+      + recItems.filter(i=>i.type==='expense').reduce((s,i)=>s+(i.months[mon]?.amount||i.amount||0),0)
+      + recCards.reduce((s,c)=>s+(c.months[mon]?.amount||0),0);
+    const net = totIncome - totExpense;
 
     const isExpanded = S.expandedMonth===mon;
     let detail = '';
     if (isExpanded) {
-      // Transaction list
-      const txRows = monTxs.sort((a,b)=>b.date.localeCompare(a.date)).map(t=>{
-        const isInc=t.type==='income', c=getCur(t);
-        return `<li class="tx-row">
-          <div class="tx-icon ${t.type}">${isInc?svgArrowUp:svgArrowDown}</div>
-          <div class="tx-body"><div class="tx-cat">${esc(t.category)}<span class="tx-badge">${c}</span></div><div class="tx-meta">${t.note?esc(t.note):fmtDate(t.date)}</div></div>
-          <div class="tx-right"><div class="tx-amount ${t.type}">${isInc?'+':'−'}${formatMoney(t.amount,c)}</div></div>
-        </li>`;
-      }).join('');
+      // Transactions table
+      let txSection = '';
+      if (monTxs.length) {
+        const rows = monTxs.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(t=>{
+          const c=getCur(t), isInc=t.type==='income';
+          return `<tr>
+            <td>${fmtDate(t.date)}</td>
+            <td>${esc(t.category)}${t.note?`<div class="hist-note">${esc(t.note)}</div>`:''}</td>
+            <td><span class="cur-pill${isInc?'':' red'}">${c}</span></td>
+            <td class="${isInc?'grn':'red'}">${isInc?'+':'−'}${formatMoney(t.amount,c)}</td>
+          </tr>`;
+        }).join('');
+        txSection = `<div class="rec-sub-hdr">Transactions</div>
+          <div class="schedule-tbl-wrap" style="max-height:none">
+            <table class="schedule-tbl">
+              <thead><tr><th style="text-align:left">Date</th><th style="text-align:left">Details</th><th style="text-align:left">Cur</th><th>Amount</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>`;
+      }
 
-      // Recurring rows
-      const recRows = recItems.map(item=>{
-        const c=item.currency||'INR', amt=item.months[mon]?.amount||item.amount||0;
-        return `<div class="month-rec-row">
-          <span class="month-rec-name">${esc(item.name)}</span>
-          <span class="month-rec-type ${item.type==='income'?'inc':'exp'}">${item.type==='income'?'Income':'Bill'}</span>
-          <span class="month-rec-amt ${item.type==='income'?'grn':'red'}">${item.type==='income'?'+':'−'}${formatMoney(amt,c)}</span>
-        </div>`;
-      }).join('');
+      // Recurring table
+      let recSection = '';
+      if (recItems.length) {
+        const rows = recItems.map(item=>{
+          const c=item.currency||'INR', amt=item.months[mon]?.amount||item.amount||0, isInc=item.type==='income';
+          return `<tr>
+            <td>${esc(item.name)}</td>
+            <td><span class="cur-pill${isInc?'':' red'}">${c}</span></td>
+            <td>${isInc?'Income':'Bill'}</td>
+            <td class="${isInc?'grn':'red'}">${isInc?'+':'−'}${formatMoney(amt,c)}</td>
+          </tr>`;
+        }).join('');
+        recSection = `<div class="rec-sub-hdr">Recurring</div>
+          <div class="schedule-tbl-wrap" style="max-height:none">
+            <table class="schedule-tbl">
+              <thead><tr><th style="text-align:left">Name</th><th style="text-align:left">Cur</th><th style="text-align:left">Type</th><th>Amount</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>`;
+      }
 
-      // Credit card rows
-      const cardRows = recCards.map(card=>{
-        const c=card.currency||'INR', amt=card.months[mon]?.amount||0;
-        return `<div class="month-rec-row">
-          <span class="month-rec-name">${esc(card.name)}</span>
-          <span class="month-rec-type exp">Credit Card</span>
-          <span class="month-rec-amt red">−${formatMoney(amt,c)}</span>
-        </div>`;
-      }).join('');
+      // Credit cards table
+      let ccSection = '';
+      if (recCards.length) {
+        const rows = recCards.map(card=>{
+          const c=card.currency||'INR', amt=card.months[mon]?.amount||0;
+          return `<tr><td>${esc(card.name)}</td><td><span class="cur-pill red">${c}</span></td><td class="red">−${formatMoney(amt,c)}</td></tr>`;
+        }).join('');
+        ccSection = `<div class="rec-sub-hdr">Credit Cards</div>
+          <div class="schedule-tbl-wrap" style="max-height:none">
+            <table class="schedule-tbl">
+              <thead><tr><th style="text-align:left">Card</th><th style="text-align:left">Cur</th><th>Bill</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>`;
+      }
 
-      detail = `<div class="month-detail">
-        ${monTxs.length?`<div class="month-sec-hdr">Transactions</div><ul class="tx-list" style="margin:0">${txRows}</ul>`:''}
-        ${recRows?`<div class="month-sec-hdr">Recurring</div>${recRows}`:''}
-        ${cardRows?`<div class="month-sec-hdr">Credit Cards</div>${cardRows}`:''}
-      </div>`;
+      detail = `<div class="schedule-wrap">${txSection}${recSection}${ccSection}</div>`;
     }
 
-    return `<div class="month-card">
-      <div class="month-hdr" data-action="toggle-month" data-month="${mon}">
-        <div class="p-chev${isExpanded?' open':''}">${svgChevron}</div>
-        <div class="month-label">${fmtMonth(mon)}</div>
-        ${chips}
+    return `<div class="card">
+      <div class="sec-hdr" data-action="toggle-month" data-month="${mon}" style="cursor:pointer;padding-bottom:14px">
+        <div>
+          <div class="sec-title-row">
+            <div class="p-chev${isExpanded?' open':''}" style="margin-right:2px">${svgChevron}</div>
+            <span class="sec-title">${fmtMonth(mon)}</span>
+          </div>
+          <div class="sec-sub" style="margin-top:4px;display:flex;gap:8px;flex-wrap:wrap">
+            ${totIncome?`<span style="color:var(--income);font-weight:700;font-size:11px">↑ ${formatMoney(totIncome,primaryCur)}</span>`:''}
+            ${totExpense?`<span style="color:var(--expense);font-weight:700;font-size:11px">↓ ${formatMoney(totExpense,primaryCur)}</span>`:''}
+            ${(totIncome||totExpense)?`<span style="color:${net>=0?'var(--income)':'var(--expense)'};font-weight:700;font-size:11px">Net ${net>=0?'+':''}${formatMoney(net,primaryCur)}</span>`:''}
+          </div>
+        </div>
       </div>
       ${detail}
     </div>`;
   }).join('');
 
-  document.getElementById('tab-history').innerHTML =
-    `<div style="padding:12px 16px"><div style="font-size:14px;font-weight:800;margin-bottom:12px">Monthly History</div>${cards}</div>`;
+  document.getElementById('tab-history').innerHTML = monthCards ||
+    `<div class="card"><div class="empty"><p>No activity yet</p></div></div>`;
 }
 
 function ordinal(n) { const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
