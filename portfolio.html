@@ -241,6 +241,16 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .schedule-tbl tbody td { padding: 5px 8px; text-align: right; border-bottom: 1px solid var(--muted); }
 .schedule-tbl tbody td:first-child { text-align: left; color: var(--muted-fg); }
 .schedule-tbl tbody tr:last-child td { border-bottom: none; }
+.pp-section { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--muted); }
+.pp-hdr { font-size: 11px; font-weight: 700; color: var(--muted-fg); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.pp-count { background: var(--accent); color: #fff; border-radius: 99px; padding: 1px 6px; font-size: 10px; }
+.pp-total { color: var(--fg); font-weight: 600; margin-left: auto; }
+.pp-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--muted); font-size: 12px; }
+.pp-row:last-of-type { border-bottom: none; }
+.pp-date { color: var(--muted-fg); min-width: 72px; }
+.pp-amt { font-weight: 700; color: var(--income); flex: 1; }
+.pp-note { color: var(--muted-fg); font-size: 11px; flex: 2; }
+.pp-form { margin-top: 10px; }
 
 /* Preview row */
 .preview-row { background: var(--muted); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 10px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
@@ -391,6 +401,7 @@ function save() {
 function load() {
   try { const tx = localStorage.getItem('mmc.tx.v1'); if (tx) S.transactions = JSON.parse(tx); } catch(e) { S.transactions = []; }
   try { const p = localStorage.getItem('mmc.portfolio.v1'); if (p) S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[]}, JSON.parse(p)); } catch(e) {}
+  S.portfolio.loans = S.portfolio.loans.map(l => ({partPayments:[], ...l}));
   // also try old keys for migration
   if (!S.transactions.length) { try { const tx = localStorage.getItem('budget.tx.v1'); if (tx) S.transactions = JSON.parse(tx); } catch(e) {} }
   if (!S.portfolio.savings.length && !S.portfolio.loans.length) { try { const p = localStorage.getItem('budget.portfolio.v1'); if (p) S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[]}, JSON.parse(p)); } catch(e) {} }
@@ -425,9 +436,11 @@ function computeOutstanding(loan) {
   const {principal,startDate,tenureYears,interestRate} = loan;
   if (!startDate||!principal) return principal||0;
   const n = tenureYears*12, elapsed = Math.min(monthsElapsed(startDate),n);
-  if (!interestRate) return Math.max(0, principal-(principal/n)*elapsed);
-  const r = interestRate/100/12, emi = computeEmi(principal,interestRate,tenureYears), epow = Math.pow(1+r,elapsed);
-  return Math.max(0, principal*epow - emi*(epow-1)/r);
+  let outstanding;
+  if (!interestRate) { outstanding = Math.max(0, principal-(principal/n)*elapsed); }
+  else { const r = interestRate/100/12, emi = computeEmi(principal,interestRate,tenureYears), epow = Math.pow(1+r,elapsed); outstanding = Math.max(0, principal*epow - emi*(epow-1)/r); }
+  const paidExtra = (loan.partPayments||[]).reduce((s,p)=>s+(p.amount||0),0);
+  return Math.max(0, outstanding - paidExtra);
 }
 function computeScheduleToDate(loan) {
   const {principal,startDate,tenureYears,interestRate} = loan;
@@ -752,9 +765,23 @@ function renderLoans() {
     const payoff = new Date(loan.startDate); payoff.setFullYear(payoff.getFullYear()+loan.tenureYears);
     const isExpanded = S.expandedLoan===loan.id;
     const schedule = isExpanded ? computeScheduleToDate(loan) : [];
+    const partPayments = loan.partPayments||[];
+    const partHtml = `<div class="pp-section">
+      <div class="pp-hdr">Part Payments${partPayments.length?` <span class="pp-count">${partPayments.length}</span>`:''}${partPayments.length?` <span class="pp-total">Total: ${formatMoney(partPayments.reduce((s,p)=>s+p.amount,0),c)}</span>`:''}</div>
+      ${partPayments.map(p=>`<div class="pp-row"><span class="pp-date">${p.date}</span><span class="pp-amt">${formatMoney(p.amount,c)}</span>${p.note?`<span class="pp-note">${esc(p.note)}</span>`:''}<button class="ibtn del" data-action="del-part-payment" data-loan-id="${loan.id}" data-payment-id="${p.id}" title="Delete">${svgTrash}</button></div>`).join('')}
+      <form class="pp-form" data-action="add-part-payment" data-id="${loan.id}">
+        <div class="form-row-2">
+          <div><label class="form-label">Date</label><input class="input" type="date" name="date" value="${todayISO()}"></div>
+          <div><label class="form-label">Amount *</label><input class="input" type="number" name="amount" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required></div>
+        </div>
+        <div class="form-row" style="margin-top:6px"><label class="form-label">Note</label><input class="input" type="text" name="note" placeholder="Optional"></div>
+        <div style="margin-top:8px"><button type="submit" class="btn btn-accent" style="width:100%">Record Part Payment</button></div>
+      </form>
+    </div>`;
     const schedHtml = isExpanded ? `<div class="schedule-wrap">
       <div class="text-sm text-muted" style="margin-bottom:6px">${schedule.length} months amortised · Interest: ${formatMoney(schedule.reduce((a,r)=>a+r.interest,0),c)}</div>
       ${schedule.length?`<div class="schedule-tbl-wrap"><table class="schedule-tbl"><thead><tr><th>Month</th><th>Interest</th><th>Principal</th><th>Balance</th></tr></thead><tbody>${schedule.map(r=>`<tr><td>${r.date}</td><td>${formatMoney(r.interest,c)}</td><td>${formatMoney(r.principal,c)}</td><td>${formatMoney(r.balance,c)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="text-sm text-muted">No payments yet</p>'}
+      ${partHtml}
     </div>` : '';
     const curPillClass = c==='USD'?'':''; // default blue pill for all
     return `<div>
@@ -908,12 +935,20 @@ function handleSubmit(e) {
   }
   if (action==='add-loan') {
     if (!d.name.trim()) return toast('Name is required');
-    S.portfolio.loans.unshift({id:uid(),name:d.name.trim(),lender:d.lender||undefined,principal:parseFloat(d.principal),startDate:d.startDate,tenureYears:parseFloat(d.tenureYears),interestRate:parseFloat(d.interestRate),note:d.note||undefined,currency:d.currency,createdAt:todayISO()});
+    S.portfolio.loans.unshift({id:uid(),name:d.name.trim(),lender:d.lender||undefined,principal:parseFloat(d.principal),startDate:d.startDate,tenureYears:parseFloat(d.tenureYears),interestRate:parseFloat(d.interestRate),note:d.note||undefined,currency:d.currency,partPayments:[],createdAt:todayISO()});
     S.addingLoan=false; save(); renderPortfolio(); toast('Loan added'); return;
   }
   if (action==='update-loan') {
     S.portfolio.loans = S.portfolio.loans.map(i=>i.id===form.dataset.id?{...i,name:d.name.trim(),lender:d.lender||undefined,principal:parseFloat(d.principal),startDate:d.startDate,tenureYears:parseFloat(d.tenureYears),interestRate:parseFloat(d.interestRate),note:d.note||undefined,currency:d.currency}:i);
     S.editingId=null; S.editSection=null; save(); renderPortfolio(); toast('Loan updated'); return;
+  }
+  if (action==='add-part-payment') {
+    const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
+    const loan = S.portfolio.loans.find(l=>l.id===form.dataset.id);
+    if (!loan) return;
+    if (!loan.partPayments) loan.partPayments = [];
+    loan.partPayments.unshift({id:uid(), date:d.date||todayISO(), amount, note:d.note||undefined});
+    save(); renderPortfolio(); toast('Part payment recorded'); return;
   }
   if (action==='add-gold') {
     if (!d.name.trim()) return toast('Name is required');
@@ -968,6 +1003,11 @@ function handleClick(e) {
     S.portfolio.loans=S.portfolio.loans.filter(i=>i.id!==btn.dataset.id); save(); renderPortfolio(); return;
   }
   if (action==='toggle-loan') { S.expandedLoan=S.expandedLoan===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
+  if (action==='del-part-payment') {
+    const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.loanId);
+    if (loan) { loan.partPayments=(loan.partPayments||[]).filter(p=>p.id!==btn.dataset.paymentId); save(); renderPortfolio(); }
+    return;
+  }
   if (action==='toggle-add-gold') { S.addingGoldLoan=!S.addingGoldLoan; S.editingId=null; renderPortfolio(); return; }
   if (action==='cancel-gold') { S.addingGoldLoan=false; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
   if (action==='edit-gold') { S.editingId=btn.dataset.id; S.editSection='goldLoan'; S.addingGoldLoan=false; renderPortfolio(); return; }
