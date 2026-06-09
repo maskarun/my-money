@@ -227,6 +227,12 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
   font-size: 11px; font-weight: 600; color: var(--muted-fg); touch-action: manipulation;
 }
 .add-row-btn:active { background: var(--muted); }
+.rec-sub-hdr { font-size: 10px; font-weight: 800; color: var(--muted-fg); text-transform: uppercase; letter-spacing: .08em; padding: 10px 16px 4px; }
+.rec-badge { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 99px; white-space: nowrap; }
+.rec-badge.paid { background: #d1fae5; color: #065f46; }
+.rec-badge.pending { background: #fef9c3; color: #92400e; }
+.rec-btn { font-size: 11px; padding: 5px 10px; height: auto; min-width: 62px; white-space: nowrap; }
+.rec-amt-input { width: 90px; height: 32px; font-size: 13px; padding: 0 8px; flex-shrink: 0; }
 
 /* Inline add form */
 .add-form { border-top: 1px solid var(--muted); padding: 14px 16px; }
@@ -391,8 +397,10 @@ const CURRENCIES   = ['USD','INR'];
 const S = {
   tab: 'dashboard', transactions: [],
   portfolio: { savings: [], loans: [], goldLoans: [], investments: [] },
+  recurring: { items: [], creditCards: [] },
   txType: 'expense', txCurrency: 'USD',
   addingSaving: false, addingLoan: false, addingGoldLoan: false, addingInvestment: false,
+  addingRecurringIncome: false, addingBill: false, addingCard: false,
   editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, showingPPForm: null,
 };
 
@@ -400,6 +408,7 @@ function save() {
   try {
     localStorage.setItem('mmc.tx.v1', JSON.stringify(S.transactions));
     localStorage.setItem('mmc.portfolio.v1', JSON.stringify(S.portfolio));
+    localStorage.setItem('mmc.recurring.v1', JSON.stringify(S.recurring));
     localStorage.setItem('mmc.lastCurrency.v1', S.txCurrency);
   } catch(e) {}
 }
@@ -408,6 +417,10 @@ function load() {
   try { const tx = localStorage.getItem('mmc.tx.v1'); if (tx) S.transactions = JSON.parse(tx); } catch(e) { S.transactions = []; }
   try { const p = localStorage.getItem('mmc.portfolio.v1'); if (p) S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[]}, JSON.parse(p)); } catch(e) {}
   S.portfolio.loans = S.portfolio.loans.map(l => ({partPayments:[], ...l}));
+  try { const r = localStorage.getItem('mmc.recurring.v1'); if (r) S.recurring = JSON.parse(r); } catch(e) {}
+  if (!S.recurring) S.recurring = {items:[], creditCards:[]};
+  if (!S.recurring.items) S.recurring.items = [];
+  if (!S.recurring.creditCards) S.recurring.creditCards = [];
   // also try old keys for migration
   if (!S.transactions.length) { try { const tx = localStorage.getItem('budget.tx.v1'); if (tx) S.transactions = JSON.parse(tx); } catch(e) {} }
   if (!S.portfolio.savings.length && !S.portfolio.loans.length) { try { const p = localStorage.getItem('budget.portfolio.v1'); if (p) S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[]}, JSON.parse(p)); } catch(e) {} }
@@ -513,6 +526,7 @@ const svgBank      = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none
 const svgHome      = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`;
 const svgGold      = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 3"/></svg>`;
 const svgChart     = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7v6h-6"/></svg>`;
+const svgCard      = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`;
 
 function curOptions(sel) { return CURRENCIES.map(c=>`<option value="${c}"${c===sel?' selected':''}>${c}</option>`).join(''); }
 function catOptions(type, sel) { return (type==='income'?INCOME_CATS:EXPENSE_CATS).map(c=>`<option value="${c}"${c===sel?' selected':''}>${c}</option>`).join(''); }
@@ -576,9 +590,153 @@ function renderOverview() {
 }
 
 // ── Transactions ───────────────────────────────────────────────────────────────
+const thisMonth = () => todayISO().slice(0,7);
+
+function ordinal(n) { const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
+
+function renderRecurringSection() {
+  const mon = thisMonth();
+  const incomeItems = S.recurring.items.filter(i=>i.type==='income');
+  const billItems   = S.recurring.items.filter(i=>i.type==='expense');
+  const cards       = S.recurring.creditCards;
+
+  // --- Income rows ---
+  const incomeRows = incomeItems.map(item => {
+    const ms = item.months||{}, paid = ms[mon]?.paid;
+    const c = item.currency||'USD';
+    return `<div class="p-row">
+      <div class="p-row-icon sav">${svgArrowUp.replace('stroke="currentColor"','stroke="#059669"')}</div>
+      <div class="p-row-meta">
+        <div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span></div>
+        <div class="p-row-sub">${item.category||'Salary'}${item.dayOfMonth?' · '+ordinal(item.dayOfMonth)+' of month':''}</div>
+      </div>
+      <div class="p-row-right">
+        <div><div class="p-row-amt-lbl">Monthly</div><div class="p-row-amt grn">${formatMoney(item.amount,c)}</div></div>
+        <div class="p-row-btns" style="gap:4px">
+          ${paid
+            ? `<span class="rec-badge paid">✓ Credited</span>`
+            : `<button class="btn btn-accent rec-btn" data-action="confirm-recurring" data-id="${item.id}">Confirm</button>`}
+          <button class="ibtn del" data-action="del-recurring-item" data-id="${item.id}" title="Delete">${svgTrash}</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // --- Bill rows ---
+  const billRows = billItems.map(item => {
+    const ms = item.months||{}, paid = ms[mon]?.paid;
+    const c = item.currency||'USD';
+    const lastAmt = ms[mon]?.amount || item.amount || 0;
+    return `<div class="p-row">
+      <div class="p-row-icon loan">${svgArrowDown.replace('stroke="currentColor"','stroke="#e11d48"')}</div>
+      <div class="p-row-meta">
+        <div class="p-row-name">${esc(item.name)}<span class="cur-pill red">${c}</span></div>
+        <div class="p-row-sub">${item.isVariable?'Variable':'Fixed · '+formatMoney(item.amount,c)}${item.dayOfMonth?' · Due '+ordinal(item.dayOfMonth):''}</div>
+      </div>
+      <div class="p-row-right" style="gap:6px">
+        ${paid
+          ? `<span class="rec-badge paid">✓ Paid</span>`
+          : item.isVariable
+            ? `<form data-action="mark-variable-bill" data-id="${item.id}" style="display:flex;gap:6px;align-items:center">
+                <input class="input rec-amt-input" type="number" name="amount" inputmode="decimal" placeholder="Amount" value="${lastAmt||''}" min="0.01" step="0.01" required>
+                <button type="submit" class="btn btn-accent rec-btn">Paid</button>
+               </form>`
+            : `<button class="btn btn-accent rec-btn" data-action="mark-bill-paid" data-id="${item.id}">Mark Paid</button>`}
+        <button class="ibtn del" data-action="del-recurring-item" data-id="${item.id}" title="Delete">${svgTrash}</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  // --- Card rows ---
+  const cardRows = cards.map(card => {
+    const ms = card.months||{}, paid = ms[mon]?.paid, billAmt = ms[mon]?.amount||0;
+    const c = card.currency||'INR';
+    return `<div class="p-row">
+      <div class="p-row-icon" style="background:#ede9fe">${svgCard.replace('stroke="currentColor"','stroke="#7c3aed"')}</div>
+      <div class="p-row-meta">
+        <div class="p-row-name">${esc(card.name)}<span class="cur-pill amb">${c}</span></div>
+        <div class="p-row-sub">Due ${ordinal(card.dueDay)} of month</div>
+      </div>
+      <div class="p-row-right" style="gap:6px">
+        ${paid
+          ? `<span class="rec-badge paid">✓ Paid · ${formatMoney(billAmt,c)}</span>`
+          : `<form data-action="save-card-bill" data-id="${card.id}" style="display:flex;gap:6px;align-items:center">
+              <input class="input rec-amt-input" type="number" name="amount" inputmode="decimal" placeholder="Bill amt" value="${billAmt||''}" min="0" step="0.01">
+              <button type="submit" class="btn btn-accent rec-btn">Paid</button>
+             </form>`}
+        <button class="ibtn del" data-action="del-credit-card" data-id="${card.id}" title="Delete">${svgTrash}</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  // --- Add forms ---
+  const addIncomeHtml = S.addingRecurringIncome
+    ? `<div class="add-form">
+        <div class="add-form-title">New Recurring Income</div>
+        <form data-action="add-recurring-income">
+          <div class="form-row-2">
+            <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions('INR')}</select></div></div>
+            <div><label class="form-label">Amount *</label><input class="input" type="number" name="amount" inputmode="decimal" min="0.01" step="0.01" required></div>
+          </div>
+          <div class="form-row"><label class="form-label">Name *</label><input class="input" type="text" name="name" placeholder="e.g. Salary" required></div>
+          <div class="form-row-2">
+            <div><label class="form-label">Category</label><div class="select-wrap"><select class="input" name="category">${INCOME_CATS.map(c=>`<option>${c}</option>`).join('')}</select></div></div>
+            <div><label class="form-label">Day of month</label><input class="input" type="number" name="dayOfMonth" min="1" max="31" placeholder="1"></div>
+          </div>
+          <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-recurring-income">Cancel</button><button type="submit" class="btn btn-accent">Add</button></div>
+        </form>
+      </div>`
+    : `<button class="add-row-btn" data-action="toggle-add-recurring-income">${svgPlus} Add recurring income</button>`;
+
+  const addBillHtml = S.addingBill
+    ? `<div class="add-form">
+        <div class="add-form-title">New Monthly Bill</div>
+        <form data-action="add-bill">
+          <div class="form-row-2">
+            <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions('INR')}</select></div></div>
+            <div><label class="form-label">Amount</label><input class="input" type="number" name="amount" inputmode="decimal" min="0" step="0.01" placeholder="0 if variable"></div>
+          </div>
+          <div class="form-row"><label class="form-label">Name *</label><input class="input" type="text" name="name" placeholder="e.g. Electricity" required></div>
+          <div class="form-row-2">
+            <div><label class="form-label">Type</label><div class="select-wrap"><select class="input" name="isVariable"><option value="0">Fixed</option><option value="1">Variable</option></select></div></div>
+            <div><label class="form-label">Due day</label><input class="input" type="number" name="dayOfMonth" min="1" max="31" placeholder="1"></div>
+          </div>
+          <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-bill">Cancel</button><button type="submit" class="btn btn-accent">Add</button></div>
+        </form>
+      </div>`
+    : `<button class="add-row-btn" data-action="toggle-add-bill">${svgPlus} Add monthly bill</button>`;
+
+  const addCardHtml = S.addingCard
+    ? `<div class="add-form">
+        <div class="add-form-title">New Credit Card</div>
+        <form data-action="add-credit-card">
+          <div class="form-row"><label class="form-label">Card name *</label><input class="input" type="text" name="name" placeholder="e.g. HDFC Regalia" required></div>
+          <div class="form-row-2">
+            <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions('INR')}</select></div></div>
+            <div><label class="form-label">Due day *</label><input class="input" type="number" name="dueDay" min="1" max="31" placeholder="5" required></div>
+          </div>
+          <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-card">Cancel</button><button type="submit" class="btn btn-accent">Add</button></div>
+        </form>
+      </div>`
+    : `<button class="add-row-btn" data-action="toggle-add-card">${svgPlus} Add credit card</button>`;
+
+  const hasAny = incomeItems.length || billItems.length || cards.length;
+  return `<div class="card">
+    <div class="sec-hdr">
+      <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Recurring & Bills</span></div><div class="sec-sub">Auto-tracks monthly salary, bills & cards</div></div>
+    </div>
+    ${incomeItems.length ? `<div class="rec-sub-hdr">Income</div>${incomeRows}` : ''}
+    ${addIncomeHtml}
+    ${billItems.length ? `<div class="rec-sub-hdr">Monthly Bills</div>${billRows}` : ''}
+    ${addBillHtml}
+    ${cards.length ? `<div class="rec-sub-hdr">Credit Cards</div>${cardRows}` : ''}
+    ${addCardHtml}
+  </div>`;
+}
+
 function renderDashboard() {
   document.getElementById('tab-transactions').innerHTML =
-    renderHeroCards() + renderAddTxForm() + renderCatBreakdown() + renderActivity();
+    renderHeroCards() + renderRecurringSection() + renderAddTxForm() + renderCatBreakdown() + renderActivity();
 }
 
 function renderHeroCards() {
@@ -937,6 +1095,44 @@ function handleSubmit(e) {
     S.transactions.unshift({id:uid(),type:S.txType,amount,category:d.category,note:d.note||undefined,date:new Date().toISOString(),currency:d.currency});
     save(); renderOverview(); renderDashboard(); toast('Transaction added'); return;
   }
+  if (action==='add-recurring-income') {
+    if (!d.name.trim()) return toast('Name is required');
+    const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
+    S.recurring.items.push({id:uid(),name:d.name.trim(),type:'income',category:d.category||'Salary',amount,currency:d.currency,dayOfMonth:d.dayOfMonth?parseInt(d.dayOfMonth):undefined,months:{},createdAt:todayISO()});
+    S.addingRecurringIncome=false; save(); renderDashboard(); toast('Recurring income added'); return;
+  }
+  if (action==='add-bill') {
+    if (!d.name.trim()) return toast('Name is required');
+    const isVariable = d.isVariable==='1';
+    const amount = isVariable ? 0 : (parseFloat(d.amount)||0);
+    S.recurring.items.push({id:uid(),name:d.name.trim(),type:'expense',isVariable,amount,currency:d.currency,dayOfMonth:d.dayOfMonth?parseInt(d.dayOfMonth):undefined,months:{},createdAt:todayISO()});
+    S.addingBill=false; save(); renderDashboard(); toast('Bill added'); return;
+  }
+  if (action==='add-credit-card') {
+    if (!d.name.trim()) return toast('Card name is required');
+    const dueDay = parseInt(d.dueDay); if (!dueDay||dueDay<1||dueDay>31) return toast('Enter a valid due day');
+    S.recurring.creditCards.push({id:uid(),name:d.name.trim(),currency:d.currency,dueDay,months:{},createdAt:todayISO()});
+    S.addingCard=false; save(); renderDashboard(); toast('Card added'); return;
+  }
+  if (action==='save-card-bill') {
+    const card = S.recurring.creditCards.find(c=>c.id===form.dataset.id); if (!card) return;
+    const mon = thisMonth(); if (!card.months) card.months = {};
+    const amount = parseFloat(d.amount)||0;
+    card.months[mon] = {...(card.months[mon]||{}), amount};
+    const txId = uid();
+    S.transactions.unshift({id:txId,type:'expense',amount,category:'Bills',note:card.name+' CC Bill',date:new Date().toISOString(),currency:card.currency||'INR'});
+    card.months[mon].paid = true; card.months[mon].txId = txId;
+    save(); renderOverview(); renderDashboard(); toast(card.name+' bill recorded'); return;
+  }
+  if (action==='mark-variable-bill') {
+    const item = S.recurring.items.find(i=>i.id===form.dataset.id); if (!item) return;
+    const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
+    const mon = thisMonth(); if (!item.months) item.months = {};
+    const txId = uid();
+    S.transactions.unshift({id:txId,type:'expense',amount,category:'Bills',note:item.name,date:new Date().toISOString(),currency:item.currency||'INR'});
+    item.months[mon] = {paid:true, amount, txId};
+    save(); renderOverview(); renderDashboard(); toast(item.name+' marked paid'); return;
+  }
   if (action==='add-saving') {
     if (!d.name.trim()) return toast('Name is required');
     const amount = parseFloat(d.amount); if (!amount||amount<0) return toast('Enter a valid amount');
@@ -1004,6 +1200,51 @@ function handleClick(e) {
     return;
   }
   if (action==='set-tx-type') { S.txType=btn.dataset.type; renderDashboard(); return; }
+  // Recurring income
+  if (action==='toggle-add-recurring-income') { S.addingRecurringIncome=!S.addingRecurringIncome; renderDashboard(); return; }
+  if (action==='cancel-recurring-income') { S.addingRecurringIncome=false; renderDashboard(); return; }
+  if (action==='confirm-recurring') {
+    const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
+    const mon = thisMonth();
+    if (!item.months) item.months = {};
+    const txId = uid();
+    S.transactions.unshift({id:txId,type:'income',amount:item.amount,category:item.category||'Salary',note:item.name,date:new Date().toISOString(),currency:item.currency||'USD'});
+    item.months[mon] = {paid:true, amount:item.amount, txId};
+    save(); renderOverview(); renderDashboard(); toast(item.name+' credited'); return;
+  }
+  if (action==='del-recurring-item') {
+    if (!confirm('Remove this recurring entry?')) return;
+    S.recurring.items = S.recurring.items.filter(i=>i.id!==btn.dataset.id); save(); renderDashboard(); return;
+  }
+  // Bills
+  if (action==='toggle-add-bill') { S.addingBill=!S.addingBill; renderDashboard(); return; }
+  if (action==='cancel-bill') { S.addingBill=false; renderDashboard(); return; }
+  if (action==='mark-bill-paid') {
+    const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
+    const mon = thisMonth();
+    if (!item.months) item.months = {};
+    const txId = uid();
+    S.transactions.unshift({id:txId,type:'expense',amount:item.amount,category:'Bills',note:item.name,date:new Date().toISOString(),currency:item.currency||'INR'});
+    item.months[mon] = {paid:true, amount:item.amount, txId};
+    save(); renderOverview(); renderDashboard(); toast(item.name+' marked paid'); return;
+  }
+  // Credit cards
+  if (action==='toggle-add-card') { S.addingCard=!S.addingCard; renderDashboard(); return; }
+  if (action==='cancel-card') { S.addingCard=false; renderDashboard(); return; }
+  if (action==='mark-card-paid') {
+    const card = S.recurring.creditCards.find(c=>c.id===btn.dataset.id); if (!card) return;
+    const mon = thisMonth();
+    if (!card.months) card.months = {};
+    const amt = card.months[mon]?.amount||0;
+    const txId = uid();
+    if (amt>0) S.transactions.unshift({id:txId,type:'expense',amount:amt,category:'Bills',note:card.name+' CC Bill',date:new Date().toISOString(),currency:card.currency||'INR'});
+    card.months[mon] = {...(card.months[mon]||{}), paid:true, txId};
+    save(); renderOverview(); renderDashboard(); toast(card.name+' bill marked paid'); return;
+  }
+  if (action==='del-credit-card') {
+    if (!confirm('Remove this card?')) return;
+    S.recurring.creditCards = S.recurring.creditCards.filter(c=>c.id!==btn.dataset.id); save(); renderDashboard(); return;
+  }
   if (action==='del-tx') {
     if (!confirm('Delete this transaction?')) return;
     S.transactions=S.transactions.filter(t=>t.id!==btn.dataset.id); save(); renderOverview(); renderDashboard(); return;
