@@ -886,10 +886,24 @@ function renderHeroCards() {
 
 function renderCatBreakdown() {
   const byCur = {};
+  const add = (cur, cat, amt) => { if (!byCur[cur]) byCur[cur]={}; byCur[cur][cat]=(byCur[cur][cat]||0)+amt; };
   for (const t of S.transactions) {
     if (t.type!=='expense') continue;
-    const c = getCur(t); if (!byCur[c]) byCur[c] = {};
-    byCur[c][t.category] = (byCur[c][t.category]||0)+t.amount;
+    add(getCur(t), t.category, t.amount);
+  }
+  // include paid recurring bills across all months
+  for (const item of (S.recurring?.items||[])) {
+    if (item.type!=='expense') continue;
+    const cat = item.category||item.name;
+    for (const [, ms] of Object.entries(item.months||{})) {
+      if (ms.paid && ms.amount>0) add(item.currency||'INR', cat, ms.amount);
+    }
+  }
+  // include paid credit card bills (category: "Credit Card")
+  for (const card of (S.recurring?.creditCards||[])) {
+    for (const [, ms] of Object.entries(card.months||{})) {
+      if (ms.paid && ms.amount>0) add(card.currency||'INR', 'Credit Card', ms.amount);
+    }
   }
   const curs = Object.keys(byCur);
   if (!curs.length) return `<div class="card"><div class="sec-hdr-pad" style="padding-bottom:14px"><div style="font-size:14px;font-weight:800">By Category</div></div><div class="empty" style="padding-top:8px"><p>No expenses yet</p></div></div>`;
