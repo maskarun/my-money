@@ -241,6 +241,8 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .schedule-tbl tbody td { padding: 5px 8px; text-align: right; border-bottom: 1px solid var(--muted); }
 .schedule-tbl tbody td:first-child { text-align: left; color: var(--muted-fg); }
 .schedule-tbl tbody tr:last-child td { border-bottom: none; }
+.sched-pp-row { background: #f0fdf4; }
+.sched-pp-amt { color: #059669; font-weight: 700; font-size: 11px; }
 .pp-section { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--muted); }
 .pp-hdr-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .pp-hdr-title { font-size: 11px; font-weight: 700; color: var(--muted-fg); text-transform: uppercase; letter-spacing: .05em; }
@@ -440,23 +442,40 @@ function computeOutstanding(loan) {
   const {principal,startDate,tenureYears,interestRate} = loan;
   if (!startDate||!principal) return principal||0;
   const n = tenureYears*12, elapsed = Math.min(monthsElapsed(startDate),n);
-  let outstanding;
-  if (!interestRate) { outstanding = Math.max(0, principal-(principal/n)*elapsed); }
-  else { const r = interestRate/100/12, emi = computeEmi(principal,interestRate,tenureYears), epow = Math.pow(1+r,elapsed); outstanding = Math.max(0, principal*epow - emi*(epow-1)/r); }
-  const paidExtra = (loan.partPayments||[]).reduce((s,p)=>s+(p.amount||0),0);
-  return Math.max(0, outstanding - paidExtra);
+  const emi = computeEmi(principal,interestRate,tenureYears), r = interestRate/100/12;
+  const payments = (loan.partPayments||[]).slice().sort((a,b)=>a.date<b.date?-1:1);
+  const start = new Date(startDate);
+  let bal = principal;
+  for (let i=1;i<=elapsed;i++) {
+    const mDate = new Date(start); mDate.setMonth(mDate.getMonth()+i);
+    const interest = bal*r, princ = Math.min(emi-interest, bal);
+    bal = Math.max(0, bal-princ);
+    // apply part payments whose date falls within this month
+    const mStr = mDate.toISOString().slice(0,7); // "YYYY-MM"
+    for (const p of payments) {
+      if ((p.date||'').slice(0,7)===mStr) bal = Math.max(0, bal-p.amount);
+    }
+  }
+  return bal;
 }
 function computeScheduleToDate(loan) {
   const {principal,startDate,tenureYears,interestRate} = loan;
   if (!startDate||!principal) return [];
   const n = tenureYears*12, elapsed = Math.min(monthsElapsed(startDate),n);
   const emi = computeEmi(principal,interestRate,tenureYears), r = interestRate/100/12;
-  let bal = principal; const rows = [], start = new Date(startDate);
+  const payments = (loan.partPayments||[]).slice().sort((a,b)=>a.date<b.date?-1:1);
+  const start = new Date(startDate);
+  let bal = principal; const rows = [];
   for (let i=1;i<=elapsed;i++) {
+    const mDate = new Date(start); mDate.setMonth(mDate.getMonth()+i);
     const interest=bal*r, princ=Math.min(emi-interest,bal);
     bal = Math.max(0,bal-princ);
-    const d=new Date(start); d.setMonth(d.getMonth()+i);
-    rows.push({month:i,date:d.toLocaleDateString('en-US',{month:'short',year:'2-digit'}),interest,principal:princ,emi,balance:bal});
+    const mStr = mDate.toISOString().slice(0,7);
+    let partPaid = 0;
+    for (const p of payments) {
+      if ((p.date||'').slice(0,7)===mStr) { partPaid+=p.amount; bal=Math.max(0,bal-p.amount); }
+    }
+    rows.push({month:i,date:mDate.toLocaleDateString('en-US',{month:'short',year:'2-digit'}),interest,principal:princ,emi,balance:bal,partPaid:partPaid||0});
   }
   return rows;
 }
@@ -788,7 +807,7 @@ function renderLoans() {
     </div>`;
     const schedHtml = isExpanded ? `<div class="schedule-wrap">
       <div class="text-sm text-muted" style="margin-bottom:6px">${schedule.length} months amortised · Interest: ${formatMoney(schedule.reduce((a,r)=>a+r.interest,0),c)}</div>
-      ${schedule.length?`<div class="schedule-tbl-wrap"><table class="schedule-tbl"><thead><tr><th>Month</th><th>Interest</th><th>Principal</th><th>Balance</th></tr></thead><tbody>${schedule.map(r=>`<tr><td>${r.date}</td><td>${formatMoney(r.interest,c)}</td><td>${formatMoney(r.principal,c)}</td><td>${formatMoney(r.balance,c)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="text-sm text-muted">No payments yet</p>'}
+      ${schedule.length?(()=>{const hasPP=schedule.some(r=>r.partPaid>0);return`<div class="schedule-tbl-wrap"><table class="schedule-tbl"><thead><tr><th>Month</th><th>Interest</th><th>Principal</th>${hasPP?'<th>Part Paid</th>':''}<th>Balance</th></tr></thead><tbody>${schedule.map(r=>`<tr${r.partPaid>0?' class="sched-pp-row"':''}><td>${r.date}</td><td>${formatMoney(r.interest,c)}</td><td>${formatMoney(r.principal,c)}</td>${hasPP?`<td>${r.partPaid>0?'<span class="sched-pp-amt">−'+formatMoney(r.partPaid,c)+'</span>':''}</td>`:''}<td>${formatMoney(r.balance,c)}</td></tr>`).join('')}</tbody></table></div>`;})():'<p class="text-sm text-muted">No payments yet</p>'}
       ${partHtml}
     </div>` : '';
     const curPillClass = c==='USD'?'':''; // default blue pill for all
