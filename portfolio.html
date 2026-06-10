@@ -216,8 +216,8 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .p-row-amt.grn { color: var(--income); }
 .p-row-amt.red { color: var(--expense); }
 .p-row-amt.amb { color: var(--gold); }
-.p-row-btns { display: flex; gap: 1px; }
-.ibtn { width: 26px; height: 26px; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 6px; color: #cbd5e1; transition: color .15s, background .15s; }
+.p-row-btns { display: flex; align-items: center; gap: 6px; }
+.ibtn { width: 24px; height: 24px; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 6px; color: #cbd5e1; transition: color .15s, background .15s; flex-shrink: 0; }
 .ibtn:hover { background: var(--muted); color: #64748b; }
 .ibtn.del:hover { background: #fff1f2; color: var(--expense); }
 .p-chev { width: 20px; height: 20px; border-radius: 6px; background: var(--muted); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; }
@@ -233,11 +233,11 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 }
 .add-row-btn:active { background: var(--muted); }
 .rec-sub-hdr { font-size: 10px; font-weight: 800; color: var(--muted-fg); text-transform: uppercase; letter-spacing: .08em; padding: 10px 16px 4px; }
-.rec-badge { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 99px; white-space: nowrap; }
+.rec-badge { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 99px; white-space: nowrap; }
 .rec-badge.paid { background: #d1fae5; color: #065f46; }
 .rec-badge.pending { background: #fef9c3; color: #92400e; }
-.rec-btn { font-size: 11px; padding: 5px 10px; height: auto; min-width: 62px; white-space: nowrap; }
-.rec-amt-input { width: 90px; height: 32px; font-size: 13px; padding: 0 8px; flex-shrink: 0; }
+.rec-btn { font-size: 10.5px; padding: 4px 8px; height: auto; min-width: 54px; white-space: nowrap; }
+.rec-amt-input { width: 72px; height: 32px; font-size: 13px; padding: 0 8px; flex-shrink: 0; }
 .hist-note { font-size: 10px; color: var(--muted-fg); font-weight: 400; margin-top: 1px; }
 
 /* Inline add form */
@@ -813,11 +813,10 @@ function renderRecurringIncome() {
         <div class="p-row-sub">${item.category||'Salary'}${item.dayOfMonth?' · '+ordinal(item.dayOfMonth)+' of month':''}</div>
       </div>
       <div class="p-row-right">
-        <div><div class="p-row-amt-lbl">Monthly</div><div class="p-row-amt grn">${formatMoney(item.amount,c)}</div></div>
-        <div class="p-row-btns" style="gap:4px">
+        <div class="p-row-btns">
           ${paid
-            ? `<span class="rec-badge paid">✓ Credited</span><button class="ibtn" data-action="unmark-recurring-item" data-id="${item.id}" title="Mark unpaid">${svgUndo}</button>`
-            : `<button class="btn btn-accent rec-btn" data-action="confirm-recurring" data-id="${item.id}">Confirm</button>`}
+            ? `<span class="rec-badge paid">✓ Credited · ${formatMoney(item.amount,c)}</span><button class="ibtn" data-action="unmark-recurring-item" data-id="${item.id}" title="Mark unpaid">${svgUndo}</button>`
+            : `<span class="p-row-amt grn">${formatMoney(item.amount,c)}</span><button class="btn btn-accent rec-btn" data-action="confirm-recurring" data-id="${item.id}">Confirm</button>`}
           <button class="ibtn del" data-action="del-recurring-item" data-id="${item.id}" title="Delete">${svgTrash}</button>
         </div>
       </div>
@@ -847,16 +846,18 @@ function renderBillsAndCards() {
         <div class="p-row-name">${esc(item.name)}<span class="cur-pill red">${c}</span></div>
         <div class="p-row-sub">${item.isVariable?'Variable':'Fixed · '+formatMoney(item.amount,c)}${item.dayOfMonth?' · Due '+ordinal(item.dayOfMonth):''}</div>
       </div>
-      <div class="p-row-right" style="gap:6px">
-        ${paid
-          ? `<span class="rec-badge paid">✓ Paid</span><button class="ibtn" data-action="unmark-recurring-item" data-id="${item.id}" title="Mark unpaid">${svgUndo}</button>`
-          : item.isVariable
-            ? `<form data-action="mark-variable-bill" data-id="${item.id}" style="display:flex;gap:6px;align-items:center">
-                <input class="input rec-amt-input" type="number" name="amount" inputmode="decimal" placeholder="Amount" value="${lastAmt||''}" min="0.01" step="0.01" required>
-                <button type="submit" class="btn btn-accent rec-btn">Paid</button>
-               </form>`
-            : `<button class="btn btn-accent rec-btn" data-action="mark-bill-paid" data-id="${item.id}">Mark Paid</button>`}
-        <button class="ibtn del" data-action="del-recurring-item" data-id="${item.id}" title="Delete">${svgTrash}</button>
+      <div class="p-row-right">
+        <div class="p-row-btns">
+          ${paid
+            ? `<span class="rec-badge paid">✓ Paid · ${formatMoney(lastAmt,c)}</span><button class="ibtn" data-action="unmark-recurring-item" data-id="${item.id}" title="Mark unpaid">${svgUndo}</button>`
+            : item.isVariable
+              ? `<form data-action="mark-variable-bill" data-id="${item.id}" style="display:flex;gap:6px;align-items:center">
+                  <input class="input rec-amt-input" type="number" name="amount" inputmode="decimal" placeholder="Amount" value="${lastAmt||''}" min="0.01" step="0.01" required>
+                  <button type="submit" class="btn btn-accent rec-btn">Paid</button>
+                 </form>`
+              : `<button class="btn btn-accent rec-btn" data-action="mark-bill-paid" data-id="${item.id}">Mark Paid</button>`}
+          <button class="ibtn del" data-action="del-recurring-item" data-id="${item.id}" title="Delete">${svgTrash}</button>
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -870,14 +871,16 @@ function renderBillsAndCards() {
         <div class="p-row-name">${esc(card.name)}<span class="cur-pill amb">${c}</span></div>
         <div class="p-row-sub">Due ${ordinal(card.dueDay)} of month</div>
       </div>
-      <div class="p-row-right" style="gap:6px">
-        ${paid
-          ? `<span class="rec-badge paid">✓ Paid · ${formatMoney(billAmt,c)}</span><button class="ibtn" data-action="unmark-card" data-id="${card.id}" title="Mark unpaid">${svgUndo}</button>`
-          : `<form data-action="save-card-bill" data-id="${card.id}" style="display:flex;gap:6px;align-items:center">
-              <input class="input rec-amt-input" type="number" name="amount" inputmode="decimal" placeholder="Bill amt" value="${billAmt||''}" min="0" step="0.01">
-              <button type="submit" class="btn btn-accent rec-btn">Paid</button>
-             </form>`}
-        <button class="ibtn del" data-action="del-credit-card" data-id="${card.id}" title="Delete">${svgTrash}</button>
+      <div class="p-row-right">
+        <div class="p-row-btns">
+          ${paid
+            ? `<span class="rec-badge paid">✓ Paid · ${formatMoney(billAmt,c)}</span><button class="ibtn" data-action="unmark-card" data-id="${card.id}" title="Mark unpaid">${svgUndo}</button>`
+            : `<form data-action="save-card-bill" data-id="${card.id}" style="display:flex;gap:6px;align-items:center">
+                <input class="input rec-amt-input" type="number" name="amount" inputmode="decimal" placeholder="Bill amt" value="${billAmt||''}" min="0" step="0.01">
+                <button type="submit" class="btn btn-accent rec-btn">Paid</button>
+               </form>`}
+          <button class="ibtn del" data-action="del-credit-card" data-id="${card.id}" title="Delete">${svgTrash}</button>
+        </div>
       </div>
     </div>`;
   }).join('');
