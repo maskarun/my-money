@@ -305,6 +305,9 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .cat-pct { font-size: 10px; color: var(--muted-fg); margin-left: 3px; }
 .bar-bg { height: 5px; background: var(--muted); border-radius: 3px; overflow: hidden; }
 .bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #0284c7, #38bdf8); }
+.bar-fill.inc { background: linear-gradient(90deg, var(--income), #34d399); }
+.cat-amt.grn { color: var(--income); }
+.cat-subrow { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--muted-fg); padding: 4px 0 0 10px; }
 
 /* Empty state */
 .empty { text-align: center; padding: 28px 16px; color: var(--muted-fg); }
@@ -983,26 +986,71 @@ function renderHeroCards() {
 
 function renderCatBreakdown() {
   const mon = thisMonth();
-  const byCur = {};
-  const add = (cur, cat, amt) => { if (!byCur[cur]) byCur[cur]={}; byCur[cur][cat]=(byCur[cur][cat]||0)+amt; };
+  const expByCur = {};
+  const incByCur = {};
+  const transfers = [];
+  const addExp = (cur, cat, amt, subName) => {
+    if (!expByCur[cur]) expByCur[cur] = {};
+    if (!expByCur[cur][cat]) expByCur[cur][cat] = {amt:0, sub:{}};
+    expByCur[cur][cat].amt += amt;
+    if (subName) expByCur[cur][cat].sub[subName] = (expByCur[cur][cat].sub[subName]||0) + amt;
+  };
+  const addInc = (cur, cat, amt) => { if (!incByCur[cur]) incByCur[cur]={}; incByCur[cur][cat]=(incByCur[cur][cat]||0)+amt; };
+
   for (const t of S.transactions) {
-    if (t.type!=='expense') continue;
     if (!t.date || localTxMonth(t.date)!==mon) continue;
-    add(getCur(t), t.category, t.amount);
+    if (t.type==='transfer') { transfers.push(t); continue; }
+    if (t.type==='income') { addInc(getCur(t), t.category, t.amount); continue; }
+    if (t.category==='Bills' && t.note) {
+      if (/ CC Bill$/.test(t.note)) addExp(getCur(t), 'Credit Card', t.amount, t.note.replace(/ CC Bill$/, ''));
+      else addExp(getCur(t), 'Bills', t.amount, t.note);
+    } else {
+      addExp(getCur(t), t.category, t.amount);
+    }
   }
-  const curs = Object.keys(byCur);
+
+  const curs = [...new Set([...Object.keys(expByCur), ...Object.keys(incByCur)])];
   const monthLabel = fmtMonth(mon);
-  if (!curs.length) return `<div class="card"><div class="sec-hdr-pad" style="padding-bottom:14px"><div style="font-size:14px;font-weight:800">By Category <span style="font-weight:400;font-size:12px;color:var(--muted-fg)">${monthLabel}</span></div></div><div class="empty" style="padding-top:8px"><p>No expenses yet</p></div></div>`;
+  if (!curs.length && !transfers.length) return `<div class="card"><div class="sec-hdr-pad" style="padding-bottom:14px"><div style="font-size:14px;font-weight:800">By Category <span style="font-weight:400;font-size:12px;color:var(--muted-fg)">${monthLabel}</span></div></div><div class="empty" style="padding-top:8px"><p>No activity yet</p></div></div>`;
+
   const sections = curs.map(cur => {
-    const cats = byCur[cur], total = Object.values(cats).reduce((a,b)=>a+b,0);
-    return `${curs.length>1?`<div class="cur-section-label" style="padding:0 16px 4px">${cur}</div>`:''}
-    ${Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([cat,amt])=>`
-      <div class="cat-row">
-        <div class="cat-hdr"><span class="cat-name">${esc(cat)}</span><span><span class="cat-amt">${formatMoney(amt,cur)}</span><span class="cat-pct">${Math.round(amt/total*100)}%</span></span></div>
-        <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(amt/total*100)}%"></div></div>
-      </div>`).join('')}`;
+    let html = curs.length>1 ? `<div class="cur-section-label">${cur}</div>` : '';
+    const cats = expByCur[cur];
+    if (cats) {
+      const total = Object.values(cats).reduce((a,c)=>a+c.amt,0);
+      html += Object.entries(cats).sort((a,b)=>b[1].amt-a[1].amt).map(([cat,{amt,sub}])=>{
+        const pct = Math.round(amt/total*100);
+        const subRows = Object.entries(sub).sort((a,b)=>b[1]-a[1]).map(([name,subAmt])=>
+          `<div class="cat-subrow"><span>${esc(name)}</span><span>${formatMoney(subAmt,cur)}</span></div>`).join('');
+        return `<div class="cat-row">
+          <div class="cat-hdr"><span class="cat-name">${esc(cat)}</span><span><span class="cat-amt">${formatMoney(amt,cur)}</span><span class="cat-pct">${pct}%</span></span></div>
+          <div class="bar-bg"><div class="bar-fill" style="width:${pct}%"></div></div>
+          ${subRows}
+        </div>`;
+      }).join('');
+    }
+    const incCats = incByCur[cur];
+    if (incCats) {
+      const incTotal = Object.values(incCats).reduce((a,b)=>a+b,0);
+      html += `<div class="rec-sub-hdr">Income</div>` + Object.entries(incCats).sort((a,b)=>b[1]-a[1]).map(([cat,amt])=>{
+        const pct = Math.round(amt/incTotal*100);
+        return `<div class="cat-row">
+          <div class="cat-hdr"><span class="cat-name">${esc(cat)}</span><span><span class="cat-amt grn">${formatMoney(amt,cur)}</span><span class="cat-pct">${pct}%</span></span></div>
+          <div class="bar-bg"><div class="bar-fill inc" style="width:${pct}%"></div></div>
+        </div>`;
+      }).join('');
+    }
+    return html;
   }).join('');
-  return `<div class="card"><div class="sec-hdr-pad" style="padding-bottom:10px"><div style="font-size:14px;font-weight:800">By Category <span style="font-weight:400;font-size:12px;color:var(--muted-fg)">${monthLabel}</span></div></div><div class="cat-wrap">${sections}</div></div>`;
+
+  let transferSection = '';
+  if (transfers.length) {
+    transferSection = `<div class="rec-sub-hdr">Transfers</div>` + transfers.map(t =>
+      `<div class="cat-row"><div class="cat-hdr"><span class="cat-name">Transfer</span><span class="cat-amt">${formatMoney(t.fromAmount,t.fromCurrency)} → ${formatMoney(t.toAmount,t.toCurrency)}</span></div></div>`
+    ).join('');
+  }
+
+  return `<div class="card"><div class="sec-hdr-pad" style="padding-bottom:10px"><div style="font-size:14px;font-weight:800">By Category <span style="font-weight:400;font-size:12px;color:var(--muted-fg)">${monthLabel}</span></div></div><div class="cat-wrap">${sections}${transferSection}</div></div>`;
 }
 
 function renderActivity() {
