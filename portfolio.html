@@ -673,9 +673,10 @@ function renderHistory() {
             </tr>`;
           }
           const c=getCur(t), isInc=t.type==='income';
+          const isBill = t.category==='Bills' && t.note;
           return `<tr>
             <td>${fmtDate(t.date)}</td>
-            <td>${esc(t.category)}${t.note?`<div class="hist-note">${esc(t.note)}</div>`:''}</td>
+            <td>${isBill?esc(t.note):esc(t.category)+(t.note?`<div class="hist-note">${esc(t.note)}</div>`:'')}</td>
             <td><span class="cur-pill${isInc?'':' red'}">${c}</span></td>
             <td class="${isInc?'grn':'red'}">${isInc?'+':'−'}${formatMoney(t.amount,c)}</td>
           </tr>`;
@@ -1030,9 +1031,12 @@ function renderActivity() {
       </li>`;
     }
     const isIncome = t.type==='income';
+    const isBill = t.category==='Bills' && t.note;
+    const dispName = isBill ? t.note : t.category;
+    const dispMeta = isBill ? fmtDate(t.date) : (t.note?esc(t.note):fmtDate(t.date));
     return `<li class="tx-row">
       <div class="tx-icon ${t.type}">${isIncome?svgArrowUp:svgArrowDown}</div>
-      <div class="tx-body"><div class="tx-cat">${esc(t.category)}<span class="tx-badge">${getCur(t)}</span></div><div class="tx-meta">${t.note?esc(t.note):fmtDate(t.date)}</div></div>
+      <div class="tx-body"><div class="tx-cat">${esc(dispName)}<span class="tx-badge">${getCur(t)}</span></div><div class="tx-meta">${dispMeta}</div></div>
       <div class="tx-right"><div class="tx-amount ${t.type}">${isIncome?'+':'−'}${formatMoney(t.amount,getCur(t))}</div></div>
       <button class="tx-del" data-action="del-tx" data-id="${t.id}" title="Delete">${svgTrash}</button>
     </li>`;
