@@ -281,6 +281,7 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .tx-icon { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .tx-icon.income { background: rgba(5,150,105,.1); color: var(--income); }
 .tx-icon.expense { background: rgba(225,29,72,.08); color: var(--expense); }
+.tx-icon.transfer { background: rgba(2,132,199,.1); color: var(--accent); }
 .tx-icon svg { width: 16px; height: 16px; stroke-width: 2; }
 .tx-body { flex: 1; min-width: 0; }
 .tx-cat { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 5px; }
@@ -290,6 +291,7 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .tx-amount { font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .tx-amount.income { color: var(--income); }
 .tx-amount.expense { color: var(--expense); }
+.tx-amount.transfer { color: var(--accent); font-size: 12px; }
 .tx-del { width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #cbd5e1; flex-shrink: 0; transition: color .15s; }
 .tx-del:hover { color: var(--expense); }
 .tx-del svg { width: 13px; height: 13px; stroke-width: 1.8; }
@@ -539,8 +541,10 @@ const svgGold      = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none
 const svgChart     = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7v6h-6"/></svg>`;
 const svgCard      = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`;
 const svgUndo      = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 7"/></svg>`;
+const svgTransfer  = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>`;
 
 function curOptions(sel) { return CURRENCIES.map(c=>`<option value="${c}"${c===sel?' selected':''}>${c}</option>`).join(''); }
+const otherCur = c => CURRENCIES.find(x=>x!==c) || CURRENCIES[0];
 function catOptions(type, sel) { return (type==='income'?INCOME_CATS:EXPENSE_CATS).map(c=>`<option value="${c}"${c===sel?' selected':''}>${c}</option>`).join(''); }
 
 // ── Dashboard Overview ─────────────────────────────────────────────────────────
@@ -555,8 +559,14 @@ function renderOverview() {
     // Credit: savings balance + transaction net income (if positive)
     const sav = S.portfolio.savings.filter(i=>getCur(i)===cur).reduce((a,i)=>a+i.amount,0);
     let txIncome=0, txExpense=0;
-    for (const t of S.transactions) { if (getCur(t)!==cur) continue; if (t.type==='income') txIncome+=t.amount; else txExpense+=t.amount; }
-    const txNet = txIncome - txExpense;
+    for (const t of S.transactions) { if (t.type==='transfer') continue; if (getCur(t)!==cur) continue; if (t.type==='income') txIncome+=t.amount; else txExpense+=t.amount; }
+    let transferNet = 0;
+    for (const t of S.transactions) {
+      if (t.type!=='transfer') continue;
+      if (t.fromCurrency===cur) transferNet -= t.fromAmount;
+      if (t.toCurrency===cur) transferNet += t.toAmount;
+    }
+    const txNet = txIncome - txExpense + transferNet;
     const credit = sav + Math.max(0, txNet);
 
     // Debt: loans + gold loans outstanding
@@ -623,7 +633,7 @@ function renderHistory() {
 
   const sorted = [...months].sort((a,b)=>b.localeCompare(a));
   const monthCards = sorted.map(mon => {
-    const monTxs = S.transactions.filter(t=>t.date&&t.date.slice(0,7)===mon);
+    const monTxs = S.transactions.filter(t=>t.date&&t.date.slice(0,7)===mon&&t.type!=='transfer');
     const recItems = S.recurring.items.filter(i=>i.months?.[mon]?.paid);
     const recCards = S.recurring.creditCards.filter(c=>c.months?.[mon]?.paid);
 
@@ -735,6 +745,7 @@ function renderQuickAdd() {
     {type:'recurring-income', label:'Recurring Income'},
     {type:'bill',  label:'Monthly Bill'},
     {type:'card',  label:'Credit Card'},
+    {type:'transfer', label:'Transfer'},
   ];
   const typeChips = entryTypes.map(({type,label}) =>
     `<button class="toggle-chip${S.addEntryType===type?' active':''}" data-action="set-entry-type" data-type="${type}">${label}</button>`
@@ -786,6 +797,19 @@ function renderQuickAdd() {
         <div><label class="form-label">Due day *</label><input class="input" type="number" name="dueDay" min="1" max="31" placeholder="5" required></div>
       </div>
       <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-entry">Cancel</button><button type="submit" class="btn btn-accent">Add</button></div>
+    </form>`;
+  } else if (S.addEntryType==='transfer') {
+    entryForm = `<form data-action="add-transfer">
+      <div class="form-row-2">
+        <div><label class="form-label">From Currency</label><div class="select-wrap"><select class="input" name="fromCurrency">${curOptions(S.txCurrency)}</select></div></div>
+        <div><label class="form-label">Amount Sent *</label><input class="input" type="number" name="fromAmount" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required></div>
+      </div>
+      <div class="form-row-2">
+        <div><label class="form-label">To Currency</label><div class="select-wrap"><select class="input" name="toCurrency">${curOptions(otherCur(S.txCurrency))}</select></div></div>
+        <div><label class="form-label">Amount Received *</label><input class="input" type="number" name="toAmount" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required></div>
+      </div>
+      <div class="form-row"><label class="form-label">Note <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label><input class="input" type="text" name="note" placeholder="e.g. Wise transfer" maxlength="120"></div>
+      <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-entry">Cancel</button><button type="submit" class="btn btn-accent">${svgPlus} Add Transfer</button></div>
     </form>`;
   }
 
@@ -915,6 +939,7 @@ function renderHeroCards() {
   for (const t of S.transactions) {
     if (!t.date || localTxMonth(t.date) !== mon) continue;
     if (recurTxIds.has(t.id)) continue;
+    if (t.type==='transfer') continue;
     add(getCur(t), t.type==='income'?'income':'expense', t.amount);
   }
   // confirmed recurring income / paid bills for this month
@@ -981,6 +1006,14 @@ function renderActivity() {
   if (!S.transactions.length) return `<div class="card">${hdr}<div class="empty"><p>Nothing here yet</p></div></div>`;
   const sorted = [...S.transactions].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12);
   const rows = sorted.map(t => {
+    if (t.type==='transfer') {
+      return `<li class="tx-row">
+        <div class="tx-icon transfer">${svgTransfer}</div>
+        <div class="tx-body"><div class="tx-cat">Transfer</div><div class="tx-meta">${t.note?esc(t.note)+' · ':''}${fmtDate(t.date)}</div></div>
+        <div class="tx-right"><div class="tx-amount transfer">${formatMoney(t.fromAmount,t.fromCurrency)} → ${formatMoney(t.toAmount,t.toCurrency)}</div></div>
+        <button class="tx-del" data-action="del-tx" data-id="${t.id}" title="Delete">${svgTrash}</button>
+      </li>`;
+    }
     const isIncome = t.type==='income';
     return `<li class="tx-row">
       <div class="tx-icon ${t.type}">${isIncome?svgArrowUp:svgArrowDown}</div>
@@ -1294,6 +1327,14 @@ function handleSubmit(e) {
     S.recurring.creditCards.push({id:uid(),name:d.name.trim(),currency:d.currency,dueDay,months:{},createdAt:todayISO()});
     if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
     S.addEntryType=null; save(); renderDashboard(); toast('Card added'); return;
+  }
+  if (action==='add-transfer') {
+    const fromAmount = parseFloat(d.fromAmount), toAmount = parseFloat(d.toAmount);
+    if (!fromAmount||fromAmount<=0||!toAmount||toAmount<=0) return toast('Enter valid amounts');
+    if (d.fromCurrency===d.toCurrency) return toast('Choose two different currencies');
+    S.transactions.unshift({id:uid(),type:'transfer',fromCurrency:d.fromCurrency,fromAmount,toCurrency:d.toCurrency,toAmount,currency:d.fromCurrency,note:d.note||undefined,date:new Date().toISOString()});
+    S.txCurrency=d.fromCurrency; localStorage.setItem('mmc.lastCurrency.v1',d.fromCurrency);
+    S.addEntryType=null; save(); renderOverview(); renderDashboard(); toast('Transfer recorded'); return;
   }
   if (action==='save-card-bill') {
     const card = S.recurring.creditCards.find(c=>c.id===form.dataset.id); if (!card) return;
