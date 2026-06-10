@@ -727,82 +727,7 @@ function renderHistory() {
 
 function ordinal(n) { const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
 
-function renderRecurringSection() {
-  const mon = thisMonth();
-  const incomeItems = S.recurring.items.filter(i=>i.type==='income');
-  const billItems   = S.recurring.items.filter(i=>i.type==='expense');
-  const cards       = S.recurring.creditCards;
-
-  // --- Income rows ---
-  const incomeRows = incomeItems.map(item => {
-    const ms = item.months||{}, paid = ms[mon]?.paid;
-    const c = item.currency||'USD';
-    return `<div class="p-row">
-      <div class="p-row-icon sav">${svgArrowUp.replace('stroke="currentColor"','stroke="#059669"')}</div>
-      <div class="p-row-meta">
-        <div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span></div>
-        <div class="p-row-sub">${item.category||'Salary'}${item.dayOfMonth?' · '+ordinal(item.dayOfMonth)+' of month':''}</div>
-      </div>
-      <div class="p-row-right">
-        <div><div class="p-row-amt-lbl">Monthly</div><div class="p-row-amt grn">${formatMoney(item.amount,c)}</div></div>
-        <div class="p-row-btns" style="gap:4px">
-          ${paid
-            ? `<span class="rec-badge paid">✓ Credited</span><button class="btn btn-outline rec-btn" data-action="unmark-recurring-item" data-id="${item.id}">Undo</button>`
-            : `<button class="btn btn-accent rec-btn" data-action="confirm-recurring" data-id="${item.id}">Confirm</button>`}
-          <button class="ibtn del" data-action="del-recurring-item" data-id="${item.id}" title="Delete">${svgTrash}</button>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-
-  // --- Bill rows ---
-  const billRows = billItems.map(item => {
-    const ms = item.months||{}, paid = ms[mon]?.paid;
-    const c = item.currency||'USD';
-    const lastAmt = ms[mon]?.amount || item.amount || 0;
-    return `<div class="p-row">
-      <div class="p-row-icon loan">${svgArrowDown.replace('stroke="currentColor"','stroke="#e11d48"')}</div>
-      <div class="p-row-meta">
-        <div class="p-row-name">${esc(item.name)}<span class="cur-pill red">${c}</span></div>
-        <div class="p-row-sub">${item.isVariable?'Variable':'Fixed · '+formatMoney(item.amount,c)}${item.dayOfMonth?' · Due '+ordinal(item.dayOfMonth):''}</div>
-      </div>
-      <div class="p-row-right" style="gap:6px">
-        ${paid
-          ? `<span class="rec-badge paid">✓ Paid</span><button class="btn btn-outline rec-btn" data-action="unmark-recurring-item" data-id="${item.id}">Undo</button>`
-          : item.isVariable
-            ? `<form data-action="mark-variable-bill" data-id="${item.id}" style="display:flex;gap:6px;align-items:center">
-                <input class="input rec-amt-input" type="number" name="amount" inputmode="decimal" placeholder="Amount" value="${lastAmt||''}" min="0.01" step="0.01" required>
-                <button type="submit" class="btn btn-accent rec-btn">Paid</button>
-               </form>`
-            : `<button class="btn btn-accent rec-btn" data-action="mark-bill-paid" data-id="${item.id}">Mark Paid</button>`}
-        <button class="ibtn del" data-action="del-recurring-item" data-id="${item.id}" title="Delete">${svgTrash}</button>
-      </div>
-    </div>`;
-  }).join('');
-
-  // --- Card rows ---
-  const cardRows = cards.map(card => {
-    const ms = card.months||{}, paid = ms[mon]?.paid, billAmt = ms[mon]?.amount||0;
-    const c = card.currency||'INR';
-    return `<div class="p-row">
-      <div class="p-row-icon" style="background:#ede9fe">${svgCard.replace('stroke="currentColor"','stroke="#7c3aed"')}</div>
-      <div class="p-row-meta">
-        <div class="p-row-name">${esc(card.name)}<span class="cur-pill amb">${c}</span></div>
-        <div class="p-row-sub">Due ${ordinal(card.dueDay)} of month</div>
-      </div>
-      <div class="p-row-right" style="gap:6px">
-        ${paid
-          ? `<span class="rec-badge paid">✓ Paid · ${formatMoney(billAmt,c)}</span><button class="btn btn-outline rec-btn" data-action="unmark-card" data-id="${card.id}">Undo</button>`
-          : `<form data-action="save-card-bill" data-id="${card.id}" style="display:flex;gap:6px;align-items:center">
-              <input class="input rec-amt-input" type="number" name="amount" inputmode="decimal" placeholder="Bill amt" value="${billAmt||''}" min="0" step="0.01">
-              <button type="submit" class="btn btn-accent rec-btn">Paid</button>
-             </form>`}
-        <button class="ibtn del" data-action="del-credit-card" data-id="${card.id}" title="Delete">${svgTrash}</button>
-      </div>
-    </div>`;
-  }).join('');
-
-  // --- Unified add entry panel ---
+function renderQuickAdd() {
   const entryTypes = [
     {type:'tx-expense', label:'Expense'},
     {type:'tx-income',  label:'Income'},
@@ -870,20 +795,106 @@ function renderRecurringSection() {
       </div>`
     : `<button class="add-row-btn" data-action="toggle-add-entry">${svgPlus} Add Entry</button>`;
 
-  return `<div class="card">
-    <div class="sec-hdr">
-      <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Recurring & Bills</span></div><div class="sec-sub">Auto-tracks monthly salary, bills & cards</div></div>
-    </div>
-    ${incomeItems.length ? `<div class="rec-sub-hdr">Income</div>${incomeRows}` : ''}
+  return `<div class="card">${addPanel}</div>`;
+}
+
+function renderRecurringIncome() {
+  const mon = thisMonth();
+  const incomeItems = S.recurring.items.filter(i=>i.type==='income');
+
+  const incomeRows = incomeItems.map(item => {
+    const ms = item.months||{}, paid = ms[mon]?.paid;
+    const c = item.currency||'USD';
+    return `<div class="p-row">
+      <div class="p-row-icon sav">${svgArrowUp.replace('stroke="currentColor"','stroke="#059669"')}</div>
+      <div class="p-row-meta">
+        <div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span></div>
+        <div class="p-row-sub">${item.category||'Salary'}${item.dayOfMonth?' · '+ordinal(item.dayOfMonth)+' of month':''}</div>
+      </div>
+      <div class="p-row-right">
+        <div><div class="p-row-amt-lbl">Monthly</div><div class="p-row-amt grn">${formatMoney(item.amount,c)}</div></div>
+        <div class="p-row-btns" style="gap:4px">
+          ${paid
+            ? `<span class="rec-badge paid">✓ Credited</span><button class="btn btn-outline rec-btn" data-action="unmark-recurring-item" data-id="${item.id}">Undo</button>`
+            : `<button class="btn btn-accent rec-btn" data-action="confirm-recurring" data-id="${item.id}">Confirm</button>`}
+          <button class="ibtn del" data-action="del-recurring-item" data-id="${item.id}" title="Delete">${svgTrash}</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const hdr = `<div class="sec-hdr">
+      <div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Recurring Income</span></div><div class="sec-sub">Salary & other monthly income</div></div>
+    </div>`;
+
+  if (!incomeItems.length) return `<div class="card">${hdr}<div class="empty"><p>No recurring income set up</p></div></div>`;
+  return `<div class="card">${hdr}${incomeRows}</div>`;
+}
+
+function renderBillsAndCards() {
+  const mon = thisMonth();
+  const billItems = S.recurring.items.filter(i=>i.type==='expense');
+  const cards     = S.recurring.creditCards;
+
+  const billRows = billItems.map(item => {
+    const ms = item.months||{}, paid = ms[mon]?.paid;
+    const c = item.currency||'USD';
+    const lastAmt = ms[mon]?.amount || item.amount || 0;
+    return `<div class="p-row">
+      <div class="p-row-icon loan">${svgArrowDown.replace('stroke="currentColor"','stroke="#e11d48"')}</div>
+      <div class="p-row-meta">
+        <div class="p-row-name">${esc(item.name)}<span class="cur-pill red">${c}</span></div>
+        <div class="p-row-sub">${item.isVariable?'Variable':'Fixed · '+formatMoney(item.amount,c)}${item.dayOfMonth?' · Due '+ordinal(item.dayOfMonth):''}</div>
+      </div>
+      <div class="p-row-right" style="gap:6px">
+        ${paid
+          ? `<span class="rec-badge paid">✓ Paid</span><button class="btn btn-outline rec-btn" data-action="unmark-recurring-item" data-id="${item.id}">Undo</button>`
+          : item.isVariable
+            ? `<form data-action="mark-variable-bill" data-id="${item.id}" style="display:flex;gap:6px;align-items:center">
+                <input class="input rec-amt-input" type="number" name="amount" inputmode="decimal" placeholder="Amount" value="${lastAmt||''}" min="0.01" step="0.01" required>
+                <button type="submit" class="btn btn-accent rec-btn">Paid</button>
+               </form>`
+            : `<button class="btn btn-accent rec-btn" data-action="mark-bill-paid" data-id="${item.id}">Mark Paid</button>`}
+        <button class="ibtn del" data-action="del-recurring-item" data-id="${item.id}" title="Delete">${svgTrash}</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  const cardRows = cards.map(card => {
+    const ms = card.months||{}, paid = ms[mon]?.paid, billAmt = ms[mon]?.amount||0;
+    const c = card.currency||'INR';
+    return `<div class="p-row">
+      <div class="p-row-icon" style="background:#ede9fe">${svgCard.replace('stroke="currentColor"','stroke="#7c3aed"')}</div>
+      <div class="p-row-meta">
+        <div class="p-row-name">${esc(card.name)}<span class="cur-pill amb">${c}</span></div>
+        <div class="p-row-sub">Due ${ordinal(card.dueDay)} of month</div>
+      </div>
+      <div class="p-row-right" style="gap:6px">
+        ${paid
+          ? `<span class="rec-badge paid">✓ Paid · ${formatMoney(billAmt,c)}</span><button class="btn btn-outline rec-btn" data-action="unmark-card" data-id="${card.id}">Undo</button>`
+          : `<form data-action="save-card-bill" data-id="${card.id}" style="display:flex;gap:6px;align-items:center">
+              <input class="input rec-amt-input" type="number" name="amount" inputmode="decimal" placeholder="Bill amt" value="${billAmt||''}" min="0" step="0.01">
+              <button type="submit" class="btn btn-accent rec-btn">Paid</button>
+             </form>`}
+        <button class="ibtn del" data-action="del-credit-card" data-id="${card.id}" title="Delete">${svgTrash}</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  const hdr = `<div class="sec-hdr">
+      <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Bills & Cards</span></div><div class="sec-sub">Monthly bills & credit card payments</div></div>
+    </div>`;
+
+  if (!billItems.length && !cards.length) return `<div class="card">${hdr}<div class="empty"><p>No bills or cards set up</p></div></div>`;
+  return `<div class="card">${hdr}
     ${billItems.length ? `<div class="rec-sub-hdr">Monthly Bills</div>${billRows}` : ''}
     ${cards.length ? `<div class="rec-sub-hdr">Credit Cards</div>${cardRows}` : ''}
-    ${addPanel}
   </div>`;
 }
 
 function renderDashboard() {
   document.getElementById('tab-transactions').innerHTML =
-    renderHeroCards() + renderCatBreakdown() + renderRecurringSection() + renderActivity();
+    renderHeroCards() + renderQuickAdd() + renderCatBreakdown() + renderRecurringIncome() + renderBillsAndCards() + renderActivity();
 }
 
 function renderHeroCards() {
