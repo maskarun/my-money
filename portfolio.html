@@ -888,13 +888,31 @@ function renderDashboard() {
 
 function renderHeroCards() {
   const mon = thisMonth();
-  const monthLabel = new Date(parseInt(mon),parseInt(mon.slice(5))-1,1).toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  const monthLabel = fmtMonth(mon);
   const byCur = {};
+  const add = (cur, type, amt) => { if (!byCur[cur]) byCur[cur]={income:0,expense:0}; byCur[cur][type]+=amt; };
+
+  // recurring-linked txIds for this month (avoid double counting with S.transactions)
+  const recurTxIds = new Set();
+  for (const item of (S.recurring?.items||[])) { const ms=item.months?.[mon]; if (ms?.txId) recurTxIds.add(ms.txId); }
+  for (const card of (S.recurring?.creditCards||[])) { const ms=card.months?.[mon]; if (ms?.txId) recurTxIds.add(ms.txId); }
+
   for (const t of S.transactions) {
     if (!t.date || localTxMonth(t.date) !== mon) continue;
-    const c = getCur(t); if (!byCur[c]) byCur[c] = {income:0,expense:0};
-    if (t.type==='income') byCur[c].income+=t.amount; else byCur[c].expense+=t.amount;
+    if (recurTxIds.has(t.id)) continue;
+    add(getCur(t), t.type==='income'?'income':'expense', t.amount);
   }
+  // confirmed recurring income / paid bills for this month
+  for (const item of (S.recurring?.items||[])) {
+    const ms = item.months?.[mon];
+    if (ms?.paid && ms.amount>0) add(item.currency||'USD', item.type==='income'?'income':'expense', ms.amount);
+  }
+  // paid credit card bills for this month
+  for (const card of (S.recurring?.creditCards||[])) {
+    const ms = card.months?.[mon];
+    if (ms?.paid && ms.amount>0) add(card.currency||'USD', 'expense', ms.amount);
+  }
+
   if (!Object.keys(byCur).length) byCur['USD'] = {income:0,expense:0};
   return Object.entries(byCur).map(([cur,{income,expense}]) => `
   <div class="card-hero">
@@ -926,7 +944,7 @@ function renderCatBreakdown() {
     if (ms?.paid && ms.amount>0) add(card.currency||'INR', 'Credit Card', ms.amount);
   }
   const curs = Object.keys(byCur);
-  const monthLabel = new Date(parseInt(mon),parseInt(mon.slice(5))-1,1).toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  const monthLabel = fmtMonth(mon);
   if (!curs.length) return `<div class="card"><div class="sec-hdr-pad" style="padding-bottom:14px"><div style="font-size:14px;font-weight:800">By Category <span style="font-weight:400;font-size:12px;color:var(--muted-fg)">${monthLabel}</span></div></div><div class="empty" style="padding-top:8px"><p>No expenses yet</p></div></div>`;
   const sections = curs.map(cur => {
     const cats = byCur[cur], total = Object.values(cats).reduce((a,b)=>a+b,0);
