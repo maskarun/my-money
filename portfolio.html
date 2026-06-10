@@ -747,7 +747,7 @@ function renderRecurringSection() {
         <div><div class="p-row-amt-lbl">Monthly</div><div class="p-row-amt grn">${formatMoney(item.amount,c)}</div></div>
         <div class="p-row-btns" style="gap:4px">
           ${paid
-            ? `<span class="rec-badge paid">✓ Credited</span>`
+            ? `<span class="rec-badge paid">✓ Credited</span><button class="btn btn-outline rec-btn" data-action="unmark-recurring-item" data-id="${item.id}">Undo</button>`
             : `<button class="btn btn-accent rec-btn" data-action="confirm-recurring" data-id="${item.id}">Confirm</button>`}
           <button class="ibtn del" data-action="del-recurring-item" data-id="${item.id}" title="Delete">${svgTrash}</button>
         </div>
@@ -768,7 +768,7 @@ function renderRecurringSection() {
       </div>
       <div class="p-row-right" style="gap:6px">
         ${paid
-          ? `<span class="rec-badge paid">✓ Paid</span>`
+          ? `<span class="rec-badge paid">✓ Paid</span><button class="btn btn-outline rec-btn" data-action="unmark-recurring-item" data-id="${item.id}">Undo</button>`
           : item.isVariable
             ? `<form data-action="mark-variable-bill" data-id="${item.id}" style="display:flex;gap:6px;align-items:center">
                 <input class="input rec-amt-input" type="number" name="amount" inputmode="decimal" placeholder="Amount" value="${lastAmt||''}" min="0.01" step="0.01" required>
@@ -792,7 +792,7 @@ function renderRecurringSection() {
       </div>
       <div class="p-row-right" style="gap:6px">
         ${paid
-          ? `<span class="rec-badge paid">✓ Paid · ${formatMoney(billAmt,c)}</span>`
+          ? `<span class="rec-badge paid">✓ Paid · ${formatMoney(billAmt,c)}</span><button class="btn btn-outline rec-btn" data-action="unmark-card" data-id="${card.id}">Undo</button>`
           : `<form data-action="save-card-bill" data-id="${card.id}" style="display:flex;gap:6px;align-items:center">
               <input class="input rec-amt-input" type="number" name="amount" inputmode="decimal" placeholder="Bill amt" value="${billAmt||''}" min="0" step="0.01">
               <button type="submit" class="btn btn-accent rec-btn">Paid</button>
@@ -1377,6 +1377,20 @@ function handleClick(e) {
     S.transactions.unshift({id:txId,type:'income',amount:item.amount,category:item.category||'Salary',note:item.name,date:new Date().toISOString(),currency:item.currency||'USD'});
     item.months[mon] = {paid:true, amount:item.amount, txId};
     save(); renderOverview(); renderDashboard(); toast(item.name+' credited'); return;
+  }
+  if (action==='unmark-recurring-item') {
+    const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
+    const mon = thisMonth(); const ms = item.months?.[mon]; if (!ms) return;
+    if (ms.txId) S.transactions = S.transactions.filter(t=>t.id!==ms.txId);
+    ms.paid = false; ms.txId = undefined;
+    save(); renderOverview(); renderDashboard(); toast(item.name+' marked unpaid'); return;
+  }
+  if (action==='unmark-card') {
+    const card = S.recurring.creditCards.find(c=>c.id===btn.dataset.id); if (!card) return;
+    const mon = thisMonth(); const ms = card.months?.[mon]; if (!ms) return;
+    if (ms.txId) S.transactions = S.transactions.filter(t=>t.id!==ms.txId);
+    ms.paid = false; ms.txId = undefined;
+    save(); renderOverview(); renderDashboard(); toast(card.name+' marked unpaid'); return;
   }
   if (action==='del-recurring-item') {
     if (!confirm('Remove this recurring entry?')) return;
