@@ -633,12 +633,19 @@ function renderHistory() {
 
   const sorted = [...months].sort((a,b)=>b.localeCompare(a));
   const monthCards = sorted.map(mon => {
-    const monTxs = S.transactions.filter(t=>t.date&&t.date.slice(0,7)===mon&&t.type!=='transfer');
+    const monTxs = S.transactions.filter(t=>t.date&&t.date.slice(0,7)===mon);
     const recItems = S.recurring.items.filter(i=>i.months?.[mon]?.paid);
     const recCards = S.recurring.creditCards.filter(c=>c.months?.[mon]?.paid);
 
     const byCur = {};
     for (const t of monTxs) {
+      if (t.type==='transfer') {
+        if(!byCur[t.fromCurrency]) byCur[t.fromCurrency]={income:0,expense:0};
+        if(!byCur[t.toCurrency]) byCur[t.toCurrency]={income:0,expense:0};
+        byCur[t.fromCurrency].expense += t.fromAmount;
+        byCur[t.toCurrency].income += t.toAmount;
+        continue;
+      }
       const c=getCur(t); if(!byCur[c]) byCur[c]={income:0,expense:0};
       if(t.type==='income') byCur[c].income+=t.amount; else byCur[c].expense+=t.amount;
     }
@@ -657,6 +664,14 @@ function renderHistory() {
       let txSection = '';
       if (monTxs.length) {
         const rows = monTxs.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(t=>{
+          if (t.type==='transfer') {
+            return `<tr>
+              <td>${fmtDate(t.date)}</td>
+              <td>Transfer${t.note?`<div class="hist-note">${esc(t.note)}</div>`:''}</td>
+              <td><span class="cur-pill">${t.fromCurrency}→${t.toCurrency}</span></td>
+              <td>${formatMoney(t.fromAmount,t.fromCurrency)} → ${formatMoney(t.toAmount,t.toCurrency)}</td>
+            </tr>`;
+          }
           const c=getCur(t), isInc=t.type==='income';
           return `<tr>
             <td>${fmtDate(t.date)}</td>
@@ -939,7 +954,7 @@ function renderHeroCards() {
   for (const t of S.transactions) {
     if (!t.date || localTxMonth(t.date) !== mon) continue;
     if (recurTxIds.has(t.id)) continue;
-    if (t.type==='transfer') continue;
+    if (t.type==='transfer') { add(t.fromCurrency,'expense',t.fromAmount); add(t.toCurrency,'income',t.toAmount); continue; }
     add(getCur(t), t.type==='income'?'income':'expense', t.amount);
   }
   // confirmed recurring income / paid bills for this month
