@@ -870,7 +870,6 @@ function renderRecurringIncome() {
   const isOpen = S.secOpen.recIncome;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="recIncome" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
       <div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Recurring Income</span></div><div class="sec-sub">Salary & other monthly income</div></div>
-      <div class="p-chev${isOpen?' open':''}">${svgChevron}</div>
     </div>`;
 
   if (!isOpen) return `<div class="card">${hdr}</div>`;
@@ -935,7 +934,6 @@ function renderBillsAndCards() {
   const isOpen = S.secOpen.bills;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="bills" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
       <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Bills & Cards</span></div><div class="sec-sub">Monthly bills & credit card payments</div></div>
-      <div class="p-chev${isOpen?' open':''}">${svgChevron}</div>
     </div>`;
 
   if (!isOpen) return `<div class="card">${hdr}</div>`;
@@ -1070,10 +1068,7 @@ function renderActivity() {
   const isOpen = S.secOpen.tx;
   const hdr = `<div class="sec-hdr-pad" data-action="toggle-section" data-sec="tx" style="cursor:pointer">
     <div style="font-size:14px;font-weight:800">Transactions</div>
-    <div style="display:flex;align-items:center;gap:8px">
-      ${S.transactions.length?`<span class="text-muted text-sm">${S.transactions.length} total</span>`:''}
-      <div class="p-chev${isOpen?' open':''}">${svgChevron}</div>
-    </div>
+    ${S.transactions.length?`<span class="text-muted text-sm">${S.transactions.length} total</span>`:''}
   </div>`;
   if (!isOpen) return `<div class="card">${hdr}</div>`;
   if (!S.transactions.length) return `<div class="card">${hdr}<div class="empty"><p>Nothing here yet</p></div></div>`;
@@ -1149,7 +1144,7 @@ function renderSavings() {
   const addHtml = S.addingSaving ? `<div class="add-form">${savingForm(null)}</div>` : `<button class="add-row-btn" data-action="toggle-add-saving">${svgPlus} Add entry</button>`;
   const isOpen = S.secOpen.savings;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="savings" style="cursor:pointer">
-      <div><div class="sec-title-row"><span class="p-chev${isOpen?' open':''}" style="margin-right:2px">${svgChevron}</span><span class="sec-dot green"></span><span class="sec-title">Savings</span></div><div class="sec-sub">Bank accounts, deposits, cash</div></div>
+      <div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Savings</span></div><div class="sec-sub">Bank accounts, deposits, cash</div></div>
       ${items.length?`<div class="sec-totals"><div class="sec-total-lbl">Total Balance</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt grn">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
     </div>`;
   if (!isOpen) return `<div class="card">${hdr}</div>`;
@@ -1274,7 +1269,7 @@ function renderLoans() {
   const addHtml = S.addingLoan ? `<div class="add-form">${loanForm(null)}</div>` : `<button class="add-row-btn" data-action="toggle-add-loan">${svgPlus} Add loan</button>`;
   const isOpen = S.secOpen.loans;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="loans" style="cursor:pointer">
-      <div><div class="sec-title-row"><span class="p-chev${isOpen?' open':''}" style="margin-right:2px">${svgChevron}</span><span class="sec-dot red"></span><span class="sec-title">Loans</span></div><div class="sec-sub">EMI-based amortising loans</div></div>
+      <div><div class="sec-title-row"><span class="sec-dot red"></span><span class="sec-title">Loans</span></div><div class="sec-sub">EMI-based amortising loans</div></div>
       ${Object.keys(totals).length?`<div class="sec-totals"><div class="sec-total-lbl">Outstanding Today</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt red">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
     </div>`;
   if (!isOpen) return `<div class="card">${hdr}</div>`;
@@ -1341,7 +1336,7 @@ function renderGoldLoans() {
   const addHtml = S.addingGoldLoan ? `<div class="add-form">${goldLoanForm(null)}</div>` : `<button class="add-row-btn" data-action="toggle-add-gold">${svgPlus} Add Gold Loan</button>`;
   const isOpen = S.secOpen.goldLoans;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="goldLoans" style="cursor:pointer">
-      <div><div class="sec-title-row"><span class="p-chev${isOpen?' open':''}" style="margin-right:2px">${svgChevron}</span><span class="sec-dot amber"></span><span class="sec-title">Gold Loans</span></div><div class="sec-sub">Bullet repayment, daily interest</div></div>
+      <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Gold Loans</span></div><div class="sec-sub">Bullet repayment, daily interest</div></div>
       ${Object.keys(totals).length?`<div class="sec-totals"><div class="sec-total-lbl">Total Owed</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt amb">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
     </div>`;
   if (!isOpen) return `<div class="card">${hdr}</div>`;
