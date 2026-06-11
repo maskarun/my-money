@@ -96,15 +96,15 @@ a { color: inherit; text-decoration: none; }
 /* Hero card */
 .card-hero {
   background: linear-gradient(135deg, #0369a1 0%, #0284c7 55%, #0ea5e9 100%);
-  color: #fff; border-radius: var(--radius); padding: 18px;
-  box-shadow: var(--shadow-bold); margin-bottom: 12px;
+  color: #fff; border-radius: var(--radius); padding: 12px 14px;
+  box-shadow: var(--shadow-bold); margin-bottom: 10px;
 }
-.card-hero .eyebrow { font-size: 9px; font-weight: 700; letter-spacing: 1.6px; opacity: .6; text-transform: uppercase; }
-.card-hero .amount { font-size: 32px; font-weight: 900; letter-spacing: -1.2px; margin-top: 4px; font-variant-numeric: tabular-nums; }
-.card-hero .chips { display: flex; gap: 8px; margin-top: 12px; }
-.card-hero .chip { background: rgba(255,255,255,.15); border-radius: 8px; padding: 6px 10px; flex: 1; }
+.card-hero .eyebrow { font-size: 8px; font-weight: 700; letter-spacing: 1.4px; opacity: .6; text-transform: uppercase; }
+.card-hero .amount { font-size: 22px; font-weight: 900; letter-spacing: -1px; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.card-hero .chips { display: flex; gap: 6px; margin-top: 8px; }
+.card-hero .chip { background: rgba(255,255,255,.15); border-radius: 7px; padding: 4px 8px; flex: 1; }
 .card-hero .chip-lbl { font-size: 8px; font-weight: 700; opacity: .6; letter-spacing: .8px; text-transform: uppercase; }
-.card-hero .chip-val { font-size: 13px; font-weight: 800; margin-top: 1px; font-variant-numeric: tabular-nums; }
+.card-hero .chip-val { font-size: 12px; font-weight: 800; margin-top: 1px; font-variant-numeric: tabular-nums; }
 .card-hero .chip-val.inc { color: #d1fae5; }
 .card-hero .chip-val.exp { color: #fee2e2; }
 
@@ -417,7 +417,7 @@ const S = {
   txCurrency: 'USD',
   addingSaving: false, addingLoan: false, addingGoldLoan: false, addingInvestment: false,
   addEntryType: null,
-  editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, showingPPForm: null, expandedMonth: null,
+  editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, showingPPForm: null, expandedMonth: null, catExpanded: false,
 };
 
 function save() {
@@ -1011,7 +1011,13 @@ function renderCatBreakdown() {
 
   const curs = [...new Set([...Object.keys(expByCur), ...Object.keys(incByCur)])];
   const monthLabel = fmtMonth(mon);
-  if (!curs.length && !transfers.length) return `<div class="card"><div class="sec-hdr-pad" style="padding-bottom:14px"><div style="font-size:14px;font-weight:800">By Category <span style="font-weight:400;font-size:12px;color:var(--muted-fg)">${monthLabel}</span></div></div><div class="empty" style="padding-top:8px"><p>No activity yet</p></div></div>`;
+  const isExpanded = S.catExpanded;
+  const hdr = `<div class="sec-hdr-pad" data-action="toggle-cat-breakdown" style="cursor:pointer;padding-bottom:${isExpanded?'10px':'14px'}">
+    <div style="font-size:14px;font-weight:800">By Category <span style="font-weight:400;font-size:12px;color:var(--muted-fg)">${monthLabel}</span></div>
+    <div class="p-chev${isExpanded?' open':''}">${svgChevron}</div>
+  </div>`;
+  if (!curs.length && !transfers.length) return `<div class="card">${hdr}${isExpanded?`<div class="empty" style="padding-top:8px"><p>No activity yet</p></div>`:''}</div>`;
+  if (!isExpanded) return `<div class="card">${hdr}</div>`;
 
   const sections = curs.map(cur => {
     let html = curs.length>1 ? `<div class="cur-section-label">${cur}</div>` : '';
@@ -1050,7 +1056,7 @@ function renderCatBreakdown() {
     ).join('');
   }
 
-  return `<div class="card"><div class="sec-hdr-pad" style="padding-bottom:10px"><div style="font-size:14px;font-weight:800">By Category <span style="font-weight:400;font-size:12px;color:var(--muted-fg)">${monthLabel}</span></div></div><div class="cat-wrap">${sections}${transferSection}</div></div>`;
+  return `<div class="card">${hdr}<div class="cat-wrap">${sections}${transferSection}</div></div>`;
 }
 
 function renderActivity() {
@@ -1563,6 +1569,7 @@ function handleClick(e) {
   if (action==='toggle-loan') { S.expandedLoan=S.expandedLoan===btn.dataset.id?null:btn.dataset.id; S.showingPPForm=null; renderPortfolio(); return; }
   if (action==='toggle-pp-form') { S.showingPPForm=S.showingPPForm===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
   if (action==='toggle-month') { S.expandedMonth=S.expandedMonth===btn.dataset.month?null:btn.dataset.month; renderHistory(); return; }
+  if (action==='toggle-cat-breakdown') { S.catExpanded=!S.catExpanded; renderDashboard(); return; }
   if (action==='del-part-payment') {
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.loanId);
     if (loan) { loan.partPayments=(loan.partPayments||[]).filter(p=>p.id!==btn.dataset.paymentId); save(); renderPortfolio(); }
