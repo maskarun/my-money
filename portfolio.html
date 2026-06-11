@@ -221,6 +221,11 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .ibtn { width: 24px; height: 24px; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 6px; color: #cbd5e1; transition: color .15s, background .15s; flex-shrink: 0; }
 .ibtn:hover { background: var(--muted); color: #64748b; }
 .ibtn.del:hover { background: #fff1f2; color: var(--expense); }
+.ibtn:disabled { opacity: .35; cursor: default; }
+.ibtn:disabled:hover { background: transparent; color: #cbd5e1; }
+.month-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; }
+.month-nav-label { font-size: 13px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+.link-btn { font-size: 11px; font-weight: 700; color: var(--accent); background: none; border: none; padding: 0; cursor: pointer; text-decoration: underline; }
 .p-chev { width: 20px; height: 20px; border-radius: 6px; background: var(--muted); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; }
 .p-chev svg { transition: transform .2s; }
 .p-chev.open svg { transform: rotate(90deg); }
@@ -418,7 +423,7 @@ const S = {
   txCurrency: 'USD',
   addingSaving: false, addingLoan: false, addingGoldLoan: false, addingInvestment: false,
   addEntryType: null,
-  editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, showingPPForm: null, expandedMonth: null,
+  editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, showingPPForm: null, expandedMonth: null, selectedMonth: null,
   secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: true, savings: true, loans: true, goldLoans: true },
 };
 
@@ -443,6 +448,7 @@ function load() {
   if (!S.transactions.length) { try { const tx = localStorage.getItem('budget.tx.v1'); if (tx) S.transactions = JSON.parse(tx); } catch(e) {} }
   if (!S.portfolio.savings.length && !S.portfolio.loans.length) { try { const p = localStorage.getItem('budget.portfolio.v1'); if (p) S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[]}, JSON.parse(p)); } catch(e) {} }
   S.txCurrency = localStorage.getItem('mmc.lastCurrency.v1') || localStorage.getItem('budget.lastCurrency.v1') || 'USD';
+  S.selectedMonth = thisMonth();
 }
 
 const uid = () => { try { return crypto.randomUUID(); } catch(e) { return Math.random().toString(36).slice(2)+Date.now().toString(36); } };
@@ -539,6 +545,8 @@ const svgArrowDown = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none
 const svgTrash     = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6m5 0V4h4v2"/></svg>`;
 const svgPlus      = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
 const svgChevron   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>`;
+const svgChevronLeft  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>`;
+const svgChevronRight = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>`;
 const svgEdit      = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4z"/></svg>`;
 const svgBank      = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3H8L2 7h20l-6-4z"/></svg>`;
 const svgHome      = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`;
@@ -622,6 +630,12 @@ const localTxMonth = iso => { const d=new Date(iso); return `${d.getFullYear()}-
 
 function fmtMonth(mon) {
   return new Date(parseInt(mon),parseInt(mon.slice(5))-1,1).toLocaleDateString('en-US',{month:'long',year:'numeric'});
+}
+
+function shiftMonth(mon, delta) {
+  const [y,m] = mon.split('-').map(Number);
+  const d = new Date(y, m-1+delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 }
 
 function renderHistory() {
@@ -917,11 +931,21 @@ function renderCreditCards() {
 
 function renderDashboard() {
   document.getElementById('tab-transactions').innerHTML =
-    renderHeroCards() + renderQuickAdd() + renderCatBreakdown() + renderRecurringIncome() + renderBills() + renderCreditCards() + renderActivity();
+    renderMonthNav() + renderHeroCards() + renderQuickAdd() + renderCatBreakdown() + renderRecurringIncome() + renderBills() + renderCreditCards() + renderActivity();
+}
+
+function renderMonthNav() {
+  const label = fmtMonth(S.selectedMonth);
+  const isCurrent = S.selectedMonth === thisMonth();
+  return `<div class="card month-nav">
+    <button class="ibtn" data-action="prev-month" title="Previous month">${svgChevronLeft}</button>
+    <div class="month-nav-label">${label}${isCurrent?'':` <button class="link-btn" data-action="goto-current-month">Today</button>`}</div>
+    <button class="ibtn" data-action="next-month" ${isCurrent?'disabled':''} title="Next month">${svgChevronRight}</button>
+  </div>`;
 }
 
 function renderHeroCards() {
-  const mon = thisMonth();
+  const mon = S.selectedMonth;
   const monthLabel = fmtMonth(mon);
   const byCur = {};
   const add = (cur, type, amt) => { if (!byCur[cur]) byCur[cur]={income:0,expense:0}; byCur[cur][type]+=amt; };
@@ -961,7 +985,7 @@ function renderHeroCards() {
 }
 
 function renderCatBreakdown() {
-  const mon = thisMonth();
+  const mon = S.selectedMonth;
   const expByCur = {};
   const incByCur = {};
   const transfers = [];
@@ -1035,13 +1059,14 @@ function renderCatBreakdown() {
 }
 
 function renderActivity() {
+  const monTxs = S.transactions.filter(t=>t.date && localTxMonth(t.date)===S.selectedMonth);
   const isOpen = S.secOpen.tx;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="tx" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
-      <div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">Transactions</span></div><div class="sec-sub">${S.transactions.length?`${S.transactions.length} total`:'Recent activity'}</div></div>
+      <div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">Transactions</span></div><div class="sec-sub">${monTxs.length?`${monTxs.length} this month`:'Recent activity'}</div></div>
     </div>`;
   if (!isOpen) return `<div class="card">${hdr}</div>`;
-  if (!S.transactions.length) return `<div class="card">${hdr}<div class="empty"><p>Nothing here yet</p></div></div>`;
-  const sorted = [...S.transactions].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12);
+  if (!monTxs.length) return `<div class="card">${hdr}<div class="empty"><p>No transactions this month</p></div></div>`;
+  const sorted = [...monTxs].sort((a,b)=>b.date.localeCompare(a.date));
   const rows = sorted.map(t => {
     if (t.type==='transfer') {
       return `<li class="tx-row">
@@ -1465,6 +1490,9 @@ function handleClick(e) {
     else if (S.tab==='history') renderHistory();
     return;
   }
+  if (action==='prev-month') { S.selectedMonth = shiftMonth(S.selectedMonth, -1); renderDashboard(); return; }
+  if (action==='next-month') { const next = shiftMonth(S.selectedMonth, 1); if (next <= thisMonth()) S.selectedMonth = next; renderDashboard(); return; }
+  if (action==='goto-current-month') { S.selectedMonth = thisMonth(); renderDashboard(); return; }
   if (action==='toggle-add-entry') { S.addEntryType = S.addEntryType ? null : 'tx-expense'; renderDashboard(); return; }
   if (action==='set-entry-type') { S.addEntryType=btn.dataset.type; renderDashboard(); return; }
   if (action==='cancel-entry') { S.addEntryType=null; renderDashboard(); return; }
