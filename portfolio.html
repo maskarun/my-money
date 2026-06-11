@@ -125,6 +125,7 @@ a { color: inherit; text-decoration: none; }
 .sec-dot.green { background: #10b981; }
 .sec-dot.red { background: #f43f5e; }
 .sec-dot.amber { background: #f59e0b; }
+.sec-dot.blue { background: #0284c7; }
 .sec-title { font-size: 15px; font-weight: 800; letter-spacing: -.3px; }
 .sec-sub { font-size: 10px; color: var(--muted-fg); margin-top: 2px; padding-left: 14px; }
 .sec-totals { text-align: right; }
@@ -417,8 +418,8 @@ const S = {
   txCurrency: 'USD',
   addingSaving: false, addingLoan: false, addingGoldLoan: false, addingInvestment: false,
   addEntryType: null,
-  editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, showingPPForm: null, expandedMonth: null, catExpanded: false,
-  secOpen: { recIncome: true, bills: true, tx: true, savings: true, loans: true, goldLoans: true },
+  editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, showingPPForm: null, expandedMonth: null,
+  secOpen: { recIncome: true, bills: true, tx: true, catBreak: true, savings: true, loans: true, goldLoans: true },
 };
 
 function save() {
@@ -1016,13 +1017,12 @@ function renderCatBreakdown() {
 
   const curs = [...new Set([...Object.keys(expByCur), ...Object.keys(incByCur)])];
   const monthLabel = fmtMonth(mon);
-  const isExpanded = S.catExpanded;
-  const hdr = `<div class="sec-hdr-pad" data-action="toggle-cat-breakdown" style="cursor:pointer;padding-bottom:${isExpanded?'10px':'14px'}">
-    <div style="font-size:14px;font-weight:800">By Category <span style="font-weight:400;font-size:12px;color:var(--muted-fg)">${monthLabel}</span></div>
-    <div class="p-chev${isExpanded?' open':''}">${svgChevron}</div>
-  </div>`;
-  if (!curs.length && !transfers.length) return `<div class="card">${hdr}${isExpanded?`<div class="empty" style="padding-top:8px"><p>No activity yet</p></div>`:''}</div>`;
-  if (!isExpanded) return `<div class="card">${hdr}</div>`;
+  const isOpen = S.secOpen.catBreak;
+  const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="catBreak" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
+      <div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">By Category</span></div><div class="sec-sub">${monthLabel}</div></div>
+    </div>`;
+  if (!curs.length && !transfers.length) return `<div class="card">${hdr}${isOpen?`<div class="empty" style="padding-top:8px"><p>No activity yet</p></div>`:''}</div>`;
+  if (!isOpen) return `<div class="card">${hdr}</div>`;
 
   const sections = curs.map(cur => {
     let html = curs.length>1 ? `<div class="cur-section-label">${cur}</div>` : '';
@@ -1066,10 +1066,9 @@ function renderCatBreakdown() {
 
 function renderActivity() {
   const isOpen = S.secOpen.tx;
-  const hdr = `<div class="sec-hdr-pad" data-action="toggle-section" data-sec="tx" style="cursor:pointer">
-    <div style="font-size:14px;font-weight:800">Transactions</div>
-    ${S.transactions.length?`<span class="text-muted text-sm">${S.transactions.length} total</span>`:''}
-  </div>`;
+  const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="tx" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
+      <div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">Transactions</span></div><div class="sec-sub">${S.transactions.length?`${S.transactions.length} total`:'Recent activity'}</div></div>
+    </div>`;
   if (!isOpen) return `<div class="card">${hdr}</div>`;
   if (!S.transactions.length) return `<div class="card">${hdr}<div class="empty"><p>Nothing here yet</p></div></div>`;
   const sorted = [...S.transactions].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12);
@@ -1579,7 +1578,6 @@ function handleClick(e) {
   if (action==='toggle-loan') { S.expandedLoan=S.expandedLoan===btn.dataset.id?null:btn.dataset.id; S.showingPPForm=null; renderPortfolio(); return; }
   if (action==='toggle-pp-form') { S.showingPPForm=S.showingPPForm===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
   if (action==='toggle-month') { S.expandedMonth=S.expandedMonth===btn.dataset.month?null:btn.dataset.month; renderHistory(); return; }
-  if (action==='toggle-cat-breakdown') { S.catExpanded=!S.catExpanded; renderDashboard(); return; }
   if (action==='toggle-section') { const k=btn.dataset.sec; S.secOpen[k]=!S.secOpen[k]; renderDashboard(); renderPortfolio(); return; }
   if (action==='del-part-payment') {
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.loanId);
