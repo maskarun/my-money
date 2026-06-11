@@ -418,7 +418,7 @@ const S = {
   addingSaving: false, addingLoan: false, addingGoldLoan: false, addingInvestment: false,
   addEntryType: null,
   editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, showingPPForm: null, expandedMonth: null, catExpanded: false,
-  secOpen: { recIncome: true, bills: true, tx: true },
+  secOpen: { recIncome: true, bills: true, tx: true, savings: true, loans: true, goldLoans: true },
 };
 
 function save() {
@@ -1147,12 +1147,13 @@ function renderSavings() {
     </div>`;
   }).join('');
   const addHtml = S.addingSaving ? `<div class="add-form">${savingForm(null)}</div>` : `<button class="add-row-btn" data-action="toggle-add-saving">${svgPlus} Add entry</button>`;
-  return `<div class="card">
-    <div class="sec-hdr">
-      <div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Savings</span></div><div class="sec-sub">Bank accounts, deposits, cash</div></div>
+  const isOpen = S.secOpen.savings;
+  const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="savings" style="cursor:pointer">
+      <div><div class="sec-title-row"><span class="p-chev${isOpen?' open':''}" style="margin-right:2px">${svgChevron}</span><span class="sec-dot green"></span><span class="sec-title">Savings</span></div><div class="sec-sub">Bank accounts, deposits, cash</div></div>
       ${items.length?`<div class="sec-totals"><div class="sec-total-lbl">Total Balance</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt grn">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
-    </div>
-    ${rows}${addHtml}</div>`;
+    </div>`;
+  if (!isOpen) return `<div class="card">${hdr}</div>`;
+  return `<div class="card">${hdr}${rows}${addHtml}</div>`;
 }
 
 function savingForm(item) {
@@ -1271,12 +1272,13 @@ function renderLoans() {
     </div>`;
   }).join('');
   const addHtml = S.addingLoan ? `<div class="add-form">${loanForm(null)}</div>` : `<button class="add-row-btn" data-action="toggle-add-loan">${svgPlus} Add loan</button>`;
-  return `<div class="card">
-    <div class="sec-hdr">
-      <div><div class="sec-title-row"><span class="sec-dot red"></span><span class="sec-title">Loans</span></div><div class="sec-sub">EMI-based amortising loans</div></div>
+  const isOpen = S.secOpen.loans;
+  const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="loans" style="cursor:pointer">
+      <div><div class="sec-title-row"><span class="p-chev${isOpen?' open':''}" style="margin-right:2px">${svgChevron}</span><span class="sec-dot red"></span><span class="sec-title">Loans</span></div><div class="sec-sub">EMI-based amortising loans</div></div>
       ${Object.keys(totals).length?`<div class="sec-totals"><div class="sec-total-lbl">Outstanding Today</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt red">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
-    </div>
-    ${rows}${addHtml}</div>`;
+    </div>`;
+  if (!isOpen) return `<div class="card">${hdr}</div>`;
+  return `<div class="card">${hdr}${rows}${addHtml}</div>`;
 }
 
 function loanForm(loan) {
@@ -1337,12 +1339,13 @@ function renderGoldLoans() {
     </div>`;
   }).join('');
   const addHtml = S.addingGoldLoan ? `<div class="add-form">${goldLoanForm(null)}</div>` : `<button class="add-row-btn" data-action="toggle-add-gold">${svgPlus} Add Gold Loan</button>`;
-  return `<div class="card">
-    <div class="sec-hdr">
-      <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Gold Loans</span></div><div class="sec-sub">Bullet repayment, daily interest</div></div>
+  const isOpen = S.secOpen.goldLoans;
+  const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="goldLoans" style="cursor:pointer">
+      <div><div class="sec-title-row"><span class="p-chev${isOpen?' open':''}" style="margin-right:2px">${svgChevron}</span><span class="sec-dot amber"></span><span class="sec-title">Gold Loans</span></div><div class="sec-sub">Bullet repayment, daily interest</div></div>
       ${Object.keys(totals).length?`<div class="sec-totals"><div class="sec-total-lbl">Total Owed</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt amb">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
-    </div>
-    ${rows}${addHtml}</div>`;
+    </div>`;
+  if (!isOpen) return `<div class="card">${hdr}</div>`;
+  return `<div class="card">${hdr}${rows}${addHtml}</div>`;
 }
 
 function goldLoanForm(loan) {
@@ -1582,7 +1585,7 @@ function handleClick(e) {
   if (action==='toggle-pp-form') { S.showingPPForm=S.showingPPForm===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
   if (action==='toggle-month') { S.expandedMonth=S.expandedMonth===btn.dataset.month?null:btn.dataset.month; renderHistory(); return; }
   if (action==='toggle-cat-breakdown') { S.catExpanded=!S.catExpanded; renderDashboard(); return; }
-  if (action==='toggle-section') { const k=btn.dataset.sec; S.secOpen[k]=!S.secOpen[k]; renderDashboard(); return; }
+  if (action==='toggle-section') { const k=btn.dataset.sec; S.secOpen[k]=!S.secOpen[k]; renderDashboard(); renderPortfolio(); return; }
   if (action==='del-part-payment') {
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.loanId);
     if (loan) { loan.partPayments=(loan.partPayments||[]).filter(p=>p.id!==btn.dataset.paymentId); save(); renderPortfolio(); }
