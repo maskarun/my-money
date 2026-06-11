@@ -419,7 +419,7 @@ const S = {
   addingSaving: false, addingLoan: false, addingGoldLoan: false, addingInvestment: false,
   addEntryType: null,
   editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, showingPPForm: null, expandedMonth: null,
-  secOpen: { recIncome: true, bills: true, tx: true, catBreak: true, savings: true, loans: true, goldLoans: true },
+  secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: true, savings: true, loans: true, goldLoans: true },
 };
 
 function save() {
@@ -878,10 +878,9 @@ function renderRecurringIncome() {
   return `<div class="card">${hdr}${incomeRows}</div>`;
 }
 
-function renderBillsAndCards() {
+function renderBills() {
   const mon = thisMonth();
   const billItems = S.recurring.items.filter(i=>i.type==='expense');
-  const cards     = S.recurring.creditCards;
 
   const billRows = billItems.map(item => {
     const ms = item.months||{}, paid = ms[mon]?.paid;
@@ -909,6 +908,20 @@ function renderBillsAndCards() {
     </div>`;
   }).join('');
 
+  const isOpen = S.secOpen.bills;
+  const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="bills" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
+      <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Bills</span></div><div class="sec-sub">Monthly recurring bills</div></div>
+    </div>`;
+
+  if (!isOpen) return `<div class="card">${hdr}</div>`;
+  if (!billItems.length) return `<div class="card">${hdr}<div class="empty"><p>No bills set up</p></div></div>`;
+  return `<div class="card">${hdr}${billRows}</div>`;
+}
+
+function renderCreditCards() {
+  const mon = thisMonth();
+  const cards = S.recurring.creditCards;
+
   const cardRows = cards.map(card => {
     const ms = card.months||{}, paid = ms[mon]?.paid, billAmt = ms[mon]?.amount||0;
     const c = card.currency||'INR';
@@ -932,22 +945,19 @@ function renderBillsAndCards() {
     </div>`;
   }).join('');
 
-  const isOpen = S.secOpen.bills;
-  const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="bills" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
-      <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Bills & Cards</span></div><div class="sec-sub">Monthly bills & credit card payments</div></div>
+  const isOpen = S.secOpen.cards;
+  const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="cards" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
+      <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Credit Cards</span></div><div class="sec-sub">Monthly credit card payments</div></div>
     </div>`;
 
   if (!isOpen) return `<div class="card">${hdr}</div>`;
-  if (!billItems.length && !cards.length) return `<div class="card">${hdr}<div class="empty"><p>No bills or cards set up</p></div></div>`;
-  return `<div class="card">${hdr}
-    ${billItems.length ? `<div class="rec-sub-hdr">Monthly Bills</div>${billRows}` : ''}
-    ${cards.length ? `<div class="rec-sub-hdr">Credit Cards</div>${cardRows}` : ''}
-  </div>`;
+  if (!cards.length) return `<div class="card">${hdr}<div class="empty"><p>No credit cards set up</p></div></div>`;
+  return `<div class="card">${hdr}${cardRows}</div>`;
 }
 
 function renderDashboard() {
   document.getElementById('tab-transactions').innerHTML =
-    renderHeroCards() + renderQuickAdd() + renderCatBreakdown() + renderRecurringIncome() + renderBillsAndCards() + renderActivity();
+    renderHeroCards() + renderQuickAdd() + renderCatBreakdown() + renderRecurringIncome() + renderBills() + renderCreditCards() + renderActivity();
 }
 
 function renderHeroCards() {
