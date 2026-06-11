@@ -627,8 +627,6 @@ function fmtMonth(mon) {
 function renderHistory() {
   const months = new Set();
   for (const t of S.transactions) if (t.date) months.add(t.date.slice(0,7));
-  for (const item of S.recurring.items) for (const mon of Object.keys(item.months||{})) months.add(mon);
-  for (const card of S.recurring.creditCards) for (const mon of Object.keys(card.months||{})) months.add(mon);
 
   if (!months.size) {
     document.getElementById('tab-history').innerHTML =
@@ -639,8 +637,6 @@ function renderHistory() {
   const sorted = [...months].sort((a,b)=>b.localeCompare(a));
   const monthCards = sorted.map(mon => {
     const monTxs = S.transactions.filter(t=>t.date&&t.date.slice(0,7)===mon);
-    const recItems = S.recurring.items.filter(i=>i.months?.[mon]?.paid);
-    const recCards = S.recurring.creditCards.filter(c=>c.months?.[mon]?.paid);
 
     const byCur = {};
     for (const t of monTxs) {
@@ -654,13 +650,7 @@ function renderHistory() {
       const c=getCur(t); if(!byCur[c]) byCur[c]={income:0,expense:0};
       if(t.type==='income') byCur[c].income+=t.amount; else byCur[c].expense+=t.amount;
     }
-    const primaryCur = Object.keys(byCur)[0]||recItems[0]?.currency||recCards[0]?.currency||'INR';
-    const totIncome = Object.values(byCur).reduce((s,v)=>s+v.income,0)
-      + recItems.filter(i=>i.type==='income').reduce((s,i)=>s+(i.months[mon]?.amount||i.amount||0),0);
-    const totExpense = Object.values(byCur).reduce((s,v)=>s+v.expense,0)
-      + recItems.filter(i=>i.type==='expense').reduce((s,i)=>s+(i.months[mon]?.amount||i.amount||0),0)
-      + recCards.reduce((s,c)=>s+(c.months[mon]?.amount||0),0);
-    const net = totIncome - totExpense;
+    const curs = Object.keys(byCur);
 
     const isExpanded = S.expandedMonth===mon;
     let detail = '';
@@ -695,44 +685,7 @@ function renderHistory() {
           </div>`;
       }
 
-      // Recurring table
-      let recSection = '';
-      if (recItems.length) {
-        const rows = recItems.map(item=>{
-          const c=item.currency||'INR', amt=item.months[mon]?.amount||item.amount||0, isInc=item.type==='income';
-          return `<tr>
-            <td>${esc(item.name)}</td>
-            <td><span class="cur-pill${isInc?'':' red'}">${c}</span></td>
-            <td>${isInc?'Income':'Bill'}</td>
-            <td class="${isInc?'grn':'red'}">${isInc?'+':'−'}${formatMoney(amt,c)}</td>
-          </tr>`;
-        }).join('');
-        recSection = `<div class="rec-sub-hdr">Recurring</div>
-          <div class="schedule-tbl-wrap" style="max-height:none">
-            <table class="schedule-tbl">
-              <thead><tr><th style="text-align:left">Name</th><th style="text-align:left">Cur</th><th style="text-align:left">Type</th><th>Amount</th></tr></thead>
-              <tbody>${rows}</tbody>
-            </table>
-          </div>`;
-      }
-
-      // Credit cards table
-      let ccSection = '';
-      if (recCards.length) {
-        const rows = recCards.map(card=>{
-          const c=card.currency||'INR', amt=card.months[mon]?.amount||0;
-          return `<tr><td>${esc(card.name)}</td><td><span class="cur-pill red">${c}</span></td><td class="red">−${formatMoney(amt,c)}</td></tr>`;
-        }).join('');
-        ccSection = `<div class="rec-sub-hdr">Credit Cards</div>
-          <div class="schedule-tbl-wrap" style="max-height:none">
-            <table class="schedule-tbl">
-              <thead><tr><th style="text-align:left">Card</th><th style="text-align:left">Cur</th><th>Bill</th></tr></thead>
-              <tbody>${rows}</tbody>
-            </table>
-          </div>`;
-      }
-
-      detail = `<div class="schedule-wrap">${txSection}${recSection}${ccSection}</div>`;
+      detail = `<div class="schedule-wrap">${txSection}</div>`;
     }
 
     return `<div class="card">
@@ -742,10 +695,17 @@ function renderHistory() {
             <div class="p-chev${isExpanded?' open':''}" style="margin-right:2px">${svgChevron}</div>
             <span class="sec-title">${fmtMonth(mon)}</span>
           </div>
-          <div class="sec-sub" style="margin-top:4px;display:flex;gap:8px;flex-wrap:wrap">
-            ${totIncome?`<span style="color:var(--income);font-weight:700;font-size:11px">↑ ${formatMoney(totIncome,primaryCur)}</span>`:''}
-            ${totExpense?`<span style="color:var(--expense);font-weight:700;font-size:11px">↓ ${formatMoney(totExpense,primaryCur)}</span>`:''}
-            ${(totIncome||totExpense)?`<span style="color:${net>=0?'var(--income)':'var(--expense)'};font-weight:700;font-size:11px">Net ${net>=0?'+':''}${formatMoney(net,primaryCur)}</span>`:''}
+          <div class="sec-sub" style="margin-top:4px;display:flex;flex-direction:column;gap:4px">
+            ${curs.map(c=>{
+              const {income,expense} = byCur[c];
+              const net = income - expense;
+              return `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                <span class="cur-pill" style="margin-right:2px">${c}</span>
+                ${income?`<span style="color:var(--income);font-weight:700;font-size:11px">↑ ${formatMoney(income,c)}</span>`:''}
+                ${expense?`<span style="color:var(--expense);font-weight:700;font-size:11px">↓ ${formatMoney(expense,c)}</span>`:''}
+                <span style="color:${net>=0?'var(--income)':'var(--expense)'};font-weight:700;font-size:11px">Net ${net>=0?'+':''}${formatMoney(net,c)}</span>
+              </div>`;
+            }).join('')}
           </div>
         </div>
       </div>
