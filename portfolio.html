@@ -1618,7 +1618,7 @@ function handleInput(e) {
 }
 
 function exportJSON() {
-  const payload = JSON.stringify({version:2,transactions:S.transactions,portfolio:S.portfolio},null,2);
+  const payload = JSON.stringify({version:3,transactions:S.transactions,portfolio:S.portfolio,recurring:S.recurring},null,2);
   const blob = new Blob([payload],{type:'application/json'}), url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href=url; a.download='my-money.json';
   document.body.appendChild(a); a.click(); a.remove();
@@ -1629,10 +1629,14 @@ document.getElementById('file-input').addEventListener('change', async function(
   const file = e.target.files[0]; if (!file) return;
   try {
     const data = JSON.parse(await file.text());
-    let transactions, portfolio;
-    if (Array.isArray(data)) { transactions=data; portfolio={savings:[],loans:[],goldLoans:[]}; }
-    else { transactions=data.transactions||[]; portfolio=Object.assign({savings:[],loans:[],goldLoans:[]},data.portfolio||{}); }
-    S.transactions=transactions; S.portfolio=portfolio;
+    let transactions, portfolio, recurring;
+    if (Array.isArray(data)) { transactions=data; portfolio={savings:[],loans:[],goldLoans:[]}; recurring={items:[],creditCards:[]}; }
+    else {
+      transactions=data.transactions||[];
+      portfolio=Object.assign({savings:[],loans:[],goldLoans:[]},data.portfolio||{});
+      recurring=Object.assign({items:[],creditCards:[]},data.recurring||{});
+    }
+    S.transactions=transactions; S.portfolio=portfolio; S.recurring=recurring;
     save(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderHistory(); toast(`Imported ${transactions.length} transactions`);
   } catch(err) { toast('Import failed — invalid JSON'); }
   this.value='';
