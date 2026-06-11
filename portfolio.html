@@ -418,6 +418,7 @@ const S = {
   addingSaving: false, addingLoan: false, addingGoldLoan: false, addingInvestment: false,
   addEntryType: null,
   editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, showingPPForm: null, expandedMonth: null, catExpanded: false,
+  secOpen: { recIncome: true, bills: true, tx: true },
 };
 
 function save() {
@@ -866,10 +867,13 @@ function renderRecurringIncome() {
     </div>`;
   }).join('');
 
-  const hdr = `<div class="sec-hdr">
+  const isOpen = S.secOpen.recIncome;
+  const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="recIncome" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
       <div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Recurring Income</span></div><div class="sec-sub">Salary & other monthly income</div></div>
+      <div class="p-chev${isOpen?' open':''}">${svgChevron}</div>
     </div>`;
 
+  if (!isOpen) return `<div class="card">${hdr}</div>`;
   if (!incomeItems.length) return `<div class="card">${hdr}<div class="empty"><p>No recurring income set up</p></div></div>`;
   return `<div class="card">${hdr}${incomeRows}</div>`;
 }
@@ -928,10 +932,13 @@ function renderBillsAndCards() {
     </div>`;
   }).join('');
 
-  const hdr = `<div class="sec-hdr">
+  const isOpen = S.secOpen.bills;
+  const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="bills" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
       <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Bills & Cards</span></div><div class="sec-sub">Monthly bills & credit card payments</div></div>
+      <div class="p-chev${isOpen?' open':''}">${svgChevron}</div>
     </div>`;
 
+  if (!isOpen) return `<div class="card">${hdr}</div>`;
   if (!billItems.length && !cards.length) return `<div class="card">${hdr}<div class="empty"><p>No bills or cards set up</p></div></div>`;
   return `<div class="card">${hdr}
     ${billItems.length ? `<div class="rec-sub-hdr">Monthly Bills</div>${billRows}` : ''}
@@ -1060,10 +1067,15 @@ function renderCatBreakdown() {
 }
 
 function renderActivity() {
-  const hdr = `<div class="sec-hdr-pad">
+  const isOpen = S.secOpen.tx;
+  const hdr = `<div class="sec-hdr-pad" data-action="toggle-section" data-sec="tx" style="cursor:pointer">
     <div style="font-size:14px;font-weight:800">Transactions</div>
-    ${S.transactions.length?`<span class="text-muted text-sm">${S.transactions.length} total</span>`:''}
+    <div style="display:flex;align-items:center;gap:8px">
+      ${S.transactions.length?`<span class="text-muted text-sm">${S.transactions.length} total</span>`:''}
+      <div class="p-chev${isOpen?' open':''}">${svgChevron}</div>
+    </div>
   </div>`;
+  if (!isOpen) return `<div class="card">${hdr}</div>`;
   if (!S.transactions.length) return `<div class="card">${hdr}<div class="empty"><p>Nothing here yet</p></div></div>`;
   const sorted = [...S.transactions].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12);
   const rows = sorted.map(t => {
@@ -1570,6 +1582,7 @@ function handleClick(e) {
   if (action==='toggle-pp-form') { S.showingPPForm=S.showingPPForm===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
   if (action==='toggle-month') { S.expandedMonth=S.expandedMonth===btn.dataset.month?null:btn.dataset.month; renderHistory(); return; }
   if (action==='toggle-cat-breakdown') { S.catExpanded=!S.catExpanded; renderDashboard(); return; }
+  if (action==='toggle-section') { const k=btn.dataset.sec; S.secOpen[k]=!S.secOpen[k]; renderDashboard(); return; }
   if (action==='del-part-payment') {
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.loanId);
     if (loan) { loan.partPayments=(loan.partPayments||[]).filter(p=>p.id!==btn.dataset.paymentId); save(); renderPortfolio(); }
