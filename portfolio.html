@@ -638,6 +638,13 @@ function shiftMonth(mon, delta) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 }
 
+// ISO date for a new transaction within `mon`: now if it's the current month, else the last day of `mon`
+function dateInMonth(mon) {
+  if (mon === thisMonth()) return new Date().toISOString();
+  const [y,m] = mon.split('-').map(Number);
+  return new Date(y, m, 0, 12).toISOString();
+}
+
 function renderHistory() {
   const months = new Set();
   for (const t of S.transactions) if (t.date) months.add(t.date.slice(0,7));
@@ -819,7 +826,7 @@ function renderQuickAdd() {
 }
 
 function renderRecurringIncome() {
-  const mon = thisMonth();
+  const mon = S.selectedMonth;
   const incomeItems = S.recurring.items.filter(i=>i.type==='income');
 
   const incomeRows = incomeItems.map(item => {
@@ -844,7 +851,7 @@ function renderRecurringIncome() {
 
   const isOpen = S.secOpen.recIncome;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="recIncome" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
-      <div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Recurring Income</span></div><div class="sec-sub">Salary & other monthly income</div></div>
+      <div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Recurring Income</span></div><div class="sec-sub">Salary & other monthly income · ${fmtMonth(mon)}</div></div>
     </div>`;
 
   if (!isOpen) return `<div class="card">${hdr}</div>`;
@@ -853,7 +860,7 @@ function renderRecurringIncome() {
 }
 
 function renderBills() {
-  const mon = thisMonth();
+  const mon = S.selectedMonth;
   const billItems = S.recurring.items.filter(i=>i.type==='expense');
 
   const billRows = billItems.map(item => {
@@ -884,7 +891,7 @@ function renderBills() {
 
   const isOpen = S.secOpen.bills;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="bills" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
-      <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Bills</span></div><div class="sec-sub">Monthly recurring bills</div></div>
+      <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Bills</span></div><div class="sec-sub">Monthly recurring bills · ${fmtMonth(mon)}</div></div>
     </div>`;
 
   if (!isOpen) return `<div class="card">${hdr}</div>`;
@@ -893,7 +900,7 @@ function renderBills() {
 }
 
 function renderCreditCards() {
-  const mon = thisMonth();
+  const mon = S.selectedMonth;
   const cards = S.recurring.creditCards;
 
   const cardRows = cards.map(card => {
@@ -921,7 +928,7 @@ function renderCreditCards() {
 
   const isOpen = S.secOpen.cards;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="cards" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
-      <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Credit Cards</span></div><div class="sec-sub">Monthly credit card payments</div></div>
+      <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Credit Cards</span></div><div class="sec-sub">Monthly credit card payments · ${fmtMonth(mon)}</div></div>
     </div>`;
 
   if (!isOpen) return `<div class="card">${hdr}</div>`;
@@ -1406,20 +1413,20 @@ function handleSubmit(e) {
   }
   if (action==='save-card-bill') {
     const card = S.recurring.creditCards.find(c=>c.id===form.dataset.id); if (!card) return;
-    const mon = thisMonth(); if (!card.months) card.months = {};
+    const mon = S.selectedMonth; if (!card.months) card.months = {};
     const amount = parseFloat(d.amount)||0;
     card.months[mon] = {...(card.months[mon]||{}), amount};
     const txId = uid();
-    S.transactions.unshift({id:txId,type:'expense',amount,category:'Bills',note:card.name+' CC Bill',date:new Date().toISOString(),currency:card.currency||'INR'});
+    S.transactions.unshift({id:txId,type:'expense',amount,category:'Bills',note:card.name+' CC Bill',date:dateInMonth(mon),currency:card.currency||'INR'});
     card.months[mon].paid = true; card.months[mon].txId = txId;
     save(); renderOverview(); renderDashboard(); toast(card.name+' bill recorded'); return;
   }
   if (action==='mark-variable-bill') {
     const item = S.recurring.items.find(i=>i.id===form.dataset.id); if (!item) return;
     const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
-    const mon = thisMonth(); if (!item.months) item.months = {};
+    const mon = S.selectedMonth; if (!item.months) item.months = {};
     const txId = uid();
-    S.transactions.unshift({id:txId,type:'expense',amount,category:'Bills',note:item.name,date:new Date().toISOString(),currency:item.currency||'INR'});
+    S.transactions.unshift({id:txId,type:'expense',amount,category:'Bills',note:item.name,date:dateInMonth(mon),currency:item.currency||'INR'});
     item.months[mon] = {paid:true, amount, txId};
     save(); renderOverview(); renderDashboard(); toast(item.name+' marked paid'); return;
   }
@@ -1498,23 +1505,23 @@ function handleClick(e) {
   if (action==='cancel-entry') { S.addEntryType=null; renderDashboard(); return; }
   if (action==='confirm-recurring') {
     const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
-    const mon = thisMonth();
+    const mon = S.selectedMonth;
     if (!item.months) item.months = {};
     const txId = uid();
-    S.transactions.unshift({id:txId,type:'income',amount:item.amount,category:item.category||'Salary',note:item.name,date:new Date().toISOString(),currency:item.currency||'USD'});
+    S.transactions.unshift({id:txId,type:'income',amount:item.amount,category:item.category||'Salary',note:item.name,date:dateInMonth(mon),currency:item.currency||'USD'});
     item.months[mon] = {paid:true, amount:item.amount, txId};
     save(); renderOverview(); renderDashboard(); toast(item.name+' credited'); return;
   }
   if (action==='unmark-recurring-item') {
     const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
-    const mon = thisMonth(); const ms = item.months?.[mon]; if (!ms) return;
+    const mon = S.selectedMonth; const ms = item.months?.[mon]; if (!ms) return;
     if (ms.txId) S.transactions = S.transactions.filter(t=>t.id!==ms.txId);
     ms.paid = false; ms.txId = undefined;
     save(); renderOverview(); renderDashboard(); toast(item.name+' marked unpaid'); return;
   }
   if (action==='unmark-card') {
     const card = S.recurring.creditCards.find(c=>c.id===btn.dataset.id); if (!card) return;
-    const mon = thisMonth(); const ms = card.months?.[mon]; if (!ms) return;
+    const mon = S.selectedMonth; const ms = card.months?.[mon]; if (!ms) return;
     if (ms.txId) S.transactions = S.transactions.filter(t=>t.id!==ms.txId);
     ms.paid = false; ms.txId = undefined;
     save(); renderOverview(); renderDashboard(); toast(card.name+' marked unpaid'); return;
@@ -1526,21 +1533,21 @@ function handleClick(e) {
   // Bills
   if (action==='mark-bill-paid') {
     const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
-    const mon = thisMonth();
+    const mon = S.selectedMonth;
     if (!item.months) item.months = {};
     const txId = uid();
-    S.transactions.unshift({id:txId,type:'expense',amount:item.amount,category:'Bills',note:item.name,date:new Date().toISOString(),currency:item.currency||'INR'});
+    S.transactions.unshift({id:txId,type:'expense',amount:item.amount,category:'Bills',note:item.name,date:dateInMonth(mon),currency:item.currency||'INR'});
     item.months[mon] = {paid:true, amount:item.amount, txId};
     save(); renderOverview(); renderDashboard(); toast(item.name+' marked paid'); return;
   }
   // Credit cards
   if (action==='mark-card-paid') {
     const card = S.recurring.creditCards.find(c=>c.id===btn.dataset.id); if (!card) return;
-    const mon = thisMonth();
+    const mon = S.selectedMonth;
     if (!card.months) card.months = {};
     const amt = card.months[mon]?.amount||0;
     const txId = uid();
-    if (amt>0) S.transactions.unshift({id:txId,type:'expense',amount:amt,category:'Bills',note:card.name+' CC Bill',date:new Date().toISOString(),currency:card.currency||'INR'});
+    if (amt>0) S.transactions.unshift({id:txId,type:'expense',amount:amt,category:'Bills',note:card.name+' CC Bill',date:dateInMonth(mon),currency:card.currency||'INR'});
     card.months[mon] = {...(card.months[mon]||{}), paid:true, txId};
     save(); renderOverview(); renderDashboard(); toast(card.name+' bill marked paid'); return;
   }
