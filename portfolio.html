@@ -374,6 +374,9 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
     <button class="hbtn" data-action="export">
       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>Export
     </button>
+    <button class="hbtn" data-action="switch-tab" data-tab="settings" title="Settings">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 005 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 005 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 5a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09A1.65 1.65 0 0015 5a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09A1.65 1.65 0 0019 15z"/></svg>
+    </button>
   </div>
 </div>
 
@@ -383,6 +386,7 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
   <div id="tab-portfolio" class="tab-panel"></div>
   <div id="tab-investments" class="tab-panel"></div>
   <div id="tab-history" class="tab-panel"></div>
+  <div id="tab-settings" class="tab-panel"></div>
 </div>
 
 <nav id="nav">
@@ -1200,6 +1204,31 @@ function renderInvestmentsCard() {
     ${rows}${addHtml}</div>`;
 }
 
+function renderSettings() {
+  const aboutCard = `<div class="card">
+    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">My Money</span></div><div class="sec-sub">Personal finance tracker</div></div></div>
+    <div class="p-row"><div class="p-row-meta"><div class="p-row-name">Version</div></div><div class="p-row-right">3</div></div>
+    <div class="p-row"><div class="p-row-meta"><div class="p-row-name">Default Currency</div></div><div class="p-row-right">${S.txCurrency}</div></div>
+  </div>`;
+
+  const dataCard = `<div class="card">
+    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Data & Export</span></div><div class="sec-sub">All data is stored locally in this browser</div></div></div>
+    <div class="p-row"><div class="p-row-meta"><div class="p-row-name">Storage</div><div class="p-row-sub">Browser localStorage (mmc.tx.v1, mmc.portfolio.v1, mmc.recurring.v1, mmc.lastCurrency.v1)</div></div></div>
+    <div class="p-row"><div class="p-row-meta"><div class="p-row-name">Export file</div><div class="p-row-sub">Downloads as my-money.json to your device's Downloads folder</div></div></div>
+    <div class="add-form-btns" style="padding:12px 16px">
+      <button class="btn btn-outline" data-action="import-trigger">Import Backup</button>
+      <button class="btn btn-accent" data-action="export">Export Backup</button>
+    </div>
+  </div>`;
+
+  const moreCard = `<div class="card">
+    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">More Options</span></div><div class="sec-sub">Additional settings coming soon</div></div></div>
+    <div class="empty"><p>Nothing here yet</p></div>
+  </div>`;
+
+  document.getElementById('tab-settings').innerHTML = aboutCard + dataCard + moreCard;
+}
+
 function investmentForm(item) {
   const isEdit = !!item;
   return `<div class="add-form-title">${isEdit?'Edit':'New'} Investment</div>
@@ -1495,6 +1524,7 @@ function handleClick(e) {
     else if (S.tab==='portfolio') renderPortfolio();
     else if (S.tab==='investments') renderInvestments();
     else if (S.tab==='history') renderHistory();
+    else if (S.tab==='settings') renderSettings();
     return;
   }
   if (action==='prev-month') { S.selectedMonth = shiftMonth(S.selectedMonth, -1); renderDashboard(); return; }
