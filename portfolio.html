@@ -1339,7 +1339,6 @@ function renderLoans() {
     const curPillClass = c==='USD'?'':''; // default blue pill for all
     return `<div>
       <div class="p-row" data-action="toggle-loan" data-id="${loan.id}" style="cursor:pointer">
-        <div class="p-chev${isExpanded?' open':''}">${svgChevron}</div>
         <div class="p-row-icon loan">${svgHome.replace('stroke="currentColor"','stroke="#e11d48"')}</div>
         <div class="p-row-meta"><div class="p-row-name">${esc(loan.name)}<span class="cur-pill red">${c}</span></div><div class="p-row-sub">${loan.lender?esc(loan.lender)+' · ':''}${formatMoney(loan.principal,c)} · ${loan.tenureYears}yr · ${loan.interestRate}% · EMI ${formatMoney(emi,c)}</div></div>
         <div class="p-row-right">
@@ -1406,7 +1405,6 @@ function renderGoldLoans() {
     </div>` : '';
     return `<div>
       <div class="p-row" data-action="toggle-gold" data-id="${loan.id}" style="cursor:pointer">
-        <div class="p-chev${isExpanded?' open':''}">${svgChevron}</div>
         <div class="p-row-icon gold">${svgGold.replace('stroke="currentColor"','stroke="#d97706"')}</div>
         <div class="p-row-meta"><div class="p-row-name">${esc(loan.name)}<span class="cur-pill amb">${c}</span></div><div class="p-row-sub">${loan.lender?esc(loan.lender)+' · ':''}${formatMoney(loan.principal,c)} · ${loan.interestRate}% p.a.${loan.startDate?' · Started '+fmtDate(loan.startDate):''}</div></div>
         <div class="p-row-right">
