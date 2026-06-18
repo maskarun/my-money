@@ -991,6 +991,19 @@ function renderHeroCards() {
   const byCur = {};
   const add = (cur, type, amt) => { if (!byCur[cur]) byCur[cur]={income:0,expense:0}; byCur[cur][type]+=amt; };
 
+  // Prior-month cumulative balance per currency
+  const prevBal = {};
+  for (const t of S.transactions) {
+    if (!t.date || localTxMonth(t.date) >= mon) continue;
+    if (t.type==='transfer') {
+      prevBal[t.fromCurrency] = (prevBal[t.fromCurrency]||0) - t.fromAmount;
+      prevBal[t.toCurrency] = (prevBal[t.toCurrency]||0) + t.toAmount;
+      continue;
+    }
+    const c = getCur(t);
+    prevBal[c] = (prevBal[c]||0) + (t.type==='income' ? t.amount : -t.amount);
+  }
+
   // recurring-linked txIds for this month (avoid double counting with S.transactions)
   const recurTxIds = new Set();
   for (const item of (S.recurring?.items||[])) { const ms=item.months?.[mon]; if (ms?.txId) recurTxIds.add(ms.txId); }
@@ -1013,16 +1026,23 @@ function renderHeroCards() {
     if (ms?.paid && ms.amount>0) add(card.currency||'USD', 'expense', ms.amount);
   }
 
+  // Ensure currencies with prior balance but no current-month activity show up
+  for (const c of Object.keys(prevBal)) { if (!byCur[c]) byCur[c] = {income:0, expense:0}; }
+
   if (!Object.keys(byCur).length) byCur['USD'] = {income:0,expense:0};
-  return Object.entries(byCur).map(([cur,{income,expense}]) => `
-  <div class="card-hero">
+  return Object.entries(byCur).map(([cur,{income,expense}]) => {
+    const prev = prevBal[cur] || 0;
+    const net = prev + income - expense;
+    return `<div class="card-hero">
     <div class="eyebrow">${cur} · ${monthLabel}</div>
-    <div class="amount">${formatMoney(income-expense,cur)}</div>
+    <div class="amount">${formatMoney(net,cur)}</div>
     <div class="chips">
+      ${prev?`<div class="chip"><div class="chip-lbl">Prev Bal</div><div class="chip-val${prev>=0?' inc':' exp'}">${formatMoney(prev,cur)}</div></div>`:''}
       <div class="chip"><div class="chip-lbl">Income</div><div class="chip-val inc">${formatMoney(income,cur)}</div></div>
       <div class="chip"><div class="chip-lbl">Expenses</div><div class="chip-val exp">${formatMoney(expense,cur)}</div></div>
     </div>
-  </div>`).join('');
+  </div>`;
+  }).join('');
 }
 
 function renderCatBreakdown() {
