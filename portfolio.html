@@ -458,8 +458,6 @@ function load() {
   S.selectedMonth = thisMonth();
 }
 
-let exportDirHandle = null;
-let exportDirName = localStorage.getItem('mmc.exportName') || '';
 
 const uid = () => { try { return crypto.randomUUID(); } catch(e) { return Math.random().toString(36).slice(2)+Date.now().toString(36); } };
 const todayISO = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
@@ -1242,25 +1240,16 @@ function renderSettings() {
     <div class="p-row"><div class="p-row-meta"><div class="p-row-name">Default Currency</div></div><div class="p-row-right">${S.txCurrency}</div></div>
   </div>`;
 
-  const curName = exportDirName || 'my-money.json';
   const dataCard = `<div class="card">
     <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Data & Export</span></div><div class="sec-sub">All data is stored locally in this browser</div></div></div>
     <div class="p-row"><div class="p-row-meta"><div class="p-row-name">Storage</div><div class="p-row-sub">Browser localStorage</div></div></div>
-    <div class="p-row">
-      <div class="p-row-meta" style="flex:1">
-        <div class="p-row-name">Export filename</div>
-        <form data-action="save-export-name" style="display:flex;gap:6px;align-items:center;margin-top:6px">
-          <input class="input" type="text" name="exportName" value="${esc(curName)}" style="font-size:12px;padding:6px 8px;flex:1" placeholder="my-money.json">
-          <button type="submit" class="btn btn-accent" style="font-size:10px;padding:4px 10px">Save</button>
-        </form>
-      </div>
-    </div>
-    <div class="p-row"><div class="p-row-meta"><div class="p-row-name">Auto Backup</div><div class="p-row-sub">${(() => { const t = localStorage.getItem('mmc.backup.time'); return t ? 'Last backup: ' + new Date(t).toLocaleString() : 'No backup yet'; })()}</div></div>
-      <button class="btn btn-outline" style="font-size:10px;padding:4px 10px" data-action="restore-backup" ${localStorage.getItem('mmc.backup.time')?'':'disabled'}>Restore</button>
+    <div class="p-row" style="flex-wrap:wrap;gap:8px">
+      <div class="p-row-meta" style="flex:1;min-width:0"><div class="p-row-name">Auto Backup</div><div class="p-row-sub" style="word-break:break-word">${(() => { const t = localStorage.getItem('mmc.backup.time'); return t ? 'Last: ' + new Date(t).toLocaleString() : 'No backup yet'; })()}</div></div>
+      <button class="btn btn-outline" style="font-size:10px;padding:4px 10px;white-space:nowrap;flex-shrink:0" data-action="restore-backup" ${localStorage.getItem('mmc.backup.time')?'':'disabled'}>Restore</button>
     </div>
     <div class="add-form-btns" style="padding:12px 16px">
-      <button class="btn btn-outline" data-action="import-trigger">Import Backup</button>
-      <button class="btn btn-accent" data-action="export">Export Backup</button>
+      <button class="btn btn-outline" data-action="import-trigger">Import</button>
+      <button class="btn btn-accent" data-action="export">Export</button>
     </div>
   </div>`;
 
@@ -1450,15 +1439,6 @@ function handleSubmit(e) {
   if (!action) return; e.preventDefault();
   const d = formData(form);
 
-  if (action==='save-export-name') {
-    let name = (d.exportName||'').trim() || 'my-money.json';
-    if (!name.endsWith('.json')) name += '.json';
-    exportDirHandle = null; exportDirName = name;
-    localStorage.setItem('mmc.exportName', name);
-    toast('Export filename set to ' + name);
-    if (S.tab==='settings') renderSettings();
-    return;
-  }
   if (action==='add-tx') {
     const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
     const type = S.addEntryType==='tx-income' ? 'income' : 'expense';
@@ -1743,7 +1723,7 @@ function handleInput(e) {
 
 function exportJSON() {
   const payload = JSON.stringify({version:3,transactions:S.transactions,portfolio:S.portfolio,recurring:S.recurring},null,2);
-  const fname = exportDirName || 'my-money.json';
+  const fname = 'my-money.json';
   const blob = new Blob([payload],{type:'application/json'}), url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href=url; a.download=fname;
   document.body.appendChild(a); a.click(); a.remove();
