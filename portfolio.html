@@ -861,7 +861,8 @@ function renderQuickAdd() {
 
 function renderRecurringIncome() {
   const mon = S.selectedMonth;
-  const incomeItems = S.recurring.items.filter(i=>i.type==='income');
+  const incomeItems = S.recurring.items.filter(i=>i.type==='income')
+    .sort((a,b)=>(a.currency||'USD').localeCompare(b.currency||'USD') || (a.dayOfMonth||1)-(b.dayOfMonth||1));
 
   const incomeRows = incomeItems.map(item => {
     const ms = item.months||{}, paid = ms[mon]?.paid;
@@ -895,7 +896,8 @@ function renderRecurringIncome() {
 
 function renderBills() {
   const mon = S.selectedMonth;
-  const billItems = S.recurring.items.filter(i=>i.type==='expense');
+  const billItems = S.recurring.items.filter(i=>i.type==='expense')
+    .sort((a,b)=>(a.currency||'USD').localeCompare(b.currency||'USD') || (a.dayOfMonth||1)-(b.dayOfMonth||1));
 
   const billRows = billItems.map(item => {
     const ms = item.months||{}, paid = ms[mon]?.paid;
@@ -935,7 +937,8 @@ function renderBills() {
 
 function renderCreditCards() {
   const mon = S.selectedMonth;
-  const cards = S.recurring.creditCards;
+  const cards = [...S.recurring.creditCards]
+    .sort((a,b)=>(a.currency||'INR').localeCompare(b.currency||'INR') || (a.dueDay||1)-(b.dueDay||1));
 
   const cardRows = cards.map(card => {
     const ms = card.months||{}, paid = ms[mon]?.paid, billAmt = ms[mon]?.amount||0;
@@ -1127,7 +1130,7 @@ function renderActivity() {
     </div>`;
   if (!isOpen) return `<div class="card">${hdr}</div>`;
   if (!monTxs.length) return `<div class="card">${hdr}<div class="empty"><p>No transactions this month</p></div></div>`;
-  const sorted = [...monTxs].sort((a,b)=>b.date.localeCompare(a.date));
+  const sorted = [...monTxs].sort((a,b)=>getCur(a).localeCompare(getCur(b)) || b.date.localeCompare(a.date));
   const rows = sorted.map(t => {
     if (t.type==='transfer') {
       return `<li class="tx-row">
