@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="My Money">
@@ -96,15 +96,15 @@ a { color: inherit; text-decoration: none; }
 /* Hero card */
 .card-hero {
   background: linear-gradient(135deg, #0369a1 0%, #0284c7 55%, #0ea5e9 100%);
-  color: #fff; border-radius: var(--radius); padding: 18px;
-  box-shadow: var(--shadow-bold); margin-bottom: 12px;
+  color: #fff; border-radius: var(--radius); padding: 12px 14px;
+  box-shadow: var(--shadow-bold); margin-bottom: 10px;
 }
-.card-hero .eyebrow { font-size: 9px; font-weight: 700; letter-spacing: 1.6px; opacity: .6; text-transform: uppercase; }
-.card-hero .amount { font-size: 32px; font-weight: 900; letter-spacing: -1.2px; margin-top: 4px; font-variant-numeric: tabular-nums; }
-.card-hero .chips { display: flex; gap: 8px; margin-top: 12px; }
-.card-hero .chip { background: rgba(255,255,255,.15); border-radius: 8px; padding: 6px 10px; flex: 1; }
+.card-hero .eyebrow { font-size: 8px; font-weight: 700; letter-spacing: 1.4px; opacity: .6; text-transform: uppercase; }
+.card-hero .amount { font-size: 22px; font-weight: 900; letter-spacing: -1px; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.card-hero .chips { display: flex; gap: 6px; margin-top: 8px; }
+.card-hero .chip { background: rgba(255,255,255,.15); border-radius: 7px; padding: 4px 8px; flex: 1; }
 .card-hero .chip-lbl { font-size: 8px; font-weight: 700; opacity: .6; letter-spacing: .8px; text-transform: uppercase; }
-.card-hero .chip-val { font-size: 13px; font-weight: 800; margin-top: 1px; font-variant-numeric: tabular-nums; }
+.card-hero .chip-val { font-size: 12px; font-weight: 800; margin-top: 1px; font-variant-numeric: tabular-nums; }
 .card-hero .chip-val.inc { color: #d1fae5; }
 .card-hero .chip-val.exp { color: #fee2e2; }
 
@@ -125,6 +125,7 @@ a { color: inherit; text-decoration: none; }
 .sec-dot.green { background: #10b981; }
 .sec-dot.red { background: #f43f5e; }
 .sec-dot.amber { background: #f59e0b; }
+.sec-dot.blue { background: #0284c7; }
 .sec-title { font-size: 15px; font-weight: 800; letter-spacing: -.3px; }
 .sec-sub { font-size: 10px; color: var(--muted-fg); margin-top: 2px; padding-left: 14px; }
 .sec-totals { text-align: right; }
@@ -145,13 +146,18 @@ a { color: inherit; text-decoration: none; }
 .toggle-pill button.active.expense { color: var(--expense); }
 .toggle-pill button.active.income { color: var(--income); }
 
+/* Entry type chip row */
+.toggle-chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.toggle-chip { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; background: var(--muted); color: var(--muted-fg); border: none; cursor: pointer; touch-action: manipulation; transition: background .15s, color .15s; }
+.toggle-chip.active { background: var(--accent); color: #fff; }
+
 /* Form */
 .form-row { margin-bottom: 10px; }
 .form-label { display: block; font-size: 10px; font-weight: 700; color: var(--muted-fg); margin-bottom: 3px; text-transform: uppercase; letter-spacing: .5px; }
 .input {
   width: 100%; height: 40px; border: 1.5px solid var(--border);
   border-radius: var(--radius-md); padding: 0 12px;
-  font-size: 14px; background: var(--bg);
+  font-size: 16px; background: var(--bg);
   appearance: none; -webkit-appearance: none; outline: none; transition: border-color .15s;
   font-variant-numeric: tabular-nums;
 }
@@ -211,10 +217,15 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .p-row-amt.grn { color: var(--income); }
 .p-row-amt.red { color: var(--expense); }
 .p-row-amt.amb { color: var(--gold); }
-.p-row-btns { display: flex; gap: 1px; }
-.ibtn { width: 26px; height: 26px; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 6px; color: #cbd5e1; transition: color .15s, background .15s; }
+.p-row-btns { display: flex; align-items: center; gap: 6px; }
+.ibtn { width: 24px; height: 24px; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 6px; color: #cbd5e1; transition: color .15s, background .15s; flex-shrink: 0; }
 .ibtn:hover { background: var(--muted); color: #64748b; }
 .ibtn.del:hover { background: #fff1f2; color: var(--expense); }
+.ibtn:disabled { opacity: .35; cursor: default; }
+.ibtn:disabled:hover { background: transparent; color: #cbd5e1; }
+.month-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; }
+.month-nav-label { font-size: 13px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+.link-btn { font-size: 11px; font-weight: 700; color: var(--accent); background: none; border: none; padding: 0; cursor: pointer; text-decoration: underline; }
 .p-chev { width: 20px; height: 20px; border-radius: 6px; background: var(--muted); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; }
 .p-chev svg { transition: transform .2s; }
 .p-chev.open svg { transform: rotate(90deg); }
@@ -227,6 +238,13 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
   font-size: 11px; font-weight: 600; color: var(--muted-fg); touch-action: manipulation;
 }
 .add-row-btn:active { background: var(--muted); }
+.rec-sub-hdr { font-size: 10px; font-weight: 800; color: var(--muted-fg); text-transform: uppercase; letter-spacing: .08em; padding: 10px 16px 4px; }
+.rec-badge { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 99px; white-space: nowrap; }
+.rec-badge.paid { background: #d1fae5; color: #065f46; }
+.rec-badge.pending { background: #fef9c3; color: #92400e; }
+.rec-btn { font-size: 10.5px; padding: 4px 8px; height: auto; min-width: 54px; white-space: nowrap; }
+.rec-amt-input { width: 72px; height: 32px; font-size: 13px; padding: 0 8px; flex-shrink: 0; }
+.hist-note { font-size: 10px; color: var(--muted-fg); font-weight: 400; margin-top: 1px; }
 
 /* Inline add form */
 .add-form { border-top: 1px solid var(--muted); padding: 14px 16px; }
@@ -241,6 +259,22 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .schedule-tbl tbody td { padding: 5px 8px; text-align: right; border-bottom: 1px solid var(--muted); }
 .schedule-tbl tbody td:first-child { text-align: left; color: var(--muted-fg); }
 .schedule-tbl tbody tr:last-child td { border-bottom: none; }
+.sched-pp-row { background: #f0fdf4; }
+.sched-pp-amt { color: #059669; font-weight: 700; font-size: 11px; }
+.pp-section { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--muted); }
+.pp-hdr-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.pp-hdr-title { font-size: 11px; font-weight: 700; color: var(--muted-fg); text-transform: uppercase; letter-spacing: .05em; }
+.pp-count { background: var(--accent); color: #fff; border-radius: 99px; padding: 1px 6px; font-size: 10px; }
+.pp-tbl-wrap { max-height: 200px; overflow-y: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--muted); border-radius: 8px; margin-bottom: 4px; }
+.pp-tbl { width: 100%; border-collapse: collapse; font-size: 11px; font-variant-numeric: tabular-nums; }
+.pp-tbl thead th { position: sticky; top: 0; background: var(--muted); padding: 5px 8px; text-align: right; font-weight: 700; white-space: nowrap; color: var(--muted-fg); }
+.pp-tbl thead th:first-child { text-align: left; }
+.pp-tbl tbody td { padding: 5px 8px; text-align: right; border-bottom: 1px solid var(--muted); }
+.pp-tbl tbody td:first-child { text-align: left; color: var(--muted-fg); }
+.pp-tbl tbody tr:last-child td { border-bottom: none; }
+.pp-tbl-amt { font-weight: 700; color: var(--income); }
+.pp-tbl tfoot td { padding: 5px 8px; font-size: 11px; color: var(--muted-fg); background: var(--muted); text-align: right; }
+.pp-form { margin-top: 2px; }
 
 /* Preview row */
 .preview-row { background: var(--muted); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 10px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
@@ -253,6 +287,7 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .tx-icon { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .tx-icon.income { background: rgba(5,150,105,.1); color: var(--income); }
 .tx-icon.expense { background: rgba(225,29,72,.08); color: var(--expense); }
+.tx-icon.transfer { background: rgba(2,132,199,.1); color: var(--accent); }
 .tx-icon svg { width: 16px; height: 16px; stroke-width: 2; }
 .tx-body { flex: 1; min-width: 0; }
 .tx-cat { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 5px; }
@@ -262,6 +297,7 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .tx-amount { font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .tx-amount.income { color: var(--income); }
 .tx-amount.expense { color: var(--expense); }
+.tx-amount.transfer { color: var(--accent); font-size: 12px; }
 .tx-del { width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #cbd5e1; flex-shrink: 0; transition: color .15s; }
 .tx-del:hover { color: var(--expense); }
 .tx-del svg { width: 13px; height: 13px; stroke-width: 1.8; }
@@ -275,6 +311,9 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .cat-pct { font-size: 10px; color: var(--muted-fg); margin-left: 3px; }
 .bar-bg { height: 5px; background: var(--muted); border-radius: 3px; overflow: hidden; }
 .bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #0284c7, #38bdf8); }
+.bar-fill.inc { background: linear-gradient(90deg, var(--income), #34d399); }
+.cat-amt.grn { color: var(--income); }
+.cat-subrow { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--muted-fg); padding: 4px 0 0 10px; }
 
 /* Empty state */
 .empty { text-align: center; padding: 28px 16px; color: var(--muted-fg); }
@@ -335,6 +374,9 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
     <button class="hbtn" data-action="export">
       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>Export
     </button>
+    <button class="hbtn" data-action="switch-tab" data-tab="settings" title="Settings">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 005 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 005 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 5a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09A1.65 1.65 0 0015 5a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09A1.65 1.65 0 0019 15z"/></svg>
+    </button>
   </div>
 </div>
 
@@ -343,6 +385,8 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
   <div id="tab-transactions" class="tab-panel"></div>
   <div id="tab-portfolio" class="tab-panel"></div>
   <div id="tab-investments" class="tab-panel"></div>
+  <div id="tab-history" class="tab-panel"></div>
+  <div id="tab-settings" class="tab-panel"></div>
 </div>
 
 <nav id="nav">
@@ -362,6 +406,10 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 17l6-6 4 4 8-8M21 7v6m0-6h-6"/></svg>
     Investments
   </button>
+  <button class="nav-btn" data-action="switch-tab" data-tab="history">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><path stroke-linecap="round" d="M16 2v4M8 2v4M3 10h18"/><path stroke-linecap="round" d="M8 14h4m-4 4h8"/></svg>
+    History
+  </button>
 </nav>
 
 <div id="toast-wrap"></div>
@@ -375,15 +423,19 @@ const CURRENCIES   = ['USD','INR'];
 const S = {
   tab: 'dashboard', transactions: [],
   portfolio: { savings: [], loans: [], goldLoans: [], investments: [] },
-  txType: 'expense', txCurrency: 'USD',
+  recurring: { items: [], creditCards: [] },
+  txCurrency: 'USD',
   addingSaving: false, addingLoan: false, addingGoldLoan: false, addingInvestment: false,
-  editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null,
+  addEntryType: null,
+  editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, showingPPForm: null, expandedMonth: null, selectedMonth: null,
+  secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: true, savings: true, loans: true, goldLoans: true },
 };
 
 function save() {
   try {
     localStorage.setItem('mmc.tx.v1', JSON.stringify(S.transactions));
     localStorage.setItem('mmc.portfolio.v1', JSON.stringify(S.portfolio));
+    localStorage.setItem('mmc.recurring.v1', JSON.stringify(S.recurring));
     localStorage.setItem('mmc.lastCurrency.v1', S.txCurrency);
   } catch(e) {}
 }
@@ -391,14 +443,20 @@ function save() {
 function load() {
   try { const tx = localStorage.getItem('mmc.tx.v1'); if (tx) S.transactions = JSON.parse(tx); } catch(e) { S.transactions = []; }
   try { const p = localStorage.getItem('mmc.portfolio.v1'); if (p) S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[]}, JSON.parse(p)); } catch(e) {}
+  S.portfolio.loans = S.portfolio.loans.map(l => ({partPayments:[], ...l}));
+  try { const r = localStorage.getItem('mmc.recurring.v1'); if (r) S.recurring = JSON.parse(r); } catch(e) {}
+  if (!S.recurring) S.recurring = {items:[], creditCards:[]};
+  if (!S.recurring.items) S.recurring.items = [];
+  if (!S.recurring.creditCards) S.recurring.creditCards = [];
   // also try old keys for migration
   if (!S.transactions.length) { try { const tx = localStorage.getItem('budget.tx.v1'); if (tx) S.transactions = JSON.parse(tx); } catch(e) {} }
   if (!S.portfolio.savings.length && !S.portfolio.loans.length) { try { const p = localStorage.getItem('budget.portfolio.v1'); if (p) S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[]}, JSON.parse(p)); } catch(e) {} }
   S.txCurrency = localStorage.getItem('mmc.lastCurrency.v1') || localStorage.getItem('budget.lastCurrency.v1') || 'USD';
+  S.selectedMonth = thisMonth();
 }
 
 const uid = () => { try { return crypto.randomUUID(); } catch(e) { return Math.random().toString(36).slice(2)+Date.now().toString(36); } };
-const todayISO = () => new Date().toISOString().slice(0,10);
+const todayISO = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const getCur = t => t.currency || 'USD';
 
 function formatMoney(n, cur='USD') {
@@ -425,21 +483,40 @@ function computeOutstanding(loan) {
   const {principal,startDate,tenureYears,interestRate} = loan;
   if (!startDate||!principal) return principal||0;
   const n = tenureYears*12, elapsed = Math.min(monthsElapsed(startDate),n);
-  if (!interestRate) return Math.max(0, principal-(principal/n)*elapsed);
-  const r = interestRate/100/12, emi = computeEmi(principal,interestRate,tenureYears), epow = Math.pow(1+r,elapsed);
-  return Math.max(0, principal*epow - emi*(epow-1)/r);
+  const emi = computeEmi(principal,interestRate,tenureYears), r = interestRate/100/12;
+  const payments = (loan.partPayments||[]).slice().sort((a,b)=>a.date<b.date?-1:1);
+  const start = new Date(startDate);
+  let bal = principal;
+  for (let i=1;i<=elapsed;i++) {
+    const mDate = new Date(start); mDate.setMonth(mDate.getMonth()+i);
+    const interest = bal*r, princ = Math.min(emi-interest, bal);
+    bal = Math.max(0, bal-princ);
+    // apply part payments whose date falls within this month
+    const mStr = mDate.toISOString().slice(0,7); // "YYYY-MM"
+    for (const p of payments) {
+      if ((p.date||'').slice(0,7)===mStr) bal = Math.max(0, bal-p.amount);
+    }
+  }
+  return bal;
 }
 function computeScheduleToDate(loan) {
   const {principal,startDate,tenureYears,interestRate} = loan;
   if (!startDate||!principal) return [];
   const n = tenureYears*12, elapsed = Math.min(monthsElapsed(startDate),n);
   const emi = computeEmi(principal,interestRate,tenureYears), r = interestRate/100/12;
-  let bal = principal; const rows = [], start = new Date(startDate);
+  const payments = (loan.partPayments||[]).slice().sort((a,b)=>a.date<b.date?-1:1);
+  const start = new Date(startDate);
+  let bal = principal; const rows = [];
   for (let i=1;i<=elapsed;i++) {
+    const mDate = new Date(start); mDate.setMonth(mDate.getMonth()+i);
     const interest=bal*r, princ=Math.min(emi-interest,bal);
     bal = Math.max(0,bal-princ);
-    const d=new Date(start); d.setMonth(d.getMonth()+i);
-    rows.push({month:i,date:d.toLocaleDateString('en-US',{month:'short',year:'2-digit'}),interest,principal:princ,emi,balance:bal});
+    const mStr = mDate.toISOString().slice(0,7);
+    let partPaid = 0;
+    for (const p of payments) {
+      if ((p.date||'').slice(0,7)===mStr) { partPaid+=p.amount; bal=Math.max(0,bal-p.amount); }
+    }
+    rows.push({month:i,date:mDate.toLocaleDateString('en-US',{month:'short',year:'2-digit'}),interest,principal:princ,emi,balance:bal,partPaid:partPaid||0});
   }
   return rows;
 }
@@ -472,13 +549,19 @@ const svgArrowDown = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none
 const svgTrash     = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6m5 0V4h4v2"/></svg>`;
 const svgPlus      = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
 const svgChevron   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>`;
+const svgChevronLeft  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>`;
+const svgChevronRight = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>`;
 const svgEdit      = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4z"/></svg>`;
 const svgBank      = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3H8L2 7h20l-6-4z"/></svg>`;
 const svgHome      = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`;
 const svgGold      = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 3"/></svg>`;
 const svgChart     = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7v6h-6"/></svg>`;
+const svgCard      = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`;
+const svgUndo      = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 7"/></svg>`;
+const svgTransfer  = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>`;
 
 function curOptions(sel) { return CURRENCIES.map(c=>`<option value="${c}"${c===sel?' selected':''}>${c}</option>`).join(''); }
+const otherCur = c => CURRENCIES.find(x=>x!==c) || CURRENCIES[0];
 function catOptions(type, sel) { return (type==='income'?INCOME_CATS:EXPENSE_CATS).map(c=>`<option value="${c}"${c===sel?' selected':''}>${c}</option>`).join(''); }
 
 // ── Dashboard Overview ─────────────────────────────────────────────────────────
@@ -493,8 +576,14 @@ function renderOverview() {
     // Credit: savings balance + transaction net income (if positive)
     const sav = S.portfolio.savings.filter(i=>getCur(i)===cur).reduce((a,i)=>a+i.amount,0);
     let txIncome=0, txExpense=0;
-    for (const t of S.transactions) { if (getCur(t)!==cur) continue; if (t.type==='income') txIncome+=t.amount; else txExpense+=t.amount; }
-    const txNet = txIncome - txExpense;
+    for (const t of S.transactions) { if (t.type==='transfer') continue; if (getCur(t)!==cur) continue; if (t.type==='income') txIncome+=t.amount; else txExpense+=t.amount; }
+    let transferNet = 0;
+    for (const t of S.transactions) {
+      if (t.type!=='transfer') continue;
+      if (t.fromCurrency===cur) transferNet -= t.fromAmount;
+      if (t.toCurrency===cur) transferNet += t.toAmount;
+    }
+    const txNet = txIncome - txExpense + transferNet;
     const credit = sav + Math.max(0, txNet);
 
     // Debt: loans + gold loans outstanding
@@ -540,21 +629,364 @@ function renderOverview() {
 }
 
 // ── Transactions ───────────────────────────────────────────────────────────────
+const thisMonth = () => todayISO().slice(0,7);
+const localTxMonth = iso => { const d=new Date(iso); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
+
+function fmtMonth(mon) {
+  return new Date(parseInt(mon),parseInt(mon.slice(5))-1,1).toLocaleDateString('en-US',{month:'long',year:'numeric'});
+}
+
+function shiftMonth(mon, delta) {
+  const [y,m] = mon.split('-').map(Number);
+  const d = new Date(y, m-1+delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+
+// ISO date for a new transaction within `mon`: now if it's the current month, else the last day of `mon`
+function dateInMonth(mon) {
+  if (mon === thisMonth()) return new Date().toISOString();
+  const [y,m] = mon.split('-').map(Number);
+  return new Date(y, m, 0, 12).toISOString();
+}
+
+function renderHistory() {
+  const months = new Set();
+  for (const t of S.transactions) if (t.date) months.add(t.date.slice(0,7));
+
+  if (!months.size) {
+    document.getElementById('tab-history').innerHTML =
+      `<div class="card"><div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Monthly History</span></div></div></div><div class="empty"><p>No activity yet</p></div></div>`;
+    return;
+  }
+
+  const sorted = [...months].sort((a,b)=>b.localeCompare(a));
+  const monthCards = sorted.map(mon => {
+    const monTxs = S.transactions.filter(t=>t.date&&t.date.slice(0,7)===mon);
+
+    const byCur = {};
+    for (const t of monTxs) {
+      if (t.type==='transfer') {
+        if(!byCur[t.fromCurrency]) byCur[t.fromCurrency]={income:0,expense:0};
+        if(!byCur[t.toCurrency]) byCur[t.toCurrency]={income:0,expense:0};
+        byCur[t.fromCurrency].expense += t.fromAmount;
+        byCur[t.toCurrency].income += t.toAmount;
+        continue;
+      }
+      const c=getCur(t); if(!byCur[c]) byCur[c]={income:0,expense:0};
+      if(t.type==='income') byCur[c].income+=t.amount; else byCur[c].expense+=t.amount;
+    }
+    const curs = Object.keys(byCur);
+
+    const isExpanded = S.expandedMonth===mon;
+    let detail = '';
+    if (isExpanded) {
+      // Transactions table
+      let txSection = '';
+      if (monTxs.length) {
+        const rows = monTxs.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(t=>{
+          if (t.type==='transfer') {
+            return `<tr>
+              <td>${fmtDate(t.date)}</td>
+              <td>Transfer${t.note?`<div class="hist-note">${esc(t.note)}</div>`:''}</td>
+              <td><span class="cur-pill">${t.fromCurrency}→${t.toCurrency}</span></td>
+              <td>${formatMoney(t.fromAmount,t.fromCurrency)} → ${formatMoney(t.toAmount,t.toCurrency)}</td>
+            </tr>`;
+          }
+          const c=getCur(t), isInc=t.type==='income';
+          const isBill = t.category==='Bills' && t.note;
+          return `<tr>
+            <td>${fmtDate(t.date)}</td>
+            <td>${isBill?esc(t.note):esc(t.category)+(t.note?`<div class="hist-note">${esc(t.note)}</div>`:'')}</td>
+            <td><span class="cur-pill${isInc?'':' red'}">${c}</span></td>
+            <td class="${isInc?'grn':'red'}">${isInc?'+':'−'}${formatMoney(t.amount,c)}</td>
+          </tr>`;
+        }).join('');
+        txSection = `<div class="rec-sub-hdr">Transactions</div>
+          <div class="schedule-tbl-wrap" style="max-height:none">
+            <table class="schedule-tbl">
+              <thead><tr><th style="text-align:left">Date</th><th style="text-align:left">Details</th><th style="text-align:left">Cur</th><th>Amount</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>`;
+      }
+
+      detail = `<div class="schedule-wrap">${txSection}</div>`;
+    }
+
+    return `<div class="card">
+      <div class="sec-hdr" data-action="toggle-month" data-month="${mon}" style="cursor:pointer;padding-bottom:14px">
+        <div>
+          <div class="sec-title-row">
+            <div class="p-chev${isExpanded?' open':''}" style="margin-right:2px">${svgChevron}</div>
+            <span class="sec-title">${fmtMonth(mon)}</span>
+          </div>
+          <div class="sec-sub" style="margin-top:4px;display:flex;flex-direction:column;gap:4px">
+            ${curs.map(c=>{
+              const {income,expense} = byCur[c];
+              const net = income - expense;
+              return `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                <span class="cur-pill" style="margin-right:2px">${c}</span>
+                ${income?`<span style="color:var(--income);font-weight:700;font-size:11px">↑ ${formatMoney(income,c)}</span>`:''}
+                ${expense?`<span style="color:var(--expense);font-weight:700;font-size:11px">↓ ${formatMoney(expense,c)}</span>`:''}
+                <span style="color:${net>=0?'var(--income)':'var(--expense)'};font-weight:700;font-size:11px">Net ${net>=0?'+':''}${formatMoney(net,c)}</span>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+      ${detail}
+    </div>`;
+  }).join('');
+
+  document.getElementById('tab-history').innerHTML = monthCards ||
+    `<div class="card"><div class="empty"><p>No activity yet</p></div></div>`;
+}
+
+function ordinal(n) { const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
+
+function renderQuickAdd() {
+  const entryTypes = [
+    {type:'tx-expense', label:'Expense'},
+    {type:'tx-income',  label:'Income'},
+    {type:'recurring-income', label:'Recurring Income'},
+    {type:'bill',  label:'Monthly Bill'},
+    {type:'card',  label:'Credit Card'},
+    {type:'transfer', label:'Transfer'},
+  ];
+  const typeChips = entryTypes.map(({type,label}) =>
+    `<button class="toggle-chip${S.addEntryType===type?' active':''}" data-action="set-entry-type" data-type="${type}">${label}</button>`
+  ).join('');
+
+  let entryForm = '';
+  if (S.addEntryType==='tx-expense'||S.addEntryType==='tx-income') {
+    const cats = S.addEntryType==='tx-income' ? INCOME_CATS : EXPENSE_CATS;
+    entryForm = `<form data-action="add-tx">
+      <div class="form-row-2">
+        <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(S.txCurrency)}</select></div></div>
+        <div><label class="form-label">Amount *</label><input class="input" type="number" name="amount" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required></div>
+      </div>
+      <div class="form-row"><label class="form-label">Category</label><div class="select-wrap"><select class="input" name="category">${cats.map(c=>`<option>${c}</option>`).join('')}</select></div></div>
+      <div class="form-row"><label class="form-label">Note <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label><input class="input" type="text" name="note" placeholder="e.g. Lunch with team" maxlength="120"></div>
+      <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-entry">Cancel</button><button type="submit" class="btn btn-accent">${svgPlus} Add ${S.addEntryType==='tx-income'?'Income':'Expense'}</button></div>
+    </form>`;
+  } else if (S.addEntryType==='recurring-income') {
+    entryForm = `<form data-action="add-recurring-income">
+      <div class="form-row-2">
+        <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(S.txCurrency)}</select></div></div>
+        <div><label class="form-label">Amount *</label><input class="input" type="number" name="amount" inputmode="decimal" min="0.01" step="0.01" required></div>
+      </div>
+      <div class="form-row"><label class="form-label">Name *</label><input class="input" type="text" name="name" placeholder="e.g. Salary" required></div>
+      <div class="form-row-2">
+        <div><label class="form-label">Category</label><div class="select-wrap"><select class="input" name="category">${INCOME_CATS.map(c=>`<option>${c}</option>`).join('')}</select></div></div>
+        <div><label class="form-label">Day of month</label><input class="input" type="number" name="dayOfMonth" min="1" max="31" placeholder="1"></div>
+      </div>
+      <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-entry">Cancel</button><button type="submit" class="btn btn-accent">Add</button></div>
+    </form>`;
+  } else if (S.addEntryType==='bill') {
+    entryForm = `<form data-action="add-bill">
+      <div class="form-row-2">
+        <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(S.txCurrency)}</select></div></div>
+        <div><label class="form-label">Amount</label><input class="input" type="number" name="amount" inputmode="decimal" min="0" step="0.01" placeholder="0 if variable"></div>
+      </div>
+      <div class="form-row"><label class="form-label">Name *</label><input class="input" type="text" name="name" placeholder="e.g. Electricity" required></div>
+      <div class="form-row-2">
+        <div><label class="form-label">Type</label><div class="select-wrap"><select class="input" name="isVariable"><option value="0">Fixed</option><option value="1">Variable</option></select></div></div>
+        <div><label class="form-label">Due day</label><input class="input" type="number" name="dayOfMonth" min="1" max="31" placeholder="1"></div>
+      </div>
+      <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-entry">Cancel</button><button type="submit" class="btn btn-accent">Add</button></div>
+    </form>`;
+  } else if (S.addEntryType==='card') {
+    entryForm = `<form data-action="add-credit-card">
+      <div class="form-row"><label class="form-label">Card name *</label><input class="input" type="text" name="name" placeholder="e.g. HDFC Regalia" required></div>
+      <div class="form-row-2">
+        <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(S.txCurrency)}</select></div></div>
+        <div><label class="form-label">Due day *</label><input class="input" type="number" name="dueDay" min="1" max="31" placeholder="5" required></div>
+      </div>
+      <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-entry">Cancel</button><button type="submit" class="btn btn-accent">Add</button></div>
+    </form>`;
+  } else if (S.addEntryType==='transfer') {
+    entryForm = `<form data-action="add-transfer">
+      <div class="form-row-2">
+        <div><label class="form-label">From Currency</label><div class="select-wrap"><select class="input" name="fromCurrency">${curOptions(S.txCurrency)}</select></div></div>
+        <div><label class="form-label">Amount Sent *</label><input class="input" type="number" name="fromAmount" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required></div>
+      </div>
+      <div class="form-row-2">
+        <div><label class="form-label">To Currency</label><div class="select-wrap"><select class="input" name="toCurrency">${curOptions(otherCur(S.txCurrency))}</select></div></div>
+        <div><label class="form-label">Amount Received *</label><input class="input" type="number" name="toAmount" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required></div>
+      </div>
+      <div class="form-row"><label class="form-label">Note <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label><input class="input" type="text" name="note" placeholder="e.g. Wise transfer" maxlength="120"></div>
+      <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-entry">Cancel</button><button type="submit" class="btn btn-accent">${svgPlus} Add Transfer</button></div>
+    </form>`;
+  }
+
+  const addPanel = S.addEntryType
+    ? `<div class="add-form">
+        <div class="toggle-chip-row">${typeChips}</div>
+        ${entryForm}
+      </div>`
+    : `<button class="add-row-btn" data-action="toggle-add-entry">${svgPlus} Add Entry</button>`;
+
+  return `<div class="card">${addPanel}</div>`;
+}
+
+function renderRecurringIncome() {
+  const mon = S.selectedMonth;
+  const incomeItems = S.recurring.items.filter(i=>i.type==='income');
+
+  const incomeRows = incomeItems.map(item => {
+    const ms = item.months||{}, paid = ms[mon]?.paid;
+    const c = item.currency||'USD';
+    return `<div class="p-row">
+      <div class="p-row-icon sav">${svgArrowUp.replace('stroke="currentColor"','stroke="#059669"')}</div>
+      <div class="p-row-meta">
+        <div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span></div>
+        <div class="p-row-sub">${item.category||'Salary'}${item.dayOfMonth?' · '+ordinal(item.dayOfMonth)+' of month':''}</div>
+      </div>
+      <div class="p-row-right">
+        <div class="p-row-btns">
+          ${paid
+            ? `<span class="rec-badge paid">✓ Credited · ${formatMoney(item.amount,c)}</span><button class="ibtn" data-action="unmark-recurring-item" data-id="${item.id}" title="Mark unpaid">${svgUndo}</button>`
+            : `<span class="p-row-amt grn">${formatMoney(item.amount,c)}</span><button class="btn btn-accent rec-btn" data-action="confirm-recurring" data-id="${item.id}">Confirm</button>`}
+          <button class="ibtn del" data-action="del-recurring-item" data-id="${item.id}" title="Delete">${svgTrash}</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const isOpen = S.secOpen.recIncome;
+  const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="recIncome" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
+      <div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Recurring Income</span></div><div class="sec-sub">Salary & other monthly income · ${fmtMonth(mon)}</div></div>
+    </div>`;
+
+  if (!isOpen) return `<div class="card">${hdr}</div>`;
+  if (!incomeItems.length) return `<div class="card">${hdr}<div class="empty"><p>No recurring income set up</p></div></div>`;
+  return `<div class="card">${hdr}${incomeRows}</div>`;
+}
+
+function renderBills() {
+  const mon = S.selectedMonth;
+  const billItems = S.recurring.items.filter(i=>i.type==='expense');
+
+  const billRows = billItems.map(item => {
+    const ms = item.months||{}, paid = ms[mon]?.paid;
+    const c = item.currency||'USD';
+    const lastAmt = ms[mon]?.amount || item.amount || 0;
+    return `<div class="p-row">
+      <div class="p-row-icon loan">${svgArrowDown.replace('stroke="currentColor"','stroke="#e11d48"')}</div>
+      <div class="p-row-meta">
+        <div class="p-row-name">${esc(item.name)}<span class="cur-pill red">${c}</span></div>
+        <div class="p-row-sub">${item.isVariable?'Variable':'Fixed · '+formatMoney(item.amount,c)}${item.dayOfMonth?' · Due '+ordinal(item.dayOfMonth):''}</div>
+      </div>
+      <div class="p-row-right">
+        <div class="p-row-btns">
+          ${paid
+            ? `<span class="rec-badge paid">✓ Paid · ${formatMoney(lastAmt,c)}</span><button class="ibtn" data-action="unmark-recurring-item" data-id="${item.id}" title="Mark unpaid">${svgUndo}</button>`
+            : item.isVariable
+              ? `<form data-action="mark-variable-bill" data-id="${item.id}" style="display:flex;gap:6px;align-items:center">
+                  <input class="input rec-amt-input" type="number" name="amount" inputmode="decimal" placeholder="Amount" value="${lastAmt||''}" min="0.01" step="0.01" required>
+                  <button type="submit" class="btn btn-accent rec-btn">Paid</button>
+                 </form>`
+              : `<button class="btn btn-accent rec-btn" data-action="mark-bill-paid" data-id="${item.id}">Mark Paid</button>`}
+          <button class="ibtn del" data-action="del-recurring-item" data-id="${item.id}" title="Delete">${svgTrash}</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const isOpen = S.secOpen.bills;
+  const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="bills" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
+      <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Bills</span></div><div class="sec-sub">Monthly recurring bills · ${fmtMonth(mon)}</div></div>
+    </div>`;
+
+  if (!isOpen) return `<div class="card">${hdr}</div>`;
+  if (!billItems.length) return `<div class="card">${hdr}<div class="empty"><p>No bills set up</p></div></div>`;
+  return `<div class="card">${hdr}${billRows}</div>`;
+}
+
+function renderCreditCards() {
+  const mon = S.selectedMonth;
+  const cards = S.recurring.creditCards;
+
+  const cardRows = cards.map(card => {
+    const ms = card.months||{}, paid = ms[mon]?.paid, billAmt = ms[mon]?.amount||0;
+    const c = card.currency||'INR';
+    return `<div class="p-row">
+      <div class="p-row-icon" style="background:#ede9fe">${svgCard.replace('stroke="currentColor"','stroke="#7c3aed"')}</div>
+      <div class="p-row-meta">
+        <div class="p-row-name">${esc(card.name)}<span class="cur-pill amb">${c}</span></div>
+        <div class="p-row-sub">Due ${ordinal(card.dueDay)} of month</div>
+      </div>
+      <div class="p-row-right">
+        <div class="p-row-btns">
+          ${paid
+            ? `<span class="rec-badge paid">✓ Paid · ${formatMoney(billAmt,c)}</span><button class="ibtn" data-action="unmark-card" data-id="${card.id}" title="Mark unpaid">${svgUndo}</button>`
+            : `<form data-action="save-card-bill" data-id="${card.id}" style="display:flex;gap:6px;align-items:center">
+                <input class="input rec-amt-input" type="number" name="amount" inputmode="decimal" placeholder="Bill amt" value="${billAmt||''}" min="0" step="0.01">
+                <button type="submit" class="btn btn-accent rec-btn">Paid</button>
+               </form>`}
+          <button class="ibtn del" data-action="del-credit-card" data-id="${card.id}" title="Delete">${svgTrash}</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const isOpen = S.secOpen.cards;
+  const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="cards" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
+      <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Credit Cards</span></div><div class="sec-sub">Monthly credit card payments · ${fmtMonth(mon)}</div></div>
+    </div>`;
+
+  if (!isOpen) return `<div class="card">${hdr}</div>`;
+  if (!cards.length) return `<div class="card">${hdr}<div class="empty"><p>No credit cards set up</p></div></div>`;
+  return `<div class="card">${hdr}${cardRows}</div>`;
+}
+
 function renderDashboard() {
   document.getElementById('tab-transactions').innerHTML =
-    renderHeroCards() + renderAddTxForm() + renderCatBreakdown() + renderActivity();
+    renderMonthNav() + renderHeroCards() + renderQuickAdd() + renderCatBreakdown() + renderRecurringIncome() + renderBills() + renderCreditCards() + renderActivity();
+}
+
+function renderMonthNav() {
+  const label = fmtMonth(S.selectedMonth);
+  const isCurrent = S.selectedMonth === thisMonth();
+  return `<div class="card month-nav">
+    <button class="ibtn" data-action="prev-month" title="Previous month">${svgChevronLeft}</button>
+    <div class="month-nav-label">${label}${isCurrent?'':` <button class="link-btn" data-action="goto-current-month">Today</button>`}</div>
+    <button class="ibtn" data-action="next-month" ${isCurrent?'disabled':''} title="Next month">${svgChevronRight}</button>
+  </div>`;
 }
 
 function renderHeroCards() {
+  const mon = S.selectedMonth;
+  const monthLabel = fmtMonth(mon);
   const byCur = {};
+  const add = (cur, type, amt) => { if (!byCur[cur]) byCur[cur]={income:0,expense:0}; byCur[cur][type]+=amt; };
+
+  // recurring-linked txIds for this month (avoid double counting with S.transactions)
+  const recurTxIds = new Set();
+  for (const item of (S.recurring?.items||[])) { const ms=item.months?.[mon]; if (ms?.txId) recurTxIds.add(ms.txId); }
+  for (const card of (S.recurring?.creditCards||[])) { const ms=card.months?.[mon]; if (ms?.txId) recurTxIds.add(ms.txId); }
+
   for (const t of S.transactions) {
-    const c = getCur(t); if (!byCur[c]) byCur[c] = {income:0,expense:0};
-    if (t.type==='income') byCur[c].income+=t.amount; else byCur[c].expense+=t.amount;
+    if (!t.date || localTxMonth(t.date) !== mon) continue;
+    if (recurTxIds.has(t.id)) continue;
+    if (t.type==='transfer') { add(t.fromCurrency,'expense',t.fromAmount); add(t.toCurrency,'income',t.toAmount); continue; }
+    add(getCur(t), t.type==='income'?'income':'expense', t.amount);
   }
+  // confirmed recurring income / paid bills for this month
+  for (const item of (S.recurring?.items||[])) {
+    const ms = item.months?.[mon];
+    if (ms?.paid && ms.amount>0) add(item.currency||'USD', item.type==='income'?'income':'expense', ms.amount);
+  }
+  // paid credit card bills for this month
+  for (const card of (S.recurring?.creditCards||[])) {
+    const ms = card.months?.[mon];
+    if (ms?.paid && ms.amount>0) add(card.currency||'USD', 'expense', ms.amount);
+  }
+
   if (!Object.keys(byCur).length) byCur['USD'] = {income:0,expense:0};
   return Object.entries(byCur).map(([cur,{income,expense}]) => `
   <div class="card-hero">
-    <div class="eyebrow">${cur} Balance</div>
+    <div class="eyebrow">${cur} · ${monthLabel}</div>
     <div class="amount">${formatMoney(income-expense,cur)}</div>
     <div class="chips">
       <div class="chip"><div class="chip-lbl">Income</div><div class="chip-val inc">${formatMoney(income,cur)}</div></div>
@@ -563,63 +995,110 @@ function renderHeroCards() {
   </div>`).join('');
 }
 
-function renderAddTxForm() {
-  const cats = S.txType==='income' ? INCOME_CATS : EXPENSE_CATS;
-  return `
-  <div class="card">
-    <div class="sec-hdr-pad"><div style="font-size:14px;font-weight:800;letter-spacing:-.2px">Add Transaction</div></div>
-    <div class="tx-form-wrap">
-      <div class="toggle-pill">
-        <button class="${S.txType==='expense'?'active expense':''}" data-action="set-tx-type" data-type="expense">Expense</button>
-        <button class="${S.txType==='income'?'active income':''}" data-action="set-tx-type" data-type="income">Income</button>
-      </div>
-      <form data-action="add-tx">
-        <div class="form-row-2">
-          <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(S.txCurrency)}</select></div></div>
-          <div><label class="form-label">Amount</label><input class="input" type="number" name="amount" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required></div>
-        </div>
-        <div class="form-row"><label class="form-label">Category</label><div class="select-wrap"><select class="input" name="category">${cats.map(c=>`<option>${c}</option>`).join('')}</select></div></div>
-        <div class="form-row"><label class="form-label">Note <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label><input class="input" type="text" name="note" placeholder="e.g. Lunch with team" maxlength="120"></div>
-        <button type="submit" class="btn btn-accent">${svgPlus} Add ${S.txType==='income'?'Income':'Expense'}</button>
-      </form>
-    </div>
-  </div>`;
-}
-
 function renderCatBreakdown() {
-  const byCur = {};
+  const mon = S.selectedMonth;
+  const expByCur = {};
+  const incByCur = {};
+  const transfers = [];
+  const addExp = (cur, cat, amt, subName) => {
+    if (!expByCur[cur]) expByCur[cur] = {};
+    if (!expByCur[cur][cat]) expByCur[cur][cat] = {amt:0, sub:{}};
+    expByCur[cur][cat].amt += amt;
+    if (subName) expByCur[cur][cat].sub[subName] = (expByCur[cur][cat].sub[subName]||0) + amt;
+  };
+  const addInc = (cur, cat, amt) => { if (!incByCur[cur]) incByCur[cur]={}; incByCur[cur][cat]=(incByCur[cur][cat]||0)+amt; };
+
   for (const t of S.transactions) {
-    if (t.type!=='expense') continue;
-    const c = getCur(t); if (!byCur[c]) byCur[c] = {};
-    byCur[c][t.category] = (byCur[c][t.category]||0)+t.amount;
+    if (!t.date || localTxMonth(t.date)!==mon) continue;
+    if (t.type==='transfer') { transfers.push(t); continue; }
+    if (t.type==='income') { addInc(getCur(t), t.category, t.amount); continue; }
+    if (t.category==='Bills' && t.note) {
+      if (/ CC Bill$/.test(t.note)) addExp(getCur(t), 'Credit Card', t.amount, t.note.replace(/ CC Bill$/, ''));
+      else addExp(getCur(t), 'Bills', t.amount, t.note);
+    } else {
+      addExp(getCur(t), t.category, t.amount);
+    }
   }
-  const curs = Object.keys(byCur);
-  if (!curs.length) return `<div class="card"><div class="sec-hdr-pad" style="padding-bottom:14px"><div style="font-size:14px;font-weight:800">By Category</div></div><div class="empty" style="padding-top:8px"><p>No expenses yet</p></div></div>`;
+
+  const curs = [...new Set([...Object.keys(expByCur), ...Object.keys(incByCur)])];
+  const monthLabel = fmtMonth(mon);
+  const isOpen = S.secOpen.catBreak;
+  const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="catBreak" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
+      <div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">By Category</span></div><div class="sec-sub">${monthLabel}</div></div>
+    </div>`;
+  if (!curs.length && !transfers.length) return `<div class="card">${hdr}${isOpen?`<div class="empty" style="padding-top:8px"><p>No activity yet</p></div>`:''}</div>`;
+  if (!isOpen) return `<div class="card">${hdr}</div>`;
+
   const sections = curs.map(cur => {
-    const cats = byCur[cur], total = Object.values(cats).reduce((a,b)=>a+b,0);
-    return `${curs.length>1?`<div class="cur-section-label" style="padding:0 16px 4px">${cur}</div>`:''}
-    ${Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([cat,amt])=>`
-      <div class="cat-row">
-        <div class="cat-hdr"><span class="cat-name">${esc(cat)}</span><span><span class="cat-amt">${formatMoney(amt,cur)}</span><span class="cat-pct">${Math.round(amt/total*100)}%</span></span></div>
-        <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(amt/total*100)}%"></div></div>
-      </div>`).join('')}`;
+    let html = curs.length>1 ? `<div class="cur-section-label">${cur}</div>` : '';
+    const cats = expByCur[cur];
+    if (cats) {
+      const total = Object.values(cats).reduce((a,c)=>a+c.amt,0);
+      html += Object.entries(cats).sort((a,b)=>b[1].amt-a[1].amt).map(([cat,{amt,sub}])=>{
+        const pct = Math.round(amt/total*100);
+        const subRows = Object.entries(sub).sort((a,b)=>b[1]-a[1]).map(([name,subAmt])=>
+          `<div class="cat-subrow"><span>${esc(name)}</span><span>${formatMoney(subAmt,cur)}</span></div>`).join('');
+        return `<div class="cat-row">
+          <div class="cat-hdr"><span class="cat-name">${esc(cat)}</span><span><span class="cat-amt">${formatMoney(amt,cur)}</span><span class="cat-pct">${pct}%</span></span></div>
+          <div class="bar-bg"><div class="bar-fill" style="width:${pct}%"></div></div>
+          ${subRows}
+        </div>`;
+      }).join('');
+    }
+    const incCats = incByCur[cur];
+    if (incCats) {
+      const incTotal = Object.values(incCats).reduce((a,b)=>a+b,0);
+      html += `<div class="rec-sub-hdr">Income</div>` + Object.entries(incCats).sort((a,b)=>b[1]-a[1]).map(([cat,amt])=>{
+        const pct = Math.round(amt/incTotal*100);
+        return `<div class="cat-row">
+          <div class="cat-hdr"><span class="cat-name">${esc(cat)}</span><span><span class="cat-amt grn">${formatMoney(amt,cur)}</span><span class="cat-pct">${pct}%</span></span></div>
+          <div class="bar-bg"><div class="bar-fill inc" style="width:${pct}%"></div></div>
+        </div>`;
+      }).join('');
+    }
+    return html;
   }).join('');
-  return `<div class="card"><div class="sec-hdr-pad" style="padding-bottom:10px"><div style="font-size:14px;font-weight:800">By Category</div></div><div class="cat-wrap">${sections}</div></div>`;
+
+  let transferSection = '';
+  if (transfers.length) {
+    transferSection = `<div class="rec-sub-hdr">Transfers</div>` + transfers.map(t =>
+      `<div class="cat-row"><div class="cat-hdr"><span class="cat-name">Transfer</span><span class="cat-amt">${formatMoney(t.fromAmount,t.fromCurrency)} → ${formatMoney(t.toAmount,t.toCurrency)}</span></div></div>`
+    ).join('');
+  }
+
+  return `<div class="card">${hdr}<div class="cat-wrap">${sections}${transferSection}</div></div>`;
 }
 
 function renderActivity() {
-  const sorted = [...S.transactions].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12);
-  if (!S.transactions.length) return `<div class="card"><div class="sec-hdr-pad"><div style="font-size:14px;font-weight:800">Recent Activity</div></div><div class="empty"><p>Nothing here yet</p></div></div>`;
+  const monTxs = S.transactions.filter(t=>t.date && localTxMonth(t.date)===S.selectedMonth);
+  const isOpen = S.secOpen.tx;
+  const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="tx" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
+      <div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">Transactions</span></div><div class="sec-sub">${monTxs.length?`${monTxs.length} this month`:'Recent activity'}</div></div>
+    </div>`;
+  if (!isOpen) return `<div class="card">${hdr}</div>`;
+  if (!monTxs.length) return `<div class="card">${hdr}<div class="empty"><p>No transactions this month</p></div></div>`;
+  const sorted = [...monTxs].sort((a,b)=>b.date.localeCompare(a.date));
   const rows = sorted.map(t => {
+    if (t.type==='transfer') {
+      return `<li class="tx-row">
+        <div class="tx-icon transfer">${svgTransfer}</div>
+        <div class="tx-body"><div class="tx-cat">Transfer</div><div class="tx-meta">${t.note?esc(t.note)+' · ':''}${fmtDate(t.date)}</div></div>
+        <div class="tx-right"><div class="tx-amount transfer">${formatMoney(t.fromAmount,t.fromCurrency)} → ${formatMoney(t.toAmount,t.toCurrency)}</div></div>
+        <button class="tx-del" data-action="del-tx" data-id="${t.id}" title="Delete">${svgTrash}</button>
+      </li>`;
+    }
     const isIncome = t.type==='income';
+    const isBill = t.category==='Bills' && t.note;
+    const dispName = isBill ? t.note : t.category;
+    const dispMeta = isBill ? fmtDate(t.date) : (t.note?esc(t.note):fmtDate(t.date));
     return `<li class="tx-row">
       <div class="tx-icon ${t.type}">${isIncome?svgArrowUp:svgArrowDown}</div>
-      <div class="tx-body"><div class="tx-cat">${esc(t.category)}<span class="tx-badge">${getCur(t)}</span></div><div class="tx-meta">${t.note?esc(t.note):fmtDate(t.date)}</div></div>
+      <div class="tx-body"><div class="tx-cat">${esc(dispName)}<span class="tx-badge">${getCur(t)}</span></div><div class="tx-meta">${dispMeta}</div></div>
       <div class="tx-right"><div class="tx-amount ${t.type}">${isIncome?'+':'−'}${formatMoney(t.amount,getCur(t))}</div></div>
       <button class="tx-del" data-action="del-tx" data-id="${t.id}" title="Delete">${svgTrash}</button>
     </li>`;
   }).join('');
-  return `<div class="card"><div class="sec-hdr-pad"><div style="font-size:14px;font-weight:800">Recent Activity</div><div class="text-muted text-sm">${S.transactions.length} total</div></div><ul class="tx-list">${rows}</ul></div>`;
+  return `<div class="card">${hdr}<ul class="tx-list">${rows}</ul></div>`;
 }
 
 // ── Portfolio ──────────────────────────────────────────────────────────────────
@@ -668,12 +1147,13 @@ function renderSavings() {
     </div>`;
   }).join('');
   const addHtml = S.addingSaving ? `<div class="add-form">${savingForm(null)}</div>` : `<button class="add-row-btn" data-action="toggle-add-saving">${svgPlus} Add entry</button>`;
-  return `<div class="card">
-    <div class="sec-hdr">
+  const isOpen = S.secOpen.savings;
+  const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="savings" style="cursor:pointer">
       <div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Savings</span></div><div class="sec-sub">Bank accounts, deposits, cash</div></div>
       ${items.length?`<div class="sec-totals"><div class="sec-total-lbl">Total Balance</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt grn">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
-    </div>
-    ${rows}${addHtml}</div>`;
+    </div>`;
+  if (!isOpen) return `<div class="card">${hdr}</div>`;
+  return `<div class="card">${hdr}${rows}${addHtml}</div>`;
 }
 
 function savingForm(item) {
@@ -724,6 +1204,31 @@ function renderInvestmentsCard() {
     ${rows}${addHtml}</div>`;
 }
 
+function renderSettings() {
+  const aboutCard = `<div class="card">
+    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">My Money</span></div><div class="sec-sub">Personal finance tracker</div></div></div>
+    <div class="p-row"><div class="p-row-meta"><div class="p-row-name">Version</div></div><div class="p-row-right">3</div></div>
+    <div class="p-row"><div class="p-row-meta"><div class="p-row-name">Default Currency</div></div><div class="p-row-right">${S.txCurrency}</div></div>
+  </div>`;
+
+  const dataCard = `<div class="card">
+    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Data & Export</span></div><div class="sec-sub">All data is stored locally in this browser</div></div></div>
+    <div class="p-row"><div class="p-row-meta"><div class="p-row-name">Storage</div><div class="p-row-sub">Browser localStorage (mmc.tx.v1, mmc.portfolio.v1, mmc.recurring.v1, mmc.lastCurrency.v1)</div></div></div>
+    <div class="p-row"><div class="p-row-meta"><div class="p-row-name">Export file</div><div class="p-row-sub">Downloads as my-money.json to your device's Downloads folder</div></div></div>
+    <div class="add-form-btns" style="padding:12px 16px">
+      <button class="btn btn-outline" data-action="import-trigger">Import Backup</button>
+      <button class="btn btn-accent" data-action="export">Export Backup</button>
+    </div>
+  </div>`;
+
+  const moreCard = `<div class="card">
+    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">More Options</span></div><div class="sec-sub">Additional settings coming soon</div></div></div>
+    <div class="empty"><p>Nothing here yet</p></div>
+  </div>`;
+
+  document.getElementById('tab-settings').innerHTML = aboutCard + dataCard + moreCard;
+}
+
 function investmentForm(item) {
   const isEdit = !!item;
   return `<div class="add-form-title">${isEdit?'Edit':'New'} Investment</div>
@@ -752,9 +1257,27 @@ function renderLoans() {
     const payoff = new Date(loan.startDate); payoff.setFullYear(payoff.getFullYear()+loan.tenureYears);
     const isExpanded = S.expandedLoan===loan.id;
     const schedule = isExpanded ? computeScheduleToDate(loan) : [];
+    const partPayments = loan.partPayments||[];
+    const ppFormOpen = S.showingPPForm===loan.id;
+    const partHtml = `<div class="pp-section">
+      <div class="pp-hdr-row">
+        <span class="pp-hdr-title">Part Payments${partPayments.length?` <span class="pp-count">${partPayments.length}</span>`:''}</span>
+      </div>
+      ${partPayments.length?`<div class="pp-tbl-wrap"><table class="pp-tbl"><thead><tr><th>Date</th><th>Amount</th><th>Note</th><th></th></tr></thead><tbody>${partPayments.map(p=>`<tr><td>${p.date}</td><td class="pp-tbl-amt">${formatMoney(p.amount,c)}</td><td>${p.note?esc(p.note):''}</td><td><button class="ibtn del" data-action="del-part-payment" data-loan-id="${loan.id}" data-payment-id="${p.id}" title="Delete">${svgTrash}</button></td></tr>`).join('')}</tbody><tfoot><tr><td colspan="4" class="pp-tbl-footer">Total paid: <strong>${formatMoney(partPayments.reduce((s,p)=>s+p.amount,0),c)}</strong></td></tr></tfoot></table></div>`:''}
+      ${ppFormOpen?`<form class="pp-form add-form" data-action="add-part-payment" data-id="${loan.id}">
+        <div class="add-form-title">Record Part Payment</div>
+        <div class="form-row-2">
+          <div><label class="form-label">Date</label><input class="input" type="date" name="date" value="${todayISO()}"></div>
+          <div><label class="form-label">Amount *</label><input class="input" type="number" name="amount" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required></div>
+        </div>
+        <div class="form-row" style="margin-top:6px"><label class="form-label">Note</label><input class="input" type="text" name="note" placeholder="Optional"></div>
+        <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="toggle-pp-form" data-id="${loan.id}">Cancel</button><button type="submit" class="btn btn-accent">Record</button></div>
+      </form>`:`<button class="add-row-btn" data-action="toggle-pp-form" data-id="${loan.id}">${svgPlus} Record Part Payment</button>`}
+    </div>`;
     const schedHtml = isExpanded ? `<div class="schedule-wrap">
       <div class="text-sm text-muted" style="margin-bottom:6px">${schedule.length} months amortised · Interest: ${formatMoney(schedule.reduce((a,r)=>a+r.interest,0),c)}</div>
-      ${schedule.length?`<div class="schedule-tbl-wrap"><table class="schedule-tbl"><thead><tr><th>Month</th><th>Interest</th><th>Principal</th><th>Balance</th></tr></thead><tbody>${schedule.map(r=>`<tr><td>${r.date}</td><td>${formatMoney(r.interest,c)}</td><td>${formatMoney(r.principal,c)}</td><td>${formatMoney(r.balance,c)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="text-sm text-muted">No payments yet</p>'}
+      ${schedule.length?(()=>{const hasPP=schedule.some(r=>r.partPaid>0);return`<div class="schedule-tbl-wrap"><table class="schedule-tbl"><thead><tr><th>Month</th><th>Interest</th><th>Principal</th>${hasPP?'<th>Part Paid</th>':''}<th>Balance</th></tr></thead><tbody>${schedule.map(r=>`<tr${r.partPaid>0?' class="sched-pp-row"':''}><td>${r.date}</td><td>${formatMoney(r.interest,c)}</td><td>${formatMoney(r.principal,c)}</td>${hasPP?`<td>${r.partPaid>0?'<span class="sched-pp-amt">−'+formatMoney(r.partPaid,c)+'</span>':''}</td>`:''}<td>${formatMoney(r.balance,c)}</td></tr>`).join('')}</tbody></table></div>`;})():'<p class="text-sm text-muted">No payments yet</p>'}
+      ${partHtml}
     </div>` : '';
     const curPillClass = c==='USD'?'':''; // default blue pill for all
     return `<div>
@@ -774,12 +1297,13 @@ function renderLoans() {
     </div>`;
   }).join('');
   const addHtml = S.addingLoan ? `<div class="add-form">${loanForm(null)}</div>` : `<button class="add-row-btn" data-action="toggle-add-loan">${svgPlus} Add loan</button>`;
-  return `<div class="card">
-    <div class="sec-hdr">
+  const isOpen = S.secOpen.loans;
+  const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="loans" style="cursor:pointer">
       <div><div class="sec-title-row"><span class="sec-dot red"></span><span class="sec-title">Loans</span></div><div class="sec-sub">EMI-based amortising loans</div></div>
       ${Object.keys(totals).length?`<div class="sec-totals"><div class="sec-total-lbl">Outstanding Today</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt red">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
-    </div>
-    ${rows}${addHtml}</div>`;
+    </div>`;
+  if (!isOpen) return `<div class="card">${hdr}</div>`;
+  return `<div class="card">${hdr}${rows}${addHtml}</div>`;
 }
 
 function loanForm(loan) {
@@ -840,12 +1364,13 @@ function renderGoldLoans() {
     </div>`;
   }).join('');
   const addHtml = S.addingGoldLoan ? `<div class="add-form">${goldLoanForm(null)}</div>` : `<button class="add-row-btn" data-action="toggle-add-gold">${svgPlus} Add Gold Loan</button>`;
-  return `<div class="card">
-    <div class="sec-hdr">
+  const isOpen = S.secOpen.goldLoans;
+  const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="goldLoans" style="cursor:pointer">
       <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Gold Loans</span></div><div class="sec-sub">Bullet repayment, daily interest</div></div>
       ${Object.keys(totals).length?`<div class="sec-totals"><div class="sec-total-lbl">Total Owed</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt amb">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
-    </div>
-    ${rows}${addHtml}</div>`;
+    </div>`;
+  if (!isOpen) return `<div class="card">${hdr}</div>`;
+  return `<div class="card">${hdr}${rows}${addHtml}</div>`;
 }
 
 function goldLoanForm(loan) {
@@ -880,8 +1405,59 @@ function handleSubmit(e) {
 
   if (action==='add-tx') {
     const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
-    S.transactions.unshift({id:uid(),type:S.txType,amount,category:d.category,note:d.note||undefined,date:new Date().toISOString(),currency:d.currency});
-    save(); renderOverview(); renderDashboard(); toast('Transaction added'); return;
+    const type = S.addEntryType==='tx-income' ? 'income' : 'expense';
+    S.transactions.unshift({id:uid(),type,amount,category:d.category,note:d.note||undefined,date:new Date().toISOString(),currency:d.currency});
+    if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
+    S.addEntryType=null; save(); renderOverview(); renderDashboard(); toast('Transaction added'); return;
+  }
+  if (action==='add-recurring-income') {
+    if (!d.name.trim()) return toast('Name is required');
+    const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
+    S.recurring.items.push({id:uid(),name:d.name.trim(),type:'income',category:d.category||'Salary',amount,currency:d.currency,dayOfMonth:d.dayOfMonth?parseInt(d.dayOfMonth):undefined,months:{},createdAt:todayISO()});
+    if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
+    S.addEntryType=null; save(); renderDashboard(); toast('Recurring income added'); return;
+  }
+  if (action==='add-bill') {
+    if (!d.name.trim()) return toast('Name is required');
+    const isVariable = d.isVariable==='1';
+    const amount = isVariable ? 0 : (parseFloat(d.amount)||0);
+    S.recurring.items.push({id:uid(),name:d.name.trim(),type:'expense',isVariable,amount,currency:d.currency,dayOfMonth:d.dayOfMonth?parseInt(d.dayOfMonth):undefined,months:{},createdAt:todayISO()});
+    if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
+    S.addEntryType=null; save(); renderDashboard(); toast('Bill added'); return;
+  }
+  if (action==='add-credit-card') {
+    if (!d.name.trim()) return toast('Card name is required');
+    const dueDay = parseInt(d.dueDay); if (!dueDay||dueDay<1||dueDay>31) return toast('Enter a valid due day');
+    S.recurring.creditCards.push({id:uid(),name:d.name.trim(),currency:d.currency,dueDay,months:{},createdAt:todayISO()});
+    if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
+    S.addEntryType=null; save(); renderDashboard(); toast('Card added'); return;
+  }
+  if (action==='add-transfer') {
+    const fromAmount = parseFloat(d.fromAmount), toAmount = parseFloat(d.toAmount);
+    if (!fromAmount||fromAmount<=0||!toAmount||toAmount<=0) return toast('Enter valid amounts');
+    if (d.fromCurrency===d.toCurrency) return toast('Choose two different currencies');
+    S.transactions.unshift({id:uid(),type:'transfer',fromCurrency:d.fromCurrency,fromAmount,toCurrency:d.toCurrency,toAmount,currency:d.fromCurrency,note:d.note||undefined,date:new Date().toISOString()});
+    S.txCurrency=d.fromCurrency; localStorage.setItem('mmc.lastCurrency.v1',d.fromCurrency);
+    S.addEntryType=null; save(); renderOverview(); renderDashboard(); toast('Transfer recorded'); return;
+  }
+  if (action==='save-card-bill') {
+    const card = S.recurring.creditCards.find(c=>c.id===form.dataset.id); if (!card) return;
+    const mon = S.selectedMonth; if (!card.months) card.months = {};
+    const amount = parseFloat(d.amount)||0;
+    card.months[mon] = {...(card.months[mon]||{}), amount};
+    const txId = uid();
+    S.transactions.unshift({id:txId,type:'expense',amount,category:'Bills',note:card.name+' CC Bill',date:dateInMonth(mon),currency:card.currency||'INR'});
+    card.months[mon].paid = true; card.months[mon].txId = txId;
+    save(); renderOverview(); renderDashboard(); toast(card.name+' bill recorded'); return;
+  }
+  if (action==='mark-variable-bill') {
+    const item = S.recurring.items.find(i=>i.id===form.dataset.id); if (!item) return;
+    const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
+    const mon = S.selectedMonth; if (!item.months) item.months = {};
+    const txId = uid();
+    S.transactions.unshift({id:txId,type:'expense',amount,category:'Bills',note:item.name,date:dateInMonth(mon),currency:item.currency||'INR'});
+    item.months[mon] = {paid:true, amount, txId};
+    save(); renderOverview(); renderDashboard(); toast(item.name+' marked paid'); return;
   }
   if (action==='add-saving') {
     if (!d.name.trim()) return toast('Name is required');
@@ -908,12 +1484,20 @@ function handleSubmit(e) {
   }
   if (action==='add-loan') {
     if (!d.name.trim()) return toast('Name is required');
-    S.portfolio.loans.unshift({id:uid(),name:d.name.trim(),lender:d.lender||undefined,principal:parseFloat(d.principal),startDate:d.startDate,tenureYears:parseFloat(d.tenureYears),interestRate:parseFloat(d.interestRate),note:d.note||undefined,currency:d.currency,createdAt:todayISO()});
+    S.portfolio.loans.unshift({id:uid(),name:d.name.trim(),lender:d.lender||undefined,principal:parseFloat(d.principal),startDate:d.startDate,tenureYears:parseFloat(d.tenureYears),interestRate:parseFloat(d.interestRate),note:d.note||undefined,currency:d.currency,partPayments:[],createdAt:todayISO()});
     S.addingLoan=false; save(); renderPortfolio(); toast('Loan added'); return;
   }
   if (action==='update-loan') {
     S.portfolio.loans = S.portfolio.loans.map(i=>i.id===form.dataset.id?{...i,name:d.name.trim(),lender:d.lender||undefined,principal:parseFloat(d.principal),startDate:d.startDate,tenureYears:parseFloat(d.tenureYears),interestRate:parseFloat(d.interestRate),note:d.note||undefined,currency:d.currency}:i);
     S.editingId=null; S.editSection=null; save(); renderPortfolio(); toast('Loan updated'); return;
+  }
+  if (action==='add-part-payment') {
+    const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
+    const loan = S.portfolio.loans.find(l=>l.id===form.dataset.id);
+    if (!loan) return;
+    if (!loan.partPayments) loan.partPayments = [];
+    loan.partPayments.unshift({id:uid(), date:d.date||todayISO(), amount, note:d.note||undefined});
+    S.showingPPForm=null; save(); renderPortfolio(); toast('Part payment recorded'); return;
   }
   if (action==='add-gold') {
     if (!d.name.trim()) return toast('Name is required');
@@ -939,9 +1523,68 @@ function handleClick(e) {
     else if (S.tab==='transactions') renderDashboard();
     else if (S.tab==='portfolio') renderPortfolio();
     else if (S.tab==='investments') renderInvestments();
+    else if (S.tab==='history') renderHistory();
+    else if (S.tab==='settings') renderSettings();
     return;
   }
-  if (action==='set-tx-type') { S.txType=btn.dataset.type; renderDashboard(); return; }
+  if (action==='prev-month') { S.selectedMonth = shiftMonth(S.selectedMonth, -1); renderDashboard(); return; }
+  if (action==='next-month') { const next = shiftMonth(S.selectedMonth, 1); if (next <= thisMonth()) S.selectedMonth = next; renderDashboard(); return; }
+  if (action==='goto-current-month') { S.selectedMonth = thisMonth(); renderDashboard(); return; }
+  if (action==='toggle-add-entry') { S.addEntryType = S.addEntryType ? null : 'tx-expense'; renderDashboard(); return; }
+  if (action==='set-entry-type') { S.addEntryType=btn.dataset.type; renderDashboard(); return; }
+  if (action==='cancel-entry') { S.addEntryType=null; renderDashboard(); return; }
+  if (action==='confirm-recurring') {
+    const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
+    const mon = S.selectedMonth;
+    if (!item.months) item.months = {};
+    const txId = uid();
+    S.transactions.unshift({id:txId,type:'income',amount:item.amount,category:item.category||'Salary',note:item.name,date:dateInMonth(mon),currency:item.currency||'USD'});
+    item.months[mon] = {paid:true, amount:item.amount, txId};
+    save(); renderOverview(); renderDashboard(); toast(item.name+' credited'); return;
+  }
+  if (action==='unmark-recurring-item') {
+    const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
+    const mon = S.selectedMonth; const ms = item.months?.[mon]; if (!ms) return;
+    if (ms.txId) S.transactions = S.transactions.filter(t=>t.id!==ms.txId);
+    ms.paid = false; ms.txId = undefined;
+    save(); renderOverview(); renderDashboard(); toast(item.name+' marked unpaid'); return;
+  }
+  if (action==='unmark-card') {
+    const card = S.recurring.creditCards.find(c=>c.id===btn.dataset.id); if (!card) return;
+    const mon = S.selectedMonth; const ms = card.months?.[mon]; if (!ms) return;
+    if (ms.txId) S.transactions = S.transactions.filter(t=>t.id!==ms.txId);
+    ms.paid = false; ms.txId = undefined;
+    save(); renderOverview(); renderDashboard(); toast(card.name+' marked unpaid'); return;
+  }
+  if (action==='del-recurring-item') {
+    if (!confirm('Remove this recurring entry?')) return;
+    S.recurring.items = S.recurring.items.filter(i=>i.id!==btn.dataset.id); save(); renderDashboard(); return;
+  }
+  // Bills
+  if (action==='mark-bill-paid') {
+    const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
+    const mon = S.selectedMonth;
+    if (!item.months) item.months = {};
+    const txId = uid();
+    S.transactions.unshift({id:txId,type:'expense',amount:item.amount,category:'Bills',note:item.name,date:dateInMonth(mon),currency:item.currency||'INR'});
+    item.months[mon] = {paid:true, amount:item.amount, txId};
+    save(); renderOverview(); renderDashboard(); toast(item.name+' marked paid'); return;
+  }
+  // Credit cards
+  if (action==='mark-card-paid') {
+    const card = S.recurring.creditCards.find(c=>c.id===btn.dataset.id); if (!card) return;
+    const mon = S.selectedMonth;
+    if (!card.months) card.months = {};
+    const amt = card.months[mon]?.amount||0;
+    const txId = uid();
+    if (amt>0) S.transactions.unshift({id:txId,type:'expense',amount:amt,category:'Bills',note:card.name+' CC Bill',date:dateInMonth(mon),currency:card.currency||'INR'});
+    card.months[mon] = {...(card.months[mon]||{}), paid:true, txId};
+    save(); renderOverview(); renderDashboard(); toast(card.name+' bill marked paid'); return;
+  }
+  if (action==='del-credit-card') {
+    if (!confirm('Remove this card?')) return;
+    S.recurring.creditCards = S.recurring.creditCards.filter(c=>c.id!==btn.dataset.id); save(); renderDashboard(); return;
+  }
   if (action==='del-tx') {
     if (!confirm('Delete this transaction?')) return;
     S.transactions=S.transactions.filter(t=>t.id!==btn.dataset.id); save(); renderOverview(); renderDashboard(); return;
@@ -967,7 +1610,15 @@ function handleClick(e) {
     if (!confirm('Delete this loan?')) return;
     S.portfolio.loans=S.portfolio.loans.filter(i=>i.id!==btn.dataset.id); save(); renderPortfolio(); return;
   }
-  if (action==='toggle-loan') { S.expandedLoan=S.expandedLoan===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
+  if (action==='toggle-loan') { S.expandedLoan=S.expandedLoan===btn.dataset.id?null:btn.dataset.id; S.showingPPForm=null; renderPortfolio(); return; }
+  if (action==='toggle-pp-form') { S.showingPPForm=S.showingPPForm===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
+  if (action==='toggle-month') { S.expandedMonth=S.expandedMonth===btn.dataset.month?null:btn.dataset.month; renderHistory(); return; }
+  if (action==='toggle-section') { const k=btn.dataset.sec; S.secOpen[k]=!S.secOpen[k]; renderDashboard(); renderPortfolio(); return; }
+  if (action==='del-part-payment') {
+    const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.loanId);
+    if (loan) { loan.partPayments=(loan.partPayments||[]).filter(p=>p.id!==btn.dataset.paymentId); save(); renderPortfolio(); }
+    return;
+  }
   if (action==='toggle-add-gold') { S.addingGoldLoan=!S.addingGoldLoan; S.editingId=null; renderPortfolio(); return; }
   if (action==='cancel-gold') { S.addingGoldLoan=false; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
   if (action==='edit-gold') { S.editingId=btn.dataset.id; S.editSection='goldLoan'; S.addingGoldLoan=false; renderPortfolio(); return; }
@@ -1011,7 +1662,7 @@ function handleInput(e) {
 }
 
 function exportJSON() {
-  const payload = JSON.stringify({version:2,transactions:S.transactions,portfolio:S.portfolio},null,2);
+  const payload = JSON.stringify({version:3,transactions:S.transactions,portfolio:S.portfolio,recurring:S.recurring},null,2);
   const blob = new Blob([payload],{type:'application/json'}), url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href=url; a.download='my-money.json';
   document.body.appendChild(a); a.click(); a.remove();
@@ -1022,11 +1673,15 @@ document.getElementById('file-input').addEventListener('change', async function(
   const file = e.target.files[0]; if (!file) return;
   try {
     const data = JSON.parse(await file.text());
-    let transactions, portfolio;
-    if (Array.isArray(data)) { transactions=data; portfolio={savings:[],loans:[],goldLoans:[]}; }
-    else { transactions=data.transactions||[]; portfolio=Object.assign({savings:[],loans:[],goldLoans:[]},data.portfolio||{}); }
-    S.transactions=transactions; S.portfolio=portfolio;
-    save(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); toast(`Imported ${transactions.length} transactions`);
+    let transactions, portfolio, recurring;
+    if (Array.isArray(data)) { transactions=data; portfolio={savings:[],loans:[],goldLoans:[]}; recurring={items:[],creditCards:[]}; }
+    else {
+      transactions=data.transactions||[];
+      portfolio=Object.assign({savings:[],loans:[],goldLoans:[]},data.portfolio||{});
+      recurring=Object.assign({items:[],creditCards:[]},data.recurring||{});
+    }
+    S.transactions=transactions; S.portfolio=portfolio; S.recurring=recurring;
+    save(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderHistory(); toast(`Imported ${transactions.length} transactions`);
   } catch(err) { toast('Import failed — invalid JSON'); }
   this.value='';
 });
@@ -1035,7 +1690,7 @@ document.addEventListener('submit', handleSubmit);
 document.addEventListener('click', handleClick);
 document.addEventListener('input', handleInput);
 
-load(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments();
+load(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderHistory();
 </script>
 <script>
 (function(){
