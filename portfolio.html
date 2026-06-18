@@ -635,8 +635,10 @@ function renderOverview() {
       </div>
       <div class="ov-row-detail">
         ${sav>0?`<span class="ov-sub">Savings ${formatMoney(sav,cur)}</span>`:''}
-        ${txNet>0?`<span class="ov-sub">Income surplus ${formatMoney(txNet,cur)}</span>`:''}
-        ${!sav&&txNet<=0?`<span class="ov-sub muted">No savings or income surplus</span>`:''}
+        ${txIncome>0?`<span class="ov-sub" style="color:var(--income)">Income ${formatMoney(txIncome,cur)}</span>`:''}
+        ${txExpense>0?`<span class="ov-sub" style="color:var(--expense)">Expenses −${formatMoney(txExpense,cur)}</span>`:''}
+        ${txNet>0?`<span class="ov-sub">Surplus ${formatMoney(txNet,cur)}</span>`:''}
+        ${!sav&&txNet<=0&&!txIncome?`<span class="ov-sub muted">No savings or income surplus</span>`:''}
       </div>
       <div class="ov-row" style="margin-top:10px">
         <div class="ov-row-left">
