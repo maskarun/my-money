@@ -428,7 +428,7 @@ const S = {
   addingSaving: false, addingLoan: false, addingGoldLoan: false, addingInvestment: false,
   addEntryType: null,
   editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, showingPPForm: null, expandedMonth: null, selectedMonth: null,
-  secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: true, savings: true, loans: true, goldLoans: true },
+  secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: true, savings: true, loans: true, goldLoans: true, projections: true },
 };
 
 function save() {
@@ -951,7 +951,7 @@ function renderCreditCards() {
 
 function renderDashboard() {
   document.getElementById('tab-transactions').innerHTML =
-    renderMonthNav() + renderHeroCards() + renderQuickAdd() + renderCatBreakdown() + renderRecurringIncome() + renderBills() + renderCreditCards() + renderActivity();
+    renderMonthNav() + renderHeroCards() + renderQuickAdd() + renderCatBreakdown() + renderRecurringIncome() + renderBills() + renderCreditCards() + renderProjections() + renderActivity();
 }
 
 function renderMonthNav() {
@@ -1096,6 +1096,77 @@ function renderCatBreakdown() {
   }
 
   return `<div class="card">${hdr}<div class="cat-wrap">${sections}${transferSection}</div></div>`;
+}
+
+function computeProjections() {
+  const curMonth = thisMonth();
+  const past3 = [1,2,3].map(d => shiftMonth(curMonth, -d));
+  const recurTxIds = new Set();
+  for (const item of (S.recurring?.items||[])) for (const mon of Object.keys(item.months||{})) { if (item.months[mon]?.txId) recurTxIds.add(item.months[mon].txId); }
+  for (const card of (S.recurring?.creditCards||[])) for (const mon of Object.keys(card.months||{})) { if (card.months[mon]?.txId) recurTxIds.add(card.months[mon].txId); }
+  const allCurs = new Set();
+  S.transactions.forEach(t => allCurs.add(getCur(t)));
+  (S.recurring?.items||[]).forEach(i => allCurs.add(getCur(i)));
+  (S.recurring?.creditCards||[]).forEach(c => allCurs.add(getCur(c)));
+  const results = {};
+  for (const cur of allCurs) {
+    let incTotal = 0, expTotal = 0;
+    for (const mon of past3) {
+      for (const t of S.transactions.filter(t => localTxMonth(t.date)===mon && getCur(t)===cur && !recurTxIds.has(t.id))) {
+        if (t.type==='income') incTotal += t.amount;
+        else if (t.type==='expense') expTotal += t.amount;
+      }
+    }
+    const txAvgInc = incTotal/3, txAvgExp = expTotal/3;
+    let recIncome = 0, recExpense = 0;
+    for (const item of (S.recurring?.items||[])) {
+      if (getCur(item) !== cur) continue;
+      if (item.type === 'income') { recIncome += item.amount || 0; }
+      else {
+        if (item.isVariable) {
+          let sum = 0, cnt = 0;
+          for (const mon of past3) { const a = item.months?.[mon]?.amount; if (a) { sum+=a; cnt++; } }
+          recExpense += cnt ? sum/cnt : 0;
+        } else { recExpense += item.amount || 0; }
+      }
+    }
+    for (const card of (S.recurring?.creditCards||[])) {
+      if (getCur(card) !== cur) continue;
+      let sum = 0, cnt = 0;
+      for (const mon of past3) { const a = card.months?.[mon]?.amount; if (a) { sum+=a; cnt++; } }
+      recExpense += cnt ? sum/cnt : 0;
+    }
+    const mInc = recIncome + txAvgInc, mExp = recExpense + txAvgExp;
+    if (mInc || mExp) {
+      results[cur] = { monthlyIncome: mInc, monthlyExpense: mExp };
+    }
+  }
+  return results;
+}
+
+function renderProjections() {
+  const proj = computeProjections();
+  const curs = Object.keys(proj);
+  if (!curs.length) return '';
+  const hdr = `<div class="sec-hdr" data-action="toggle-section" data-key="projections" style="cursor:pointer"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">Projections</span></div><div class="sec-sub">Estimated income & expenses</div></div></div>`;
+  if (S.secOpen && S.secOpen.projections === false) return `<div class="card">${hdr}</div>`;
+  let body = '';
+  for (const cur of curs) {
+    const p = proj[cur];
+    const periods = [3,6,12];
+    body += `<div style="padding:8px 16px 4px"><div style="font-weight:600;font-size:13px;margin-bottom:6px">${cur}</div>`;
+    body += `<table style="width:100%;font-size:11px;border-collapse:collapse">`;
+    body += `<tr style="color:var(--muted)"><td></td>${periods.map(m=>`<td style="text-align:right;padding:2px 4px;font-weight:500">${m}M</td>`).join('')}</tr>`;
+    body += `<tr><td style="padding:2px 4px;color:var(--green)">Income</td>${periods.map(m=>`<td style="text-align:right;padding:2px 4px;color:var(--green)">${formatMoney(p.monthlyIncome*m,cur)}</td>`).join('')}</tr>`;
+    body += `<tr><td style="padding:2px 4px;color:var(--red)">Expense</td>${periods.map(m=>`<td style="text-align:right;padding:2px 4px;color:var(--red)">${formatMoney(p.monthlyExpense*m,cur)}</td>`).join('')}</tr>`;
+    const surplusRows = periods.map(m => {
+      const s = p.monthlyIncome*m - p.monthlyExpense*m;
+      return `<td style="text-align:right;padding:2px 4px;font-weight:600;color:${s>=0?'var(--green)':'var(--red)'}">${formatMoney(Math.abs(s),cur)}${s<0?' deficit':''}</td>`;
+    });
+    body += `<tr style="border-top:1px solid var(--border)"><td style="padding:4px 4px 2px;font-weight:500">Surplus</td>${surplusRows.join('')}</tr>`;
+    body += `</table></div>`;
+  }
+  return `<div class="card">${hdr}${body}</div>`;
 }
 
 function renderActivity() {
