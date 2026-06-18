@@ -437,6 +437,9 @@ function save() {
     localStorage.setItem('mmc.portfolio.v1', JSON.stringify(S.portfolio));
     localStorage.setItem('mmc.recurring.v1', JSON.stringify(S.recurring));
     localStorage.setItem('mmc.lastCurrency.v1', S.txCurrency);
+    const backup = JSON.stringify({version:3, transactions:S.transactions, portfolio:S.portfolio, recurring:S.recurring});
+    localStorage.setItem('mmc.backup', backup);
+    localStorage.setItem('mmc.backup.time', new Date().toISOString());
   } catch(e) {}
 }
 
@@ -1252,6 +1255,9 @@ function renderSettings() {
         </form>
       </div>
     </div>
+    <div class="p-row"><div class="p-row-meta"><div class="p-row-name">Auto Backup</div><div class="p-row-sub">${(() => { const t = localStorage.getItem('mmc.backup.time'); return t ? 'Last backup: ' + new Date(t).toLocaleString() : 'No backup yet'; })()}</div></div>
+      <button class="btn btn-outline" style="font-size:10px;padding:4px 10px" data-action="restore-backup" ${localStorage.getItem('mmc.backup.time')?'':'disabled'}>Restore</button>
+    </div>
     <div class="add-form-btns" style="padding:12px 16px">
       <button class="btn btn-outline" data-action="import-trigger">Import Backup</button>
       <button class="btn btn-accent" data-action="export">Export Backup</button>
@@ -1689,6 +1695,20 @@ function handleClick(e) {
   if (action==='toggle-gold') { S.expandedGoldLoan=S.expandedGoldLoan===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
   if (action==='export') { exportJSON(); return; }
   if (action==='import-trigger') { document.getElementById('file-input').click(); return; }
+  if (action==='restore-backup') {
+    if (!confirm('Restore from last auto-backup? This will overwrite current data.')) return;
+    const raw = localStorage.getItem('mmc.backup');
+    if (!raw) { toast('No backup found'); return; }
+    try {
+      const data = JSON.parse(raw);
+      S.transactions = data.transactions || [];
+      S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[]}, data.portfolio||{});
+      S.recurring = Object.assign({items:[],creditCards:[]}, data.recurring||{});
+      save(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderHistory(); renderSettings();
+      toast('Restored from backup');
+    } catch(e) { toast('Backup corrupted'); }
+    return;
+  }
 }
 
 function handleInput(e) {
