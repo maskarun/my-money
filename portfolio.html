@@ -456,32 +456,7 @@ function load() {
 }
 
 let exportDirHandle = null;
-let exportDirName = '';
-
-function openExportDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open('mmc-settings', 1);
-    req.onupgradeneeded = () => req.result.createObjectStore('kv');
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-async function saveExportDir(handle) {
-  const db = await openExportDB();
-  const tx = db.transaction('kv','readwrite');
-  tx.objectStore('kv').put(handle, 'exportDirHandle');
-  db.close();
-}
-async function loadExportDir() {
-  const saved = localStorage.getItem('mmc.exportName');
-  if (saved) exportDirName = saved;
-  try {
-    const db = await openExportDB();
-    const val = await new Promise((res,rej) => { const r = db.transaction('kv').objectStore('kv').get('exportDirHandle'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); });
-    db.close();
-    if (val) { exportDirHandle = val; exportDirName = val.name; }
-  } catch(e) {}
-}
+let exportDirName = localStorage.getItem('mmc.exportName') || '';
 
 const uid = () => { try { return crypto.randomUUID(); } catch(e) { return Math.random().toString(36).slice(2)+Date.now().toString(36); } };
 const todayISO = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
@@ -1264,13 +1239,18 @@ function renderSettings() {
     <div class="p-row"><div class="p-row-meta"><div class="p-row-name">Default Currency</div></div><div class="p-row-right">${S.txCurrency}</div></div>
   </div>`;
 
-  const hasCustom = !!(exportDirHandle || exportDirName);
-  const locLabel = exportDirHandle ? esc(exportDirName)+'/my-money.json' : exportDirName ? 'Downloads as '+esc(exportDirName) : 'Downloads as my-money.json (default)';
+  const curName = exportDirName || 'my-money.json';
   const dataCard = `<div class="card">
     <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Data & Export</span></div><div class="sec-sub">All data is stored locally in this browser</div></div></div>
     <div class="p-row"><div class="p-row-meta"><div class="p-row-name">Storage</div><div class="p-row-sub">Browser localStorage</div></div></div>
-    <div class="p-row"><div class="p-row-meta"><div class="p-row-name">Export location</div><div class="p-row-sub">${locLabel}</div></div>
-      <div class="p-row-right"><button class="btn btn-outline" style="font-size:10px;padding:4px 10px" data-action="pick-export-dir">${hasCustom?'Change':'Set'}</button></div>
+    <div class="p-row">
+      <div class="p-row-meta" style="flex:1">
+        <div class="p-row-name">Export filename</div>
+        <form data-action="save-export-name" style="display:flex;gap:6px;align-items:center;margin-top:6px">
+          <input class="input" type="text" name="exportName" value="${esc(curName)}" style="font-size:12px;padding:6px 8px;flex:1" placeholder="my-money.json">
+          <button type="submit" class="btn btn-accent" style="font-size:10px;padding:4px 10px">Save</button>
+        </form>
+      </div>
     </div>
     <div class="add-form-btns" style="padding:12px 16px">
       <button class="btn btn-outline" data-action="import-trigger">Import Backup</button>
@@ -1464,6 +1444,15 @@ function handleSubmit(e) {
   if (!action) return; e.preventDefault();
   const d = formData(form);
 
+  if (action==='save-export-name') {
+    let name = (d.exportName||'').trim() || 'my-money.json';
+    if (!name.endsWith('.json')) name += '.json';
+    exportDirHandle = null; exportDirName = name;
+    localStorage.setItem('mmc.exportName', name);
+    toast('Export filename set to ' + name);
+    if (S.tab==='settings') renderSettings();
+    return;
+  }
   if (action==='add-tx') {
     const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
     const type = S.addEntryType==='tx-income' ? 'income' : 'expense';
@@ -1700,7 +1689,6 @@ function handleClick(e) {
   if (action==='toggle-gold') { S.expandedGoldLoan=S.expandedGoldLoan===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
   if (action==='export') { exportJSON(); return; }
   if (action==='import-trigger') { document.getElementById('file-input').click(); return; }
-  if (action==='pick-export-dir') { pickExportDir(); return; }
 }
 
 function handleInput(e) {
@@ -1733,45 +1721,8 @@ function handleInput(e) {
   }
 }
 
-async function pickExportDir() {
-  if (!window.showDirectoryPicker) {
-    const name = prompt('Enter export filename (default: my-money.json):', exportDirName || 'my-money.json');
-    if (!name) return;
-    exportDirHandle = null;
-    exportDirName = name.endsWith('.json') ? name : name + '.json';
-    localStorage.setItem('mmc.exportName', exportDirName);
-    toast('Export filename set to ' + exportDirName);
-    if (S.tab==='settings') renderSettings();
-    return;
-  }
-  try {
-    const handle = await window.showDirectoryPicker({mode:'readwrite'});
-    exportDirHandle = handle;
-    exportDirName = handle.name;
-    await saveExportDir(handle);
-    toast('Export folder set to ' + handle.name);
-    if (S.tab==='settings') renderSettings();
-  } catch(e) {
-    if (e.name!=='AbortError') toast('Could not set folder');
-  }
-}
-
-async function exportJSON() {
+function exportJSON() {
   const payload = JSON.stringify({version:3,transactions:S.transactions,portfolio:S.portfolio,recurring:S.recurring},null,2);
-  if (exportDirHandle) {
-    try {
-      const perm = await exportDirHandle.queryPermission({mode:'readwrite'});
-      if (perm!=='granted') { const req = await exportDirHandle.requestPermission({mode:'readwrite'}); if (req!=='granted') throw new Error('denied'); }
-      const fh = await exportDirHandle.getFileHandle('my-money.json',{create:true});
-      const w = await fh.createWritable(); await w.write(payload); await w.close();
-      toast('Exported to ' + exportDirName + '/my-money.json');
-      return;
-    } catch(e) {
-      toast('Folder access lost, downloading instead');
-      exportDirHandle = null; exportDirName = '';
-      if (S.tab==='settings') renderSettings();
-    }
-  }
   const fname = exportDirName || 'my-money.json';
   const blob = new Blob([payload],{type:'application/json'}), url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href=url; a.download=fname;
@@ -1800,7 +1751,7 @@ document.addEventListener('submit', handleSubmit);
 document.addEventListener('click', handleClick);
 document.addEventListener('input', handleInput);
 
-load(); loadExportDir(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderHistory();
+load(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderHistory();
 </script>
 <script>
 (function(){
