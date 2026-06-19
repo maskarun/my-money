@@ -198,18 +198,6 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .cur-pill { font-size: 8px; font-weight: 800; background: #e0f2fe; color: var(--accent); padding: 1px 5px; border-radius: 4px; letter-spacing: .3px; }
 .cur-pill.red { background: #fff1f2; color: var(--expense); }
 .cur-pill.amb { background: #fef9c3; color: var(--gold); }
-.ov-card { margin: 16px 16px 0; padding: 18px 16px 14px; }
-.ov-cur-label { font-size: 11px; font-weight: 800; letter-spacing: .6px; color: var(--muted-fg); text-transform: uppercase; margin-bottom: 4px; }
-.ov-net { font-size: 28px; font-weight: 800; letter-spacing: -.5px; font-variant-numeric: tabular-nums; margin-bottom: 14px; }
-.ov-divider { height: 1px; background: var(--border); margin-bottom: 12px; }
-.ov-row { display: flex; align-items: center; justify-content: space-between; }
-.ov-row-left { display: flex; align-items: center; gap: 7px; }
-.ov-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.ov-row-label { font-size: 13px; font-weight: 600; color: var(--fg); }
-.ov-row-val { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.ov-row-detail { padding-left: 15px; margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px 10px; }
-.ov-sub { font-size: 11px; color: var(--muted-fg); }
-.ov-sub.muted { font-style: italic; }
 .p-row-sub { font-size: 10px; color: var(--muted-fg); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
 .p-row-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
 .p-row-amt-lbl { font-size: 8px; font-weight: 600; letter-spacing: .7px; color: var(--muted-fg); text-transform: uppercase; }
@@ -570,14 +558,12 @@ function catOptions(type, sel) { return (type==='income'?INCOME_CATS:EXPENSE_CAT
 
 // ── Dashboard Overview ─────────────────────────────────────────────────────────
 function renderOverview() {
-  // Gather all currencies across transactions and portfolio
   const allCurs = new Set();
   for (const t of S.transactions) allCurs.add(getCur(t));
   for (const i of [...S.portfolio.savings,...S.portfolio.loans,...S.portfolio.goldLoans]) allCurs.add(getCur(i));
   if (!allCurs.size) allCurs.add('USD');
 
   const cards = [...allCurs].map(cur => {
-    // Credit: savings balance + transaction net income (if positive)
     const sav = S.portfolio.savings.filter(i=>getCur(i)===cur).reduce((a,i)=>a+i.amount,0);
     let txIncome=0, txExpense=0;
     for (const t of S.transactions) { if (t.type==='transfer') continue; if (getCur(t)!==cur) continue; if (t.type==='income') txIncome+=t.amount; else txExpense+=t.amount; }
@@ -589,44 +575,34 @@ function renderOverview() {
     }
     const txNet = txIncome - txExpense + transferNet;
     const credit = sav + Math.max(0, txNet);
-
-    // Debt: loans + gold loans outstanding
     const loans = S.portfolio.loans.filter(i=>getCur(i)===cur).reduce((a,i)=>a+computeOutstanding(i),0);
     const gold  = S.portfolio.goldLoans.filter(i=>getCur(i)===cur&&!i.closed).reduce((a,i)=>a+i.principal+computeGoldLoanInterest(i),0);
     const debt  = loans + gold;
-
     const net = credit - debt;
     const netColor = net >= 0 ? 'var(--income)' : 'var(--expense)';
 
-    return `<div class="card ov-card">
-      <div class="ov-cur-label">${cur}</div>
-      <div class="ov-net" style="color:${netColor}">${formatMoney(net, cur)}</div>
-      <div class="ov-divider"></div>
-      <div class="ov-row">
-        <div class="ov-row-left">
-          <span class="ov-dot" style="background:var(--income)"></span>
-          <span class="ov-row-label">Credit</span>
-        </div>
-        <span class="ov-row-val income">${formatMoney(credit, cur)}</span>
+    const creditSubs = [
+      sav>0?`Savings ${formatMoney(sav,cur)}`:'',
+      txIncome>0?`Income ${formatMoney(txIncome,cur)}`:'',
+      txExpense>0?`Expenses −${formatMoney(txExpense,cur)}`:'',
+      txNet>0?`Surplus ${formatMoney(txNet,cur)}`:''
+    ].filter(Boolean).join(' · ') || 'No savings or income surplus';
+
+    const debtSubs = [
+      loans>0?`Loans ${formatMoney(loans,cur)}`:'',
+      gold>0?`Gold ${formatMoney(gold,cur)}`:''
+    ].filter(Boolean).join(' · ') || 'No outstanding debt';
+
+    return `<div class="card">
+      <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:${netColor}"></span><span class="sec-title">${cur}</span></div><div class="sec-sub">Net Worth</div></div></div>
+      <div style="padding:0 16px 12px;font-size:26px;font-weight:800;letter-spacing:-.5px;font-variant-numeric:tabular-nums;color:${netColor}">${formatMoney(net, cur)}</div>
+      <div class="p-row">
+        <div class="p-row-meta"><div class="p-row-name" style="color:var(--income)">Credit</div><div class="p-row-sub" style="max-width:none">${creditSubs}</div></div>
+        <div class="p-row-right"><span class="p-row-amt grn">${formatMoney(credit, cur)}</span></div>
       </div>
-      <div class="ov-row-detail">
-        ${sav>0?`<span class="ov-sub">Savings ${formatMoney(sav,cur)}</span>`:''}
-        ${txIncome>0?`<span class="ov-sub" style="color:var(--income)">Income ${formatMoney(txIncome,cur)}</span>`:''}
-        ${txExpense>0?`<span class="ov-sub" style="color:var(--expense)">Expenses −${formatMoney(txExpense,cur)}</span>`:''}
-        ${txNet>0?`<span class="ov-sub">Surplus ${formatMoney(txNet,cur)}</span>`:''}
-        ${!sav&&txNet<=0&&!txIncome?`<span class="ov-sub muted">No savings or income surplus</span>`:''}
-      </div>
-      <div class="ov-row" style="margin-top:10px">
-        <div class="ov-row-left">
-          <span class="ov-dot" style="background:var(--expense)"></span>
-          <span class="ov-row-label">Debt</span>
-        </div>
-        <span class="ov-row-val expense">${formatMoney(debt, cur)}</span>
-      </div>
-      <div class="ov-row-detail">
-        ${loans>0?`<span class="ov-sub">Loans ${formatMoney(loans,cur)}</span>`:''}
-        ${gold>0?`<span class="ov-sub" style="color:var(--gold)">Gold ${formatMoney(gold,cur)}</span>`:''}
-        ${!debt?`<span class="ov-sub muted">No outstanding debt</span>`:''}
+      <div class="p-row">
+        <div class="p-row-meta"><div class="p-row-name" style="color:var(--expense)">Debt</div><div class="p-row-sub" style="max-width:none">${debtSubs}</div></div>
+        <div class="p-row-right"><span class="p-row-amt red">${formatMoney(debt, cur)}</span></div>
       </div>
     </div>`;
   }).join('');
@@ -1154,17 +1130,21 @@ function renderProjections() {
   for (const cur of curs) {
     const p = proj[cur];
     const periods = [3,6,12];
-    body += `<div style="padding:8px 16px 4px"><div style="font-weight:600;font-size:13px;margin-bottom:6px">${cur}</div>`;
-    body += `<table style="width:100%;font-size:11px;border-collapse:collapse">`;
-    body += `<tr style="color:var(--muted)"><td></td>${periods.map(m=>`<td style="text-align:right;padding:2px 4px;font-weight:500">${m}M</td>`).join('')}</tr>`;
-    body += `<tr><td style="padding:2px 4px;color:var(--green)">Income</td>${periods.map(m=>`<td style="text-align:right;padding:2px 4px;color:var(--green)">${formatMoney(p.monthlyIncome*m,cur)}</td>`).join('')}</tr>`;
-    body += `<tr><td style="padding:2px 4px;color:var(--red)">Expense</td>${periods.map(m=>`<td style="text-align:right;padding:2px 4px;color:var(--red)">${formatMoney(p.monthlyExpense*m,cur)}</td>`).join('')}</tr>`;
-    const surplusRows = periods.map(m => {
+    const fmtRow = (label, color, valFn) => `<div class="p-row" style="gap:0">
+      <div class="p-row-meta" style="flex:0 0 70px"><div class="p-row-name" style="color:${color};font-size:11px">${label}</div></div>
+      ${periods.map(m => `<div style="flex:1;text-align:right;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;color:${color};padding:0 4px">${valFn(m)}</div>`).join('')}
+    </div>`;
+    const hdrRow = `<div class="p-row" style="gap:0;border-top:none;padding-top:12px">
+      <div class="p-row-meta" style="flex:0 0 70px"><div class="p-row-name" style="font-size:12px">${cur}</div></div>
+      ${periods.map(m => `<div style="flex:1;text-align:right;font-size:10px;font-weight:500;color:var(--muted-fg);padding:0 4px">${m} Months</div>`).join('')}
+    </div>`;
+    body += hdrRow;
+    body += fmtRow('Income', 'var(--income)', m => formatMoney(p.monthlyIncome*m, cur));
+    body += fmtRow('Expense', 'var(--expense)', m => formatMoney(p.monthlyExpense*m, cur));
+    body += fmtRow('Surplus', '', m => {
       const s = p.monthlyIncome*m - p.monthlyExpense*m;
-      return `<td style="text-align:right;padding:2px 4px;font-weight:600;color:${s>=0?'var(--green)':'var(--red)'}">${formatMoney(Math.abs(s),cur)}${s<0?' deficit':''}</td>`;
+      return `<span style="color:${s>=0?'var(--income)':'var(--expense)'}">${s<0?'−':''}${formatMoney(Math.abs(s), cur)}</span>`;
     });
-    body += `<tr style="border-top:1px solid var(--border)"><td style="padding:4px 4px 2px;font-weight:500">Surplus</td>${surplusRows.join('')}</tr>`;
-    body += `</table></div>`;
   }
   return `<div class="card">${hdr}${body}</div>`;
 }
