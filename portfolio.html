@@ -410,10 +410,10 @@ const CURRENCIES   = ['USD','INR'];
 
 const S = {
   tab: 'dashboard', transactions: [],
-  portfolio: { savings: [], loans: [], goldLoans: [], investments: [] },
+  portfolio: { savings: [], loans: [], goldLoans: [], investments: [], insurance: [] },
   recurring: { items: [], creditCards: [] },
   txCurrency: 'USD',
-  addingSaving: false, addingLoan: false, addingGoldLoan: false, addingInvestment: false,
+  addingSaving: false, addingLoan: false, addingGoldLoan: false, addingInvestment: false, addingInsurance: false,
   addEntryType: null,
   editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, showingPPForm: null, expandedMonth: null, selectedMonth: null,
   secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, projections: true },
@@ -433,7 +433,8 @@ function save() {
 
 function load() {
   try { const tx = localStorage.getItem('mmc.tx.v1'); if (tx) S.transactions = JSON.parse(tx); } catch(e) { S.transactions = []; }
-  try { const p = localStorage.getItem('mmc.portfolio.v1'); if (p) S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[]}, JSON.parse(p)); } catch(e) {}
+  try { const p = localStorage.getItem('mmc.portfolio.v1'); if (p) S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[],insurance:[]}, JSON.parse(p)); } catch(e) {}
+  if (!S.portfolio.insurance) S.portfolio.insurance = [];
   S.portfolio.loans = S.portfolio.loans.map(l => ({partPayments:[], ...l}));
   try { const r = localStorage.getItem('mmc.recurring.v1'); if (r) S.recurring = JSON.parse(r); } catch(e) {}
   if (!S.recurring) S.recurring = {items:[], creditCards:[]};
@@ -441,7 +442,7 @@ function load() {
   if (!S.recurring.creditCards) S.recurring.creditCards = [];
   // also try old keys for migration
   if (!S.transactions.length) { try { const tx = localStorage.getItem('budget.tx.v1'); if (tx) S.transactions = JSON.parse(tx); } catch(e) {} }
-  if (!S.portfolio.savings.length && !S.portfolio.loans.length) { try { const p = localStorage.getItem('budget.portfolio.v1'); if (p) S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[]}, JSON.parse(p)); } catch(e) {} }
+  if (!S.portfolio.savings.length && !S.portfolio.loans.length) { try { const p = localStorage.getItem('budget.portfolio.v1'); if (p) S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[],insurance:[]}, JSON.parse(p)); } catch(e) {} }
   S.txCurrency = localStorage.getItem('mmc.lastCurrency.v1') || localStorage.getItem('budget.lastCurrency.v1') || 'USD';
   S.selectedMonth = thisMonth();
 }
@@ -551,6 +552,7 @@ const svgChart     = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none
 const svgCard      = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`;
 const svgUndo      = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 7"/></svg>`;
 const svgTransfer  = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>`;
+const svgShield    = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`;
 
 function curOptions(sel) { return CURRENCIES.map(c=>`<option value="${c}"${c===sel?' selected':''}>${c}</option>`).join(''); }
 const otherCur = c => CURRENCIES.find(x=>x!==c) || CURRENCIES[0];
@@ -1253,7 +1255,7 @@ function savingForm(item) {
 }
 
 function renderInvestments() {
-  document.getElementById('tab-investments').innerHTML = renderInvestmentsCard();
+  document.getElementById('tab-investments').innerHTML = renderInvestmentsCard() + renderInsuranceCard();
 }
 
 function renderInvestmentsCard() {
@@ -1280,6 +1282,58 @@ function renderInvestmentsCard() {
     <div class="sec-hdr">
       <div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Investments</span></div><div class="sec-sub">Stocks, mutual funds, FDs, and more</div></div>
       ${items.length?`<div class="sec-totals"><div class="sec-total-lbl">Current Value</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt grn">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
+    </div>
+    ${rows}${addHtml}</div>`;
+}
+
+function insuranceForm(item) {
+  const isEdit = !!item;
+  return `<div class="add-form-title">${isEdit?'Edit':'New'} Insurance Policy</div>
+  <form data-action="${isEdit?'update-insurance':'add-insurance'}" data-id="${isEdit?item.id:''}">
+    <div class="form-row"><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(isEdit?getCur(item):'INR')}</select></div></div>
+    <div class="form-row"><label class="form-label">Policy Name *</label><input class="input" type="text" name="name" value="${isEdit?esc(item.name):''}" placeholder="e.g. LIC Term Plan" required></div>
+    <div class="form-row"><label class="form-label">Type</label><input class="input" type="text" name="type" value="${isEdit?esc(item.type||''):''}" placeholder="e.g. Life, Health, Vehicle"></div>
+    <div class="form-row"><label class="form-label">Sum Assured *</label><input class="input" type="number" name="sumAssured" value="${isEdit?item.sumAssured:''}" inputmode="decimal" min="0" step="0.01" required></div>
+    <div class="form-row-2">
+      <div><label class="form-label">Premium</label><input class="input" type="number" name="premium" value="${isEdit&&item.premium?item.premium:''}" inputmode="decimal" min="0" step="0.01"></div>
+      <div><label class="form-label">Frequency</label><div class="select-wrap"><select class="input" name="premiumFreq"><option value="Yearly"${isEdit&&item.premiumFreq==='Yearly'?' selected':''}>Yearly</option><option value="Monthly"${isEdit&&item.premiumFreq==='Monthly'?' selected':''}>Monthly</option><option value="Quarterly"${isEdit&&item.premiumFreq==='Quarterly'?' selected':''}>Quarterly</option></select></div></div>
+    </div>
+    <div class="form-row-2">
+      <div><label class="form-label">Start Date *</label><input class="input" type="date" name="startDate" value="${isEdit?item.startDate:''}" required></div>
+      <div><label class="form-label">End Date</label><input class="input" type="date" name="endDate" value="${isEdit&&item.endDate?item.endDate:''}"></div>
+    </div>
+    <div class="form-row"><label class="form-label">Note</label><input class="input" type="text" name="note" value="${isEdit?esc(item.note||''):''}" placeholder="Optional"></div>
+    <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-insurance">Cancel</button><button type="submit" class="btn btn-accent">${isEdit?'Save':'Add'}</button></div>
+  </form>`;
+}
+
+function renderInsuranceCard() {
+  const items = S.portfolio.insurance || [];
+  const totals = {};
+  for (const i of items) { const c=getCur(i); totals[c]=(totals[c]||0)+(i.sumAssured||0); }
+  const fmtD = d => d ? new Date(d+'T00:00:00').toLocaleDateString('en-US',{month:'short',year:'numeric'}) : '';
+  const rows = items.map(item => {
+    const c = getCur(item);
+    if (S.editingId===item.id && S.editSection==='insurance') return `<div class="add-form">${insuranceForm(item)}</div>`;
+    const dateRange = fmtD(item.startDate) + (item.endDate ? ' – '+fmtD(item.endDate) : ' – ongoing');
+    const sub = [item.type, dateRange, item.premium?`${formatMoney(item.premium,c)} ${(item.premiumFreq||'Yearly').toLowerCase()}`:''].filter(Boolean).join(' · ');
+    return `<div class="p-row">
+      <div class="p-row-icon" style="background:#eff6ff;color:#3b82f6">${svgShield.replace('stroke="currentColor"','stroke="#3b82f6"')}</div>
+      <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span></div><div class="p-row-sub" style="max-width:none">${sub}</div></div>
+      <div class="p-row-right">
+        <div><div class="p-row-amt-lbl">Sum Assured</div><div class="p-row-amt grn">${formatMoney(item.sumAssured,c)}</div></div>
+        <div class="p-row-btns">
+          <button class="ibtn" title="Edit" data-action="edit-insurance" data-id="${item.id}">${svgEdit}</button>
+          <button class="ibtn del" title="Delete" data-action="del-insurance" data-id="${item.id}">${svgTrash}</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  const addHtml = S.addingInsurance ? `<div class="add-form">${insuranceForm(null)}</div>` : `<button class="add-row-btn" data-action="toggle-add-insurance">${svgPlus} Add entry</button>`;
+  return `<div class="card">
+    <div class="sec-hdr">
+      <div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">Insurance</span></div><div class="sec-sub">Life, health & other policies</div></div>
+      ${items.length?`<div class="sec-totals"><div class="sec-total-lbl">Sum Assured</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt grn">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
     </div>
     ${rows}${addHtml}</div>`;
 }
@@ -1569,6 +1623,21 @@ function handleSubmit(e) {
     S.portfolio.investments = S.portfolio.investments.map(i=>i.id===form.dataset.id?{...i,name:d.name.trim(),type:d.type||undefined,amountInvested,currentValue,note:d.note||undefined,currency:d.currency}:i);
     S.editingId=null; S.editSection=null; save(); renderInvestments(); toast('Investment updated'); return;
   }
+  if (action==='add-insurance') {
+    if (!d.name.trim()) return toast('Name is required');
+    const sumAssured = parseFloat(d.sumAssured);
+    if (!(sumAssured>=0)) return toast('Enter valid sum assured');
+    if (!d.startDate) return toast('Start date is required');
+    const premium = d.premium ? parseFloat(d.premium) : undefined;
+    S.portfolio.insurance.unshift({id:uid(),name:d.name.trim(),type:d.type||undefined,sumAssured,premium,premiumFreq:d.premiumFreq||'Yearly',startDate:d.startDate,endDate:d.endDate||undefined,note:d.note||undefined,currency:d.currency,createdAt:todayISO()});
+    S.addingInsurance=false; save(); renderInvestments(); toast('Policy added'); return;
+  }
+  if (action==='update-insurance') {
+    const sumAssured = parseFloat(d.sumAssured);
+    const premium = d.premium ? parseFloat(d.premium) : undefined;
+    S.portfolio.insurance = S.portfolio.insurance.map(i=>i.id===form.dataset.id?{...i,name:d.name.trim(),type:d.type||undefined,sumAssured,premium,premiumFreq:d.premiumFreq||'Yearly',startDate:d.startDate,endDate:d.endDate||undefined,note:d.note||undefined,currency:d.currency}:i);
+    S.editingId=null; S.editSection=null; save(); renderInvestments(); toast('Policy updated'); return;
+  }
   if (action==='add-loan') {
     if (!d.name.trim()) return toast('Name is required');
     S.portfolio.loans.unshift({id:uid(),name:d.name.trim(),lender:d.lender||undefined,principal:parseFloat(d.principal),startDate:d.startDate,tenureYears:parseFloat(d.tenureYears),interestRate:parseFloat(d.interestRate),note:d.note||undefined,currency:d.currency,partPayments:[],createdAt:todayISO()});
@@ -1683,6 +1752,13 @@ function handleClick(e) {
     if (!confirm('Delete this investment?')) return;
     S.portfolio.investments=S.portfolio.investments.filter(i=>i.id!==btn.dataset.id); save(); renderInvestments(); return;
   }
+  if (action==='toggle-add-insurance') { S.addingInsurance=!S.addingInsurance; S.editingId=null; renderInvestments(); return; }
+  if (action==='cancel-insurance') { S.addingInsurance=false; S.editingId=null; S.editSection=null; renderInvestments(); return; }
+  if (action==='edit-insurance') { S.editingId=btn.dataset.id; S.editSection='insurance'; S.addingInsurance=false; renderInvestments(); return; }
+  if (action==='del-insurance') {
+    if (!confirm('Delete this policy?')) return;
+    S.portfolio.insurance=S.portfolio.insurance.filter(i=>i.id!==btn.dataset.id); save(); renderInvestments(); return;
+  }
   if (action==='toggle-add-saving') { S.addingSaving=!S.addingSaving; S.editingId=null; renderPortfolio(); return; }
   if (action==='cancel-saving') { S.addingSaving=false; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
   if (action==='edit-saving') { S.editingId=btn.dataset.id; S.editSection='saving'; S.addingSaving=false; renderPortfolio(); return; }
@@ -1733,7 +1809,7 @@ function handleClick(e) {
     try {
       const data = JSON.parse(raw);
       S.transactions = data.transactions || [];
-      S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[]}, data.portfolio||{});
+      S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[],insurance:[]}, data.portfolio||{});
       S.recurring = Object.assign({items:[],creditCards:[]}, data.recurring||{});
       save(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderHistory(); renderSettings();
       toast('Restored from backup');
