@@ -645,14 +645,14 @@ async function getInsights() {
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 1024,
         messages: [{role:'user', content:`You are a personal finance advisor. Analyze this portfolio and give 3-5 concise, actionable recommendations. Be specific to the numbers. Keep it brief.\n\n${summary}`}]
       })
     });
     if (!resp.ok) {
       const err = await resp.text();
-      throw new Error(resp.status === 401 ? 'Invalid API key' : `API error: ${resp.status}`);
+      throw new Error(resp.status === 401 ? 'Invalid API key. Check your key in Settings.' : `API error: ${resp.status} - ${err}`);
     }
     const data = await resp.json();
     insightsResult = data.content?.[0]?.text || 'No response received';
