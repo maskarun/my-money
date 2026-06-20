@@ -368,7 +368,7 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
   <div id="tab-transactions" class="tab-panel"></div>
   <div id="tab-portfolio" class="tab-panel"></div>
   <div id="tab-investments" class="tab-panel"></div>
-  <div id="tab-history" class="tab-panel"></div>
+  <div id="tab-insights" class="tab-panel"></div>
   <div id="tab-settings" class="tab-panel"></div>
 </div>
 
@@ -389,9 +389,9 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 17l6-6 4 4 8-8M21 7v6m0-6h-6"/></svg>
     Investments
   </button>
-  <button class="nav-btn" data-action="switch-tab" data-tab="history">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><path stroke-linecap="round" d="M16 2v4M8 2v4M3 10h18"/><path stroke-linecap="round" d="M8 14h4m-4 4h8"/></svg>
-    History
+  <button class="nav-btn" data-action="switch-tab" data-tab="insights">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 017 7c0 3-2 5-3 6.5S15 18 15 19H9c0-1-1-2.5-2-3.5S5 12 5 9a7 7 0 017-7z"/><path d="M9 19v1a3 3 0 006 0v-1"/><path d="M10 2.5a4 4 0 013 0"/></svg>
+    Insights
   </button>
 </nav>
 
@@ -410,7 +410,7 @@ const S = {
   txCurrency: 'USD',
   addingSaving: false, addingLoan: false, addingGoldLoan: false, addingInvestment: false, addingInsurance: false,
   addEntryType: null,
-  editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, showingPPForm: null, expandedMonth: null, selectedMonth: null,
+  editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, showingPPForm: null, expandedMonth: null, selectedMonth: null, showHistory: false,
   secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, projections: true },
 };
 
@@ -604,7 +604,7 @@ function renderOverview() {
     </div>`;
   }).join('');
 
-  document.getElementById('tab-dashboard').innerHTML = cards + renderProjections() + renderInsightsCard();
+  document.getElementById('tab-dashboard').innerHTML = cards + renderProjections();
 }
 
 let insightsResult = localStorage.getItem('mmc.insights') || '';
@@ -632,22 +632,6 @@ function formatInsights(txt) {
   return html;
 }
 
-function renderInsightsCard() {
-  const hasKey = !!localStorage.getItem('mmc.apiKey');
-  if (!hasKey) return '';
-  const body = insightsLoading
-    ? `<div class="empty"><p>Analyzing your portfolio...</p></div>`
-    : insightsResult
-      ? `<div style="padding:12px 16px;font-size:12px;line-height:1.6">${formatInsights(insightsResult)}</div>`
-      : `<div class="empty"><p>Tap below to get AI-powered insights</p></div>`;
-  return `<div class="card">
-    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">AI Insights</span></div><div class="sec-sub">Powered by ${(localStorage.getItem('mmc.aiProvider')||'claude')==='gemini'?'Gemini':'Claude'}</div></div></div>
-    ${body}
-    <div class="add-form-btns" style="padding:12px 16px">
-      <button class="btn btn-accent" data-action="get-insights" ${insightsLoading?'disabled':''}>Get Insights</button>
-    </div>
-  </div>`;
-}
 
 async function getInsights() {
   const apiKey = localStorage.getItem('mmc.apiKey');
@@ -657,7 +641,7 @@ async function getInsights() {
   const summary = buildPortfolioSummary();
   const prompt = `You are a personal finance advisor. Analyze this portfolio and give 3-5 concise, actionable recommendations. Be specific to the numbers. Keep it brief.\n\n${summary}`;
   insightsLoading = true; insightsResult = '';
-  renderOverview();
+  renderInsights();
 
   try {
     let text;
@@ -701,7 +685,7 @@ async function getInsights() {
     insightsResult = 'Error: ' + (e.message || String(e));
   }
   insightsLoading = false;
-  renderOverview();
+  renderInsights();
 }
 
 function buildPortfolioSummary() {
@@ -764,18 +748,16 @@ function dateInMonth(mon) {
   return new Date(y, m, 0, 12).toISOString();
 }
 
-function renderHistory() {
+function buildHistoryHtml() {
   const months = new Set();
   for (const t of S.transactions) if (t.date) months.add(t.date.slice(0,7));
 
   if (!months.size) {
-    document.getElementById('tab-history').innerHTML =
-      `<div class="card"><div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Monthly History</span></div></div></div><div class="empty"><p>No activity yet</p></div></div>`;
-    return;
+    return `<div class="card"><div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Monthly History</span></div></div></div><div class="empty"><p>No activity yet</p></div></div>`;
   }
 
   const sorted = [...months].sort((a,b)=>b.localeCompare(a));
-  const monthCards = sorted.map(mon => {
+  return sorted.map(mon => {
     const monTxs = S.transactions.filter(t=>t.date&&t.date.slice(0,7)===mon);
 
     const byCur = {};
@@ -795,7 +777,6 @@ function renderHistory() {
     const isExpanded = S.expandedMonth===mon;
     let detail = '';
     if (isExpanded) {
-      // Transactions table
       let txSection = '';
       if (monTxs.length) {
         const rows = monTxs.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(t=>{
@@ -824,7 +805,6 @@ function renderHistory() {
             </table>
           </div>`;
       }
-
       detail = `<div class="schedule-wrap">${txSection}</div>`;
     }
 
@@ -851,10 +831,32 @@ function renderHistory() {
       </div>
       ${detail}
     </div>`;
-  }).join('');
+  }).join('') || `<div class="card"><div class="empty"><p>No activity yet</p></div></div>`;
+}
 
-  document.getElementById('tab-history').innerHTML = monthCards ||
-    `<div class="card"><div class="empty"><p>No activity yet</p></div></div>`;
+function renderInsights() {
+  const hasKey = !!localStorage.getItem('mmc.apiKey');
+  const provider = localStorage.getItem('mmc.aiProvider') || 'claude';
+  const providerLabel = provider === 'gemini' ? 'Gemini' : 'Claude';
+
+  let content;
+  if (!hasKey) {
+    content = `<div class="card"><div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">AI Insights</span></div><div class="sec-sub">Set up your API key in Settings</div></div></div><div class="empty"><p>Go to Settings → AI Insights to add your API key</p></div></div>`;
+  } else {
+    const body = insightsLoading
+      ? `<div class="empty"><p>Analyzing your portfolio...</p></div>`
+      : insightsResult
+        ? `<div style="padding:12px 16px;font-size:12px;line-height:1.6">${formatInsights(insightsResult)}</div>`
+        : `<div class="empty"><p>Tap below to get AI-powered insights</p></div>`;
+    content = `<div class="card">
+      <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">AI Insights</span></div><div class="sec-sub">Powered by ${providerLabel}</div></div></div>
+      ${body}
+      <div class="add-form-btns" style="padding:12px 16px">
+        <button class="btn btn-accent" data-action="get-insights" ${insightsLoading?'disabled':''}>Get Insights</button>
+      </div>
+    </div>`;
+  }
+  document.getElementById('tab-insights').innerHTML = content;
 }
 
 function ordinal(n) { const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
@@ -1059,17 +1061,29 @@ function renderCreditCards() {
 }
 
 function renderDashboard() {
-  document.getElementById('tab-transactions').innerHTML =
-    renderMonthNav() + renderHeroCards() + renderQuickAdd() + renderCatBreakdown() + renderRecurringIncome() + renderBills() + renderCreditCards() + renderActivity();
+  if (S.showHistory) {
+    document.getElementById('tab-transactions').innerHTML = renderMonthNav() + buildHistoryHtml();
+  } else {
+    document.getElementById('tab-transactions').innerHTML =
+      renderMonthNav() + renderHeroCards() + renderQuickAdd() + renderCatBreakdown() + renderRecurringIncome() + renderBills() + renderCreditCards() + renderActivity();
+  }
 }
 
 function renderMonthNav() {
   const label = fmtMonth(S.selectedMonth);
   const isCurrent = S.selectedMonth === thisMonth();
+  const histIcon = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>`;
+  if (S.showHistory) {
+    return `<div class="card month-nav">
+      <div class="month-nav-label" style="flex:1">All Months</div>
+      <button class="ibtn" data-action="toggle-history" title="Back to month view" style="${'background:var(--accent);color:#fff;border-radius:8px'}">${histIcon}</button>
+    </div>`;
+  }
   return `<div class="card month-nav">
     <button class="ibtn" data-action="prev-month" title="Previous month">${svgChevronLeft}</button>
     <div class="month-nav-label">${label}${isCurrent?'':` <button class="link-btn" data-action="goto-current-month">Today</button>`}</div>
     <button class="ibtn" data-action="next-month" ${isCurrent?'disabled':''} title="Next month">${svgChevronRight}</button>
+    <button class="ibtn" data-action="toggle-history" title="View all months">${histIcon}</button>
   </div>`;
 }
 
@@ -1838,7 +1852,7 @@ function handleClick(e) {
     else if (S.tab==='transactions') renderDashboard();
     else if (S.tab==='portfolio') renderPortfolio();
     else if (S.tab==='investments') renderInvestments();
-    else if (S.tab==='history') renderHistory();
+    else if (S.tab==='insights') renderInsights();
     else if (S.tab==='settings') renderSettings();
     return;
   }
@@ -1934,7 +1948,8 @@ function handleClick(e) {
   }
   if (action==='toggle-loan') { S.expandedLoan=S.expandedLoan===btn.dataset.id?null:btn.dataset.id; S.showingPPForm=null; renderPortfolio(); return; }
   if (action==='toggle-pp-form') { S.showingPPForm=S.showingPPForm===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
-  if (action==='toggle-month') { S.expandedMonth=S.expandedMonth===btn.dataset.month?null:btn.dataset.month; renderHistory(); return; }
+  if (action==='toggle-month') { S.expandedMonth=S.expandedMonth===btn.dataset.month?null:btn.dataset.month; renderDashboard(); return; }
+  if (action==='toggle-history') { S.showHistory=!S.showHistory; renderDashboard(); return; }
   if (action==='toggle-section') { const k=btn.dataset.sec; S.secOpen[k]=!S.secOpen[k]; renderOverview(); renderDashboard(); renderPortfolio(); return; }
   if (action==='del-part-payment') {
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.loanId);
@@ -1971,7 +1986,7 @@ function handleClick(e) {
       S.transactions = data.transactions || [];
       S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[],insurance:[]}, data.portfolio||{});
       S.recurring = Object.assign({items:[],creditCards:[]}, data.recurring||{});
-      save(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderHistory(); renderSettings();
+      save(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderInsights(); renderSettings();
       toast('Restored from backup');
     } catch(e) { toast('Backup corrupted'); }
     return;
@@ -2029,7 +2044,7 @@ document.getElementById('file-input').addEventListener('change', async function(
       recurring=Object.assign({items:[],creditCards:[]},data.recurring||{});
     }
     S.transactions=transactions; S.portfolio=portfolio; S.recurring=recurring;
-    save(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderHistory(); toast(`Imported ${transactions.length} transactions`);
+    save(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderInsights(); toast(`Imported ${transactions.length} transactions`);
   } catch(err) { toast('Import failed — invalid JSON'); }
   this.value='';
 });
@@ -2046,7 +2061,7 @@ document.addEventListener('change', function(e) {
   }
 });
 
-load(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderHistory();
+load(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderInsights();
 document.getElementById('header-date').textContent = new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
 </script>
 <script>
