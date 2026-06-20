@@ -607,7 +607,7 @@ function renderOverview() {
   document.getElementById('tab-dashboard').innerHTML = cards + renderProjections() + renderInsightsCard();
 }
 
-let insightsResult = '';
+let insightsResult = localStorage.getItem('mmc.insights') || '';
 let insightsLoading = false;
 
 function formatInsights(txt) {
@@ -696,6 +696,7 @@ async function getInsights() {
       text = data.content?.[0]?.text;
     }
     insightsResult = text || 'No response received';
+    localStorage.setItem('mmc.insights', insightsResult);
   } catch(e) {
     insightsResult = 'Error: ' + (e.message || String(e));
   }
