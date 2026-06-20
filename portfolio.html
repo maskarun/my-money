@@ -1606,7 +1606,7 @@ function loanForm(loan) {
       <div><label class="form-label">Start Date *</label><input class="input" type="date" name="startDate" value="${isEdit?loan.startDate:todayISO()}" required></div>
     </div>
     <div class="form-row-2">
-      <div><label class="form-label">Tenure (years) *</label><input class="input" type="number" name="tenureYears" value="${isEdit?loan.tenureYears:''}" inputmode="decimal" min="0.1" step="0.5" required data-loan-preview></div>
+      <div><label class="form-label">Tenure (years) *</label><input class="input" type="number" name="tenureYears" value="${isEdit?loan.tenureYears:''}" inputmode="decimal" min="0.1" step="any" required data-loan-preview></div>
       <div><label class="form-label">Interest % *</label><input class="input" type="number" name="interestRate" value="${isEdit?loan.interestRate:''}" inputmode="decimal" min="0" step="0.01" required data-loan-preview></div>
     </div>
     <div id="loan-preview" class="preview-row">
