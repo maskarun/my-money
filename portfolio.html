@@ -1367,7 +1367,7 @@ function investmentForm(item) {
   <form data-action="${isEdit?'update-investment':'add-investment'}" data-id="${isEdit?item.id:''}">
     <div class="form-row"><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(isEdit?getCur(item):'USD')}</select></div></div>
     <div class="form-row"><label class="form-label">Name *</label><input class="input" type="text" name="name" value="${isEdit?esc(item.name):''}" placeholder="e.g. Nifty 50 Index Fund" required></div>
-    <div class="form-row"><label class="form-label">Type</label><input class="input" type="text" name="type" value="${isEdit?esc(item.type||''):''}" placeholder="e.g. Mutual Fund, Stock, FD"></div>
+    <div class="form-row"><label class="form-label">Type</label><div class="select-wrap"><select class="input" name="type">${['SIP','Mutual Fund','Fixed Deposit','Bonds','Stock','Other'].map(t=>`<option value="${t}"${isEdit&&item.type===t?' selected':''}>${t}</option>`).join('')}</select></div></div>
     <div class="form-row-2">
       <div><label class="form-label">Amount Invested *</label><input class="input" type="number" name="amountInvested" value="${isEdit?item.amountInvested:''}" inputmode="decimal" min="0" step="0.01" required></div>
       <div><label class="form-label">Current Value *</label><input class="input" type="number" name="currentValue" value="${isEdit?item.currentValue:''}" inputmode="decimal" min="0" step="0.01" required></div>
