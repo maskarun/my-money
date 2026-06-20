@@ -619,7 +619,7 @@ function renderInsightsCard() {
       ? `<div style="padding:12px 16px;font-size:12px;line-height:1.6;white-space:pre-wrap">${esc(insightsResult)}</div>`
       : `<div class="empty"><p>Tap below to get AI-powered insights</p></div>`;
   return `<div class="card">
-    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">AI Insights</span></div><div class="sec-sub">Powered by Claude</div></div></div>
+    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">AI Insights</span></div><div class="sec-sub">Powered by ${(localStorage.getItem('mmc.aiProvider')||'claude')==='gemini'?'Gemini':'Claude'}</div></div></div>
     ${body}
     <div class="add-form-btns" style="padding:12px 16px">
       <button class="btn btn-accent" data-action="get-insights" ${insightsLoading?'disabled':''}>Get Insights</button>
@@ -629,33 +629,51 @@ function renderInsightsCard() {
 
 async function getInsights() {
   const apiKey = localStorage.getItem('mmc.apiKey');
-  if (!apiKey) { toast('Set your Claude API key in Settings'); return; }
+  const provider = localStorage.getItem('mmc.aiProvider') || 'claude';
+  if (!apiKey) { toast('Set your API key in Settings'); return; }
 
   const summary = buildPortfolioSummary();
+  const prompt = `You are a personal finance advisor. Analyze this portfolio and give 3-5 concise, actionable recommendations. Be specific to the numbers. Keep it brief.\n\n${summary}`;
   insightsLoading = true; insightsResult = '';
   renderOverview();
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1024,
-        messages: [{role:'user', content:`You are a personal finance advisor. Analyze this portfolio and give 3-5 concise, actionable recommendations. Be specific to the numbers. Keep it brief.\n\n${summary}`}]
-      })
-    });
-    if (!resp.ok) {
-      const err = await resp.text();
-      throw new Error(resp.status === 401 ? 'Invalid API key. Check your key in Settings.' : `API error: ${resp.status} - ${err}`);
+    let text;
+    if (provider === 'gemini') {
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      });
+      if (!resp.ok) {
+        const err = await resp.text();
+        throw new Error(resp.status === 400 ? 'Invalid API key. Check your key in Settings.' : `API error: ${resp.status} - ${err}`);
+      }
+      const data = await resp.json();
+      text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    } else {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 1024,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+      if (!resp.ok) {
+        const err = await resp.text();
+        throw new Error(resp.status === 401 ? 'Invalid API key. Check your key in Settings.' : `API error: ${resp.status} - ${err}`);
+      }
+      const data = await resp.json();
+      text = data.content?.[0]?.text;
     }
-    const data = await resp.json();
-    insightsResult = data.content?.[0]?.text || 'No response received';
+    insightsResult = text || 'No response received';
   } catch(e) {
     insightsResult = 'Error: ' + e.message;
   }
@@ -1449,13 +1467,20 @@ function renderSettings() {
   </div>`;
 
   const apiKey = localStorage.getItem('mmc.apiKey') || '';
+  const aiProvider = localStorage.getItem('mmc.aiProvider') || 'claude';
   const maskedKey = apiKey ? '••••••••' + apiKey.slice(-4) : '';
+  const keyPlaceholder = aiProvider === 'gemini' ? 'AIza...' : 'sk-ant-...';
   const aiCard = `<div class="card">
-    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">AI Insights</span></div><div class="sec-sub">Connect to Claude for recommendations</div></div></div>
+    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">AI Insights</span></div><div class="sec-sub">Connect to AI for recommendations</div></div></div>
     <div style="padding:10px 16px">
-      <div class="p-row-name" style="margin-bottom:6px">Claude API Key</div>
+      <div class="p-row-name" style="margin-bottom:6px">AI Provider</div>
+      <select class="input" data-action="change-ai-provider" style="font-size:12px;padding:6px 8px;margin-bottom:10px">
+        <option value="claude" ${aiProvider==='claude'?'selected':''}>Claude (Anthropic)</option>
+        <option value="gemini" ${aiProvider==='gemini'?'selected':''}>Gemini (Google)</option>
+      </select>
+      <div class="p-row-name" style="margin-bottom:6px">API Key</div>
       <form data-action="save-api-key" style="display:flex;gap:6px;align-items:center">
-        <input class="input" type="password" name="apiKey" value="${esc(apiKey)}" style="font-size:12px;padding:6px 8px;flex:1;min-width:0;width:0" placeholder="sk-ant-...">
+        <input class="input" type="password" name="apiKey" value="${esc(apiKey)}" style="font-size:12px;padding:6px 8px;flex:1;min-width:0;width:0" placeholder="${keyPlaceholder}">
         <button type="submit" class="btn btn-accent" style="font-size:10px;padding:4px 10px;width:auto;flex:none">Save</button>
       </form>
       ${maskedKey?`<div class="p-row-sub" style="margin-top:4px;max-width:none">Current: ${maskedKey}</div>`:''}
@@ -1989,6 +2014,14 @@ document.getElementById('file-input').addEventListener('change', async function(
 document.addEventListener('submit', handleSubmit);
 document.addEventListener('click', handleClick);
 document.addEventListener('input', handleInput);
+document.addEventListener('change', function(e) {
+  if (e.target.dataset.action === 'change-ai-provider') {
+    localStorage.setItem('mmc.aiProvider', e.target.value);
+    localStorage.removeItem('mmc.apiKey');
+    toast('Provider changed to ' + (e.target.value === 'gemini' ? 'Gemini' : 'Claude') + '. Enter your API key.');
+    renderSettings();
+  }
+});
 
 load(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderHistory();
 document.getElementById('header-date').textContent = new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
