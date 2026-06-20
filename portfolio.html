@@ -1455,7 +1455,7 @@ function renderSettings() {
     <div style="padding:10px 16px">
       <div class="p-row-name" style="margin-bottom:6px">Claude API Key</div>
       <form data-action="save-api-key" style="display:flex;gap:6px;align-items:center">
-        <input class="input" type="password" name="apiKey" value="${esc(apiKey)}" style="font-size:12px;padding:6px 8px;flex:1;min-width:0" placeholder="sk-ant-...">
+        <input class="input" type="password" name="apiKey" value="${esc(apiKey)}" style="font-size:12px;padding:6px 8px;flex:1;min-width:0;width:auto" placeholder="sk-ant-...">
         <button type="submit" class="btn btn-accent" style="font-size:10px;padding:4px 10px;flex-shrink:0">Save</button>
       </form>
       ${maskedKey?`<div class="p-row-sub" style="margin-top:4px;max-width:none">Current: ${maskedKey}</div>`:''}
