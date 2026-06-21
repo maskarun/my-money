@@ -383,6 +383,7 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
   <div id="tab-transactions" class="tab-panel"></div>
   <div id="tab-portfolio" class="tab-panel"></div>
   <div id="tab-investments" class="tab-panel"></div>
+  <div id="tab-recurring" class="tab-panel"></div>
   <div id="tab-insights" class="tab-panel"></div>
   <div id="tab-settings" class="tab-panel"></div>
 </div>
@@ -403,6 +404,10 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
   <button class="nav-btn" data-action="switch-tab" data-tab="investments">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 17l6-6 4 4 8-8M21 7v6m0-6h-6"/></svg>
     Investments
+  </button>
+  <button class="nav-btn" data-action="switch-tab" data-tab="recurring">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+    Recurring
   </button>
   <button class="nav-btn" data-action="switch-tab" data-tab="insights">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 017 7c0 3-2 5-3 6.5S15 18 15 19H9c0-1-1-2.5-2-3.5S5 12 5 9a7 7 0 017-7z"/><path d="M9 19v1a3 3 0 006 0v-1"/><path d="M10 2.5a4 4 0 013 0"/></svg>
@@ -1192,8 +1197,13 @@ function renderDashboard() {
     document.getElementById('tab-transactions').innerHTML = renderMonthNav() + buildHistoryHtml();
   } else {
     document.getElementById('tab-transactions').innerHTML =
-      renderMonthNav() + renderHeroCards() + renderQuickAdd() + renderCatBreakdown() + renderRecurringIncome() + renderBills() + renderCreditCards() + renderActivity();
+      renderMonthNav() + renderHeroCards() + renderQuickAdd() + renderCatBreakdown() + renderActivity();
   }
+}
+
+function renderRecurring() {
+  document.getElementById('tab-recurring').innerHTML =
+    renderMonthNav() + renderRecurringIncome() + renderBills() + renderCreditCards();
 }
 
 function renderMonthNav() {
@@ -1916,7 +1926,7 @@ function handleSubmit(e) {
     const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
     S.recurring.items.push({id:uid(),name:d.name.trim(),type:'income',category:d.category||'Salary',amount,currency:d.currency,dayOfMonth:d.dayOfMonth?parseInt(d.dayOfMonth):undefined,months:{},createdAt:todayISO()});
     if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
-    S.addEntryType=null; save(); renderDashboard(); toast('Recurring income added'); return;
+    S.addEntryType=null; save(); renderDashboard(); renderRecurring(); toast('Recurring income added'); return;
   }
   if (action==='add-bill') {
     if (!d.name.trim()) return toast('Name is required');
@@ -1924,14 +1934,14 @@ function handleSubmit(e) {
     const amount = isVariable ? 0 : (parseFloat(d.amount)||0);
     S.recurring.items.push({id:uid(),name:d.name.trim(),type:'expense',isVariable,amount,currency:d.currency,dayOfMonth:d.dayOfMonth?parseInt(d.dayOfMonth):undefined,months:{},createdAt:todayISO()});
     if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
-    S.addEntryType=null; save(); renderDashboard(); toast('Bill added'); return;
+    S.addEntryType=null; save(); renderDashboard(); renderRecurring(); toast('Bill added'); return;
   }
   if (action==='add-credit-card') {
     if (!d.name.trim()) return toast('Card name is required');
     const dueDay = parseInt(d.dueDay); if (!dueDay||dueDay<1||dueDay>31) return toast('Enter a valid due day');
     S.recurring.creditCards.push({id:uid(),name:d.name.trim(),currency:d.currency,dueDay,months:{},createdAt:todayISO()});
     if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
-    S.addEntryType=null; save(); renderDashboard(); toast('Card added'); return;
+    S.addEntryType=null; save(); renderDashboard(); renderRecurring(); toast('Card added'); return;
   }
   if (action==='add-transfer') {
     const fromAmount = parseFloat(d.fromAmount), toAmount = parseFloat(d.toAmount);
@@ -1950,7 +1960,7 @@ function handleSubmit(e) {
     const txId = uid();
     S.transactions.unshift({id:txId,type:'expense',amount,category:'Bills',note:card.name+' CC Bill',date:dateInMonth(mon),currency:card.currency||'INR'});
     card.months[mon].paid = true; card.months[mon].txId = txId;
-    save(); renderOverview(); renderDashboard(); toast(card.name+' bill recorded'); return;
+    save(); renderOverview(); renderDashboard(); renderRecurring(); toast(card.name+' bill recorded'); return;
   }
   if (action==='mark-variable-bill') {
     const item = S.recurring.items.find(i=>i.id===form.dataset.id); if (!item) return;
@@ -1959,7 +1969,7 @@ function handleSubmit(e) {
     const txId = uid();
     S.transactions.unshift({id:txId,type:'expense',amount,category:'Bills',note:item.name,date:dateInMonth(mon),currency:item.currency||'INR'});
     item.months[mon] = {paid:true, amount, txId};
-    save(); renderOverview(); renderDashboard(); toast(item.name+' marked paid'); return;
+    save(); renderOverview(); renderDashboard(); renderRecurring(); toast(item.name+' marked paid'); return;
   }
   if (action==='add-saving') {
     if (!d.name.trim()) return toast('Name is required');
@@ -2058,13 +2068,14 @@ function handleClick(e) {
     else if (S.tab==='transactions') renderDashboard();
     else if (S.tab==='portfolio') renderPortfolio();
     else if (S.tab==='investments') renderInvestments();
+    else if (S.tab==='recurring') renderRecurring();
     else if (S.tab==='insights') renderInsights();
     else if (S.tab==='settings') renderSettings();
     return;
   }
-  if (action==='prev-month') { S.selectedMonth = shiftMonth(S.selectedMonth, -1); renderDashboard(); return; }
-  if (action==='next-month') { const next = shiftMonth(S.selectedMonth, 1); if (next <= thisMonth()) S.selectedMonth = next; renderDashboard(); return; }
-  if (action==='goto-current-month') { S.selectedMonth = thisMonth(); renderDashboard(); return; }
+  if (action==='prev-month') { S.selectedMonth = shiftMonth(S.selectedMonth, -1); renderDashboard(); renderRecurring(); return; }
+  if (action==='next-month') { const next = shiftMonth(S.selectedMonth, 1); if (next <= thisMonth()) S.selectedMonth = next; renderDashboard(); renderRecurring(); return; }
+  if (action==='goto-current-month') { S.selectedMonth = thisMonth(); renderDashboard(); renderRecurring(); return; }
   if (action==='toggle-add-entry') { S.addEntryType = S.addEntryType ? null : 'tx-expense'; renderDashboard(); return; }
   if (action==='set-entry-type') { S.addEntryType=btn.dataset.type; renderDashboard(); return; }
   if (action==='cancel-entry') { S.addEntryType=null; renderDashboard(); return; }
@@ -2075,25 +2086,25 @@ function handleClick(e) {
     const txId = uid();
     S.transactions.unshift({id:txId,type:'income',amount:item.amount,category:item.category||'Salary',note:item.name,date:dateInMonth(mon),currency:item.currency||'USD'});
     item.months[mon] = {paid:true, amount:item.amount, txId};
-    save(); renderOverview(); renderDashboard(); toast(item.name+' credited'); return;
+    save(); renderOverview(); renderDashboard(); renderRecurring(); toast(item.name+' credited'); return;
   }
   if (action==='unmark-recurring-item') {
     const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
     const mon = S.selectedMonth; const ms = item.months?.[mon]; if (!ms) return;
     if (ms.txId) S.transactions = S.transactions.filter(t=>t.id!==ms.txId);
     ms.paid = false; ms.txId = undefined;
-    save(); renderOverview(); renderDashboard(); toast(item.name+' marked unpaid'); return;
+    save(); renderOverview(); renderDashboard(); renderRecurring(); toast(item.name+' marked unpaid'); return;
   }
   if (action==='unmark-card') {
     const card = S.recurring.creditCards.find(c=>c.id===btn.dataset.id); if (!card) return;
     const mon = S.selectedMonth; const ms = card.months?.[mon]; if (!ms) return;
     if (ms.txId) S.transactions = S.transactions.filter(t=>t.id!==ms.txId);
     ms.paid = false; ms.txId = undefined;
-    save(); renderOverview(); renderDashboard(); toast(card.name+' marked unpaid'); return;
+    save(); renderOverview(); renderDashboard(); renderRecurring(); toast(card.name+' marked unpaid'); return;
   }
   if (action==='del-recurring-item') {
     if (!confirm('Remove this recurring entry?')) return;
-    S.recurring.items = S.recurring.items.filter(i=>i.id!==btn.dataset.id); save(); renderDashboard(); return;
+    S.recurring.items = S.recurring.items.filter(i=>i.id!==btn.dataset.id); save(); renderDashboard(); renderRecurring(); return;
   }
   // Bills
   if (action==='mark-bill-paid') {
@@ -2103,7 +2114,7 @@ function handleClick(e) {
     const txId = uid();
     S.transactions.unshift({id:txId,type:'expense',amount:item.amount,category:'Bills',note:item.name,date:dateInMonth(mon),currency:item.currency||'INR'});
     item.months[mon] = {paid:true, amount:item.amount, txId};
-    save(); renderOverview(); renderDashboard(); toast(item.name+' marked paid'); return;
+    save(); renderOverview(); renderDashboard(); renderRecurring(); toast(item.name+' marked paid'); return;
   }
   // Credit cards
   if (action==='mark-card-paid') {
@@ -2114,11 +2125,11 @@ function handleClick(e) {
     const txId = uid();
     if (amt>0) S.transactions.unshift({id:txId,type:'expense',amount:amt,category:'Bills',note:card.name+' CC Bill',date:dateInMonth(mon),currency:card.currency||'INR'});
     card.months[mon] = {...(card.months[mon]||{}), paid:true, txId};
-    save(); renderOverview(); renderDashboard(); toast(card.name+' bill marked paid'); return;
+    save(); renderOverview(); renderDashboard(); renderRecurring(); toast(card.name+' bill marked paid'); return;
   }
   if (action==='del-credit-card') {
     if (!confirm('Remove this card?')) return;
-    S.recurring.creditCards = S.recurring.creditCards.filter(c=>c.id!==btn.dataset.id); save(); renderDashboard(); return;
+    S.recurring.creditCards = S.recurring.creditCards.filter(c=>c.id!==btn.dataset.id); save(); renderDashboard(); renderRecurring(); return;
   }
   if (action==='del-tx') {
     if (!confirm('Delete this transaction?')) return;
@@ -2228,7 +2239,7 @@ function handleClick(e) {
       S.transactions = data.transactions || [];
       S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[],insurance:[]}, data.portfolio||{});
       S.recurring = Object.assign({items:[],creditCards:[]}, data.recurring||{});
-      save(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderInsights(); renderSettings();
+      save(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderRecurring(); renderInsights(); renderSettings();
       toast('Restored from backup');
     } catch(e) { toast('Backup corrupted'); }
     return;
@@ -2286,7 +2297,7 @@ document.getElementById('file-input').addEventListener('change', async function(
       recurring=Object.assign({items:[],creditCards:[]},data.recurring||{});
     }
     S.transactions=transactions; S.portfolio=portfolio; S.recurring=recurring;
-    save(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderInsights(); toast(`Imported ${transactions.length} transactions`);
+    save(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderRecurring(); renderInsights(); toast(`Imported ${transactions.length} transactions`);
   } catch(err) { toast('Import failed — invalid JSON'); }
   this.value='';
 });
@@ -2308,7 +2319,7 @@ document.addEventListener('change', function(e) {
   }
 });
 
-load(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderInsights();
+load(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderRecurring(); renderInsights();
 document.getElementById('header-date').textContent = new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
 </script>
 <script>
