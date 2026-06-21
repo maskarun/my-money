@@ -908,6 +908,7 @@ function renderQuickAdd() {
     {type:'tx-expense', label:'Expense'},
     {type:'tx-income',  label:'Income'},
     {type:'transfer', label:'Transfer'},
+    {type:'savings-fund', label:'Savings'},
   ];
   const typeChips = entryTypes.map(({type,label}) =>
     `<button class="toggle-chip${S.addEntryType===type?' active':''}" data-action="set-entry-type" data-type="${type}">${label}</button>`
@@ -942,6 +943,24 @@ function renderQuickAdd() {
       <div class="form-row"><label class="form-label">Note <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label><input class="input" type="text" name="note" placeholder="e.g. Wise transfer" maxlength="120"></div>
       <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-entry">Cancel</button><button type="submit" class="btn btn-accent">${svgPlus} Add Transfer</button></div>
     </form>`;
+  } else if (S.addEntryType==='savings-fund') {
+    if (!S.portfolio.savings.length) {
+      entryForm = `<div class="empty" style="padding:12px 0"><p>No savings accounts. Add one in Portfolio first.</p></div>`;
+    } else {
+      const savOpts = S.portfolio.savings.map(s => `<option value="${s.id}">${esc(s.name)} (${getCur(s)})</option>`).join('');
+      entryForm = `<form data-action="add-savings-fund">
+        <div class="form-row-2">
+          <div><label class="form-label">Type</label><div class="select-wrap"><select class="input" name="type"><option value="deposit">Deposit</option><option value="withdrawal">Withdrawal</option></select></div></div>
+          <div><label class="form-label">Savings Account *</label><div class="select-wrap"><select class="input" name="savingId">${savOpts}</select></div></div>
+        </div>
+        <div class="form-row-2">
+          <div><label class="form-label">Amount *</label><input class="input" type="number" name="amount" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required></div>
+          <div><label class="form-label">Date</label><input class="input" type="date" name="date" value="${todayISO()}"></div>
+        </div>
+        <div class="form-row"><label class="form-label">Note <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label><input class="input" type="text" name="note" placeholder="e.g. Monthly saving" maxlength="120"></div>
+        <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-entry">Cancel</button><button type="submit" class="btn btn-accent">${svgPlus} Add</button></div>
+      </form>`;
+    }
   }
 
   const addPanel = S.addEntryType
@@ -1920,6 +1939,15 @@ function handleSubmit(e) {
     S.transactions.unshift({id:uid(),type:'transfer',fromCurrency:d.fromCurrency,fromAmount,toCurrency:d.toCurrency,toAmount,currency:d.fromCurrency,note:d.note||undefined,date:txDate});
     S.txCurrency=d.fromCurrency; localStorage.setItem('mmc.lastCurrency.v1',d.fromCurrency);
     S.addEntryType=null; save(); renderOverview(); renderDashboard(); toast('Transfer recorded'); return;
+  }
+  if (action==='add-savings-fund') {
+    const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
+    const saving = S.portfolio.savings.find(s=>s.id===d.savingId);
+    if (!saving) return;
+    if (!saving.payments) saving.payments = [];
+    saving.payments.unshift({id:uid(), date:d.date||todayISO(), amount, type:d.type||'deposit', note:d.note||undefined});
+    if (d.type==='deposit') saving.amount += amount; else saving.amount = Math.max(0, saving.amount - amount);
+    S.addEntryType=null; save(); renderDashboard(); renderPortfolio(); renderOverview(); toast((d.type==='deposit'?'Deposit':'Withdrawal')+' recorded'); return;
   }
   if (action==='save-card-bill') {
     const card = S.recurring.creditCards.find(c=>c.id===form.dataset.id); if (!card) return;
