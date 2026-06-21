@@ -419,7 +419,7 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 <input id="file-input" type="file" accept="application/json,.json" style="display:none">
 
 <script>
-const EXPENSE_CATS = ['Food','Transport','Housing','Bills','Shopping','Health','Entertainment','Saving','Other'];
+const EXPENSE_CATS = ['Food','Transport','Housing','Bills','Shopping','Health','Entertainment','Other'];
 const INCOME_CATS  = ['Salary','Freelance','Investment','Gift','Other'];
 const CURRENCIES   = ['USD','INR'];
 
@@ -427,7 +427,7 @@ const S = {
   tab: 'dashboard', transactions: [],
   portfolio: { savings: [], loans: [], goldLoans: [], investments: [], insurance: [] },
   recurring: { items: [], creditCards: [] },
-  txCurrency: 'USD', txSavingCat: null,
+  txCurrency: 'USD',
   addingSaving: false, addingLoan: false, addingGoldLoan: false, addingInvestment: false, addingInsurance: false,
   addEntryType: null, portfolioAddType: null, recurringAddType: null,
   editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, expandedSaving: null, showingPPForm: null, showingSavingPayForm: null, showingGoldPayForm: null, expandedMonth: null, selectedMonth: null, showLedger: false, ledgerFilterCurrency: 'all', ledgerFilterSource: 'all',
@@ -918,18 +918,13 @@ function renderQuickAdd() {
     const cats = S.addEntryType==='tx-income' ? INCOME_CATS : EXPENSE_CATS;
     entryForm = `<form data-action="add-tx">
       <div class="form-row-2">
-        <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency" data-action="tx-currency-change">${curOptions(S.txCurrency)}</select></div></div>
+        <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(S.txCurrency)}</select></div></div>
         <div><label class="form-label">Amount *</label><input class="input" type="number" name="amount" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required></div>
       </div>
       <div class="form-row-2">
         <div><label class="form-label">Date</label><input class="input" type="date" name="date" value="${todayISO()}"></div>
-        <div><label class="form-label">Category</label><div class="select-wrap"><select class="input" name="category" data-action="tx-category-change">${cats.map(c=>`<option${c===S.txSavingCat?' selected':''}>${c}</option>`).join('')}</select></div></div>
+        <div><label class="form-label">Category</label><div class="select-wrap"><select class="input" name="category">${cats.map(c=>`<option>${c}</option>`).join('')}</select></div></div>
       </div>
-      ${S.addEntryType==='tx-expense' && S.txSavingCat==='Saving' ? (() => {
-        const cur = S.txCurrency;
-        const savOpts = S.portfolio.savings.filter(s => getCur(s)===cur).map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
-        return savOpts ? `<div class="form-row"><label class="form-label">Savings Account *</label><div class="select-wrap"><select class="input" name="savingId" required>${savOpts}</select></div></div>` : `<div class="form-row"><div class="empty" style="padding:8px 0"><p>No savings account in ${cur}. Add one in Portfolio first.</p></div></div>`;
-      })() : ''}
       <div class="form-row"><label class="form-label">Note <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label><input class="input" type="text" name="note" placeholder="e.g. Lunch with team" maxlength="120"></div>
       <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-entry">Cancel</button><button type="submit" class="btn btn-accent">${svgPlus} Add ${S.addEntryType==='tx-income'?'Income':'Expense'}</button></div>
     </form>`;
@@ -1892,12 +1887,8 @@ function handleSubmit(e) {
     const type = S.addEntryType==='tx-income' ? 'income' : 'expense';
     const txDate = d.date ? new Date(d.date+'T12:00:00').toISOString() : new Date().toISOString();
     S.transactions.unshift({id:uid(),type,amount,category:d.category,note:d.note||undefined,date:txDate,currency:d.currency});
-    if (d.category==='Saving' && d.savingId && type==='expense') {
-      const saving = S.portfolio.savings.find(s=>s.id===d.savingId);
-      if (saving) { if (!saving.payments) saving.payments=[]; saving.payments.unshift({id:uid(), date:d.date||todayISO(), amount, type:'deposit', note:d.note||undefined}); saving.amount+=amount; }
-    }
     if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
-    S.addEntryType=null; S.txSavingCat=null; save(); renderOverview(); renderDashboard(); renderPortfolio(); toast('Transaction added'); return;
+    S.addEntryType=null; save(); renderOverview(); renderDashboard(); toast('Transaction added'); return;
   }
   if (action==='add-recurring-income') {
     if (!d.name.trim()) return toast('Name is required');
@@ -2055,8 +2046,8 @@ function handleClick(e) {
   if (action==='next-month') { const next = shiftMonth(S.selectedMonth, 1); if (next <= thisMonth()) S.selectedMonth = next; renderDashboard(); renderRecurring(); return; }
   if (action==='goto-current-month') { S.selectedMonth = thisMonth(); renderDashboard(); renderRecurring(); return; }
   if (action==='toggle-add-entry') { S.addEntryType = S.addEntryType ? null : 'tx-expense'; renderDashboard(); return; }
-  if (action==='set-entry-type') { S.addEntryType=btn.dataset.type; S.txSavingCat=null; renderDashboard(); return; }
-  if (action==='cancel-entry') { S.addEntryType=null; S.txSavingCat=null; renderDashboard(); return; }
+  if (action==='set-entry-type') { S.addEntryType=btn.dataset.type; renderDashboard(); return; }
+  if (action==='cancel-entry') { S.addEntryType=null; renderDashboard(); return; }
   if (action==='toggle-recurring-add') { S.recurringAddType = S.recurringAddType ? null : 'recurring-income'; renderRecurring(); return; }
   if (action==='set-recurring-add-type') { S.recurringAddType=btn.dataset.type; renderRecurring(); return; }
   if (action==='cancel-recurring-add') { S.recurringAddType=null; renderRecurring(); return; }
@@ -2291,12 +2282,6 @@ document.addEventListener('change', function(e) {
     if (e.target.dataset.filter === 'currency') S.ledgerFilterCurrency = e.target.value;
     if (e.target.dataset.filter === 'source') S.ledgerFilterSource = e.target.value;
     renderOverview();
-  }
-  if (e.target.dataset.action === 'tx-category-change') {
-    S.txSavingCat = e.target.value; renderDashboard();
-  }
-  if (e.target.dataset.action === 'tx-currency-change') {
-    S.txCurrency = e.target.value; localStorage.setItem('mmc.lastCurrency.v1', e.target.value); if (S.txSavingCat==='Saving') renderDashboard();
   }
   if (e.target.dataset.action === 'change-ai-provider') {
     localStorage.setItem('mmc.aiProvider', e.target.value);
