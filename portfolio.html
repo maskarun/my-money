@@ -1353,32 +1353,63 @@ function renderProjections() {
 }
 
 function renderActivity() {
-  const monTxs = S.transactions.filter(t=>t.date && localTxMonth(t.date)===S.selectedMonth);
+  const mon = S.selectedMonth;
+  const entries = [];
+
+  for (const t of S.transactions) {
+    if (!t.date || localTxMonth(t.date) !== mon) continue;
+    if (t.type==='transfer') {
+      entries.push({ date: t.date, icon: 'transfer', iconSvg: svgTransfer, name: 'Transfer', meta: t.note ? esc(t.note) + ' · ' + fmtDate(t.date) : fmtDate(t.date), amtHtml: `<span class="tx-amount transfer">${formatMoney(t.fromAmount,t.fromCurrency)} → ${formatMoney(t.toAmount,t.toCurrency)}</span>`, delBtn: `<button class="tx-del" data-action="del-tx" data-id="${t.id}" title="Delete">${svgTrash}</button>`, badge: '', source: 'txn' });
+    } else {
+      const isIncome = t.type==='income';
+      const isBill = t.category==='Bills' && t.note;
+      const dispName = isBill ? t.note : t.category;
+      const dispMeta = isBill ? fmtDate(t.date) : (t.note ? esc(t.note) + ' · ' + fmtDate(t.date) : fmtDate(t.date));
+      entries.push({ date: t.date, icon: t.type, iconSvg: isIncome ? svgArrowUp : svgArrowDown, name: dispName, meta: dispMeta, amtHtml: `<span class="tx-amount ${t.type}">${isIncome?'+':'−'}${formatMoney(t.amount,getCur(t))}</span>`, delBtn: `<button class="tx-del" data-action="del-tx" data-id="${t.id}" title="Delete">${svgTrash}</button>`, badge: getCur(t), source: 'txn' });
+    }
+  }
+
+  for (const loan of S.portfolio.loans) {
+    for (const p of (loan.partPayments || [])) {
+      if (localTxMonth(p.date) !== mon) continue;
+      entries.push({ date: p.date, icon: 'expense', iconSvg: svgArrowDown, name: 'Part Payment: ' + loan.name, meta: (p.note ? esc(p.note) + ' · ' : '') + fmtDate(p.date), amtHtml: `<span class="tx-amount expense">−${formatMoney(p.amount, getCur(loan))}</span>`, delBtn: '', badge: getCur(loan), source: 'loan' });
+    }
+  }
+
+  for (const saving of S.portfolio.savings) {
+    for (const p of (saving.payments || [])) {
+      if (localTxMonth(p.date) !== mon) continue;
+      const isDep = p.type === 'deposit';
+      entries.push({ date: p.date, icon: isDep ? 'income' : 'expense', iconSvg: isDep ? svgArrowUp : svgArrowDown, name: (isDep ? 'Deposit: ' : 'Withdrawal: ') + saving.name, meta: (p.note ? esc(p.note) + ' · ' : '') + fmtDate(p.date), amtHtml: `<span class="tx-amount ${isDep?'income':'expense'}">${isDep?'+':'−'}${formatMoney(p.amount, getCur(saving))}</span>`, delBtn: '', badge: getCur(saving), source: 'saving' });
+    }
+  }
+
+  for (const loan of S.portfolio.goldLoans) {
+    for (const p of (loan.payments || [])) {
+      if (localTxMonth(p.date) !== mon) continue;
+      entries.push({ date: p.date, icon: 'expense', iconSvg: svgArrowDown, name: 'Gold Loan Payment: ' + loan.name, meta: (p.note ? esc(p.note) + ' · ' : '') + fmtDate(p.date), amtHtml: `<span class="tx-amount expense">−${formatMoney(p.amount, getCur(loan))}</span>`, delBtn: '', badge: getCur(loan), source: 'gold' });
+    }
+  }
+
   const isOpen = S.secOpen.tx;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="tx" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
-      <div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">Transactions</span></div><div class="sec-sub">${monTxs.length?`${monTxs.length} this month`:'Recent activity'}</div></div>
+      <div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">All Activity</span></div><div class="sec-sub">${entries.length?`${entries.length} this month`:'Recent activity'}</div></div>
     </div>`;
   if (!isOpen) return `<div class="card">${hdr}</div>`;
-  if (!monTxs.length) return `<div class="card">${hdr}<div class="empty"><p>No transactions this month</p></div></div>`;
-  const sorted = [...monTxs].sort((a,b)=>getCur(a).localeCompare(getCur(b)) || b.date.localeCompare(a.date));
-  const rows = sorted.map(t => {
-    if (t.type==='transfer') {
-      return `<li class="tx-row">
-        <div class="tx-icon transfer">${svgTransfer}</div>
-        <div class="tx-body"><div class="tx-cat">Transfer</div><div class="tx-meta">${t.note?esc(t.note)+' · ':''}${fmtDate(t.date)}</div></div>
-        <div class="tx-right"><div class="tx-amount transfer">${formatMoney(t.fromAmount,t.fromCurrency)} → ${formatMoney(t.toAmount,t.toCurrency)}</div></div>
-        <button class="tx-del" data-action="del-tx" data-id="${t.id}" title="Delete">${svgTrash}</button>
-      </li>`;
-    }
-    const isIncome = t.type==='income';
-    const isBill = t.category==='Bills' && t.note;
-    const dispName = isBill ? t.note : t.category;
-    const dispMeta = isBill ? fmtDate(t.date) : (t.note?esc(t.note):fmtDate(t.date));
+  if (!entries.length) return `<div class="card">${hdr}<div class="empty"><p>No activity this month</p></div></div>`;
+
+  entries.sort((a, b) => b.date.localeCompare(a.date));
+
+  const sourceColors = { txn: '', loan: '#ef4444', saving: '#10b981', gold: '#f59e0b' };
+  const sourceLabels = { txn: '', loan: 'Loan', saving: 'Savings', gold: 'Gold Loan' };
+
+  const rows = entries.map(e => {
+    const srcPill = e.source !== 'txn' ? `<span class="tx-badge" style="background:${sourceColors[e.source]}20;color:${sourceColors[e.source]}">${sourceLabels[e.source]}</span>` : '';
     return `<li class="tx-row">
-      <div class="tx-icon ${t.type}">${isIncome?svgArrowUp:svgArrowDown}</div>
-      <div class="tx-body"><div class="tx-cat">${esc(dispName)}<span class="tx-badge">${getCur(t)}</span></div><div class="tx-meta">${dispMeta}</div></div>
-      <div class="tx-right"><div class="tx-amount ${t.type}">${isIncome?'+':'−'}${formatMoney(t.amount,getCur(t))}</div></div>
-      <button class="tx-del" data-action="del-tx" data-id="${t.id}" title="Delete">${svgTrash}</button>
+      <div class="tx-icon ${e.icon}">${e.iconSvg}</div>
+      <div class="tx-body"><div class="tx-cat">${esc(e.name)}${e.badge?`<span class="tx-badge">${e.badge}</span>`:''}${srcPill}</div><div class="tx-meta">${e.meta}</div></div>
+      <div class="tx-right">${e.amtHtml}</div>
+      ${e.delBtn}
     </li>`;
   }).join('');
   return `<div class="card">${hdr}<ul class="tx-list">${rows}</ul></div>`;
