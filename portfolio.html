@@ -1945,8 +1945,10 @@ function handleSubmit(e) {
     const saving = S.portfolio.savings.find(s=>s.id===d.savingId);
     if (!saving) return;
     if (!saving.payments) saving.payments = [];
+    const txDate = d.date ? new Date(d.date+'T12:00:00').toISOString() : new Date().toISOString();
     saving.payments.unshift({id:uid(), date:d.date||todayISO(), amount, type:d.type||'deposit', note:d.note||undefined});
-    if (d.type==='deposit') saving.amount += amount; else saving.amount = Math.max(0, saving.amount - amount);
+    if (d.type==='deposit') { saving.amount += amount; S.transactions.unshift({id:uid(),type:'expense',amount,category:'Saving',note:saving.name+(d.note?' - '+d.note:''),date:txDate,currency:getCur(saving)}); }
+    else { saving.amount = Math.max(0, saving.amount - amount); S.transactions.unshift({id:uid(),type:'income',amount,category:'Saving',note:saving.name+(d.note?' - '+d.note:''),date:txDate,currency:getCur(saving)}); }
     S.addEntryType=null; save(); renderDashboard(); renderPortfolio(); renderOverview(); toast((d.type==='deposit'?'Deposit':'Withdrawal')+' recorded'); return;
   }
   if (action==='save-card-bill') {
