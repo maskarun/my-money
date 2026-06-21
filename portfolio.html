@@ -247,6 +247,21 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .schedule-tbl tbody td { padding: 5px 8px; text-align: right; border-bottom: 1px solid var(--muted); }
 .schedule-tbl tbody td:first-child { text-align: left; color: var(--muted-fg); }
 .schedule-tbl tbody tr:last-child td { border-bottom: none; }
+.ledger-filters { display:flex; gap:8px; padding:8px 16px; flex-wrap:wrap; align-items:center; }
+.ledger-filters select { font-size:12px; padding:4px 8px; border-radius:6px; border:1px solid var(--muted); background:var(--bg); color:var(--fg); }
+.ledger-month-hdr { padding:10px 16px 4px; font-size:12px; font-weight:800; color:var(--muted-fg); }
+.ledger-tbl-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+.ledger-tbl { width:100%; border-collapse:collapse; font-size:11px; font-variant-numeric:tabular-nums; }
+.ledger-tbl thead th { position:sticky; top:0; background:var(--muted); padding:5px 8px; text-align:right; font-weight:700; white-space:nowrap; color:var(--muted-fg); }
+.ledger-tbl thead th:first-child, .ledger-tbl thead th:nth-child(2) { text-align:left; }
+.ledger-tbl tbody td { padding:5px 8px; text-align:right; border-bottom:1px solid var(--muted); }
+.ledger-tbl tbody td:first-child, .ledger-tbl tbody td:nth-child(2) { text-align:left; }
+.ledger-tbl tbody tr:last-child td { border-bottom:none; }
+.ledger-src { font-size:9px; padding:1px 5px; border-radius:4px; font-weight:600; }
+.ledger-src.inc { background:#d1fae5; color:#047857; }
+.ledger-src.exp { background:#fee2e2; color:#b91c1c; }
+.ledger-src.xfr { background:#dbeafe; color:#1d4ed8; }
+.ledger-src.loan { background:#fef3c7; color:#92400e; }
 .sched-pp-row { background: #f0fdf4; }
 .sched-pp-amt { color: #059669; font-weight: 700; font-size: 11px; }
 .pp-section { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--muted); }
@@ -410,7 +425,7 @@ const S = {
   txCurrency: 'USD',
   addingSaving: false, addingLoan: false, addingGoldLoan: false, addingInvestment: false, addingInsurance: false,
   addEntryType: null,
-  editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, showingPPForm: null, expandedMonth: null, selectedMonth: null, showHistory: false,
+  editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, showingPPForm: null, expandedMonth: null, selectedMonth: null, showHistory: false, showLedger: false, ledgerFilterCurrency: 'all', ledgerFilterSource: 'all',
   secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, projections: true },
 };
 
@@ -554,6 +569,100 @@ const otherCur = c => CURRENCIES.find(x=>x!==c) || CURRENCIES[0];
 function catOptions(type, sel) { return (type==='income'?INCOME_CATS:EXPENSE_CATS).map(c=>`<option value="${c}"${c===sel?' selected':''}>${c}</option>`).join(''); }
 
 // ── Dashboard Overview ─────────────────────────────────────────────────────────
+function buildLedgerHtml() {
+  const entries = [];
+
+  for (const t of S.transactions) {
+    if (t.type === 'transfer') {
+      entries.push({ date: t.date, desc: 'Transfer' + (t.note ? ': ' + t.note : ''), currency: t.fromCurrency, debit: t.fromAmount, credit: 0, source: 'xfr' });
+      entries.push({ date: t.date, desc: 'Transfer' + (t.note ? ': ' + t.note : ''), currency: t.toCurrency, debit: 0, credit: t.toAmount, source: 'xfr' });
+    } else if (t.type === 'income') {
+      entries.push({ date: t.date, desc: t.category + (t.note ? ': ' + t.note : ''), currency: getCur(t), debit: 0, credit: t.amount, source: 'inc' });
+    } else {
+      entries.push({ date: t.date, desc: t.category + (t.note ? ': ' + t.note : ''), currency: getCur(t), debit: t.amount, credit: 0, source: 'exp' });
+    }
+  }
+
+  for (const loan of S.portfolio.loans) {
+    for (const p of (loan.partPayments || [])) {
+      entries.push({ date: p.date, desc: 'Part Payment: ' + loan.name + (p.note ? ' (' + p.note + ')' : ''), currency: getCur(loan), debit: p.amount, credit: 0, source: 'loan' });
+    }
+  }
+
+  const fc = S.ledgerFilterCurrency, fs = S.ledgerFilterSource;
+  const filtered = entries.filter(e => {
+    if (fc !== 'all' && e.currency !== fc) return false;
+    if (fs !== 'all' && e.source !== fs) return false;
+    return true;
+  });
+
+  filtered.sort((a, b) => b.date.localeCompare(a.date));
+
+  const allCurs = [...new Set(entries.map(e => e.currency))];
+  const sourceLabels = { inc: 'Income', exp: 'Expense', xfr: 'Transfer', loan: 'Loan' };
+
+  const filterHtml = `<div class="ledger-filters">
+    <select data-action="ledger-filter" data-filter="currency">
+      <option value="all"${fc==='all'?' selected':''}>All Currencies</option>
+      ${allCurs.map(c => `<option value="${c}"${fc===c?' selected':''}>${c}</option>`).join('')}
+    </select>
+    <select data-action="ledger-filter" data-filter="source">
+      <option value="all"${fs==='all'?' selected':''}>All Types</option>
+      <option value="inc"${fs==='inc'?' selected':''}>Income</option>
+      <option value="exp"${fs==='exp'?' selected':''}>Expenses</option>
+      <option value="xfr"${fs==='xfr'?' selected':''}>Transfers</option>
+      <option value="loan"${fs==='loan'?' selected':''}>Loan Payments</option>
+    </select>
+  </div>`;
+
+  if (!filtered.length) {
+    return `<div class="card"><div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#6366f1"></span><span class="sec-title">Ledger Book</span></div></div><button class="ibtn" data-action="toggle-ledger" title="Back to Dashboard">${svgChevronLeft}</button></div>${filterHtml}<div class="empty"><p>No entries</p></div></div>`;
+  }
+
+  const months = [...new Set(filtered.map(e => e.date.slice(0, 7)))].sort((a, b) => b.localeCompare(a));
+
+  const balByCur = {};
+  const entriesAsc = filtered.slice().sort((a, b) => a.date.localeCompare(b.date));
+  for (const e of entriesAsc) {
+    if (!balByCur[e.currency]) balByCur[e.currency] = 0;
+    balByCur[e.currency] += e.credit - e.debit;
+  }
+
+  const monthCards = months.map(mon => {
+    const monEntries = filtered.filter(e => e.date.slice(0, 7) === mon);
+    const rows = monEntries.map(e => {
+      const srcClass = e.source;
+      return `<tr>
+        <td>${fmtDate(e.date)}</td>
+        <td>${esc(e.desc)} <span class="ledger-src ${srcClass}">${sourceLabels[e.source]}</span></td>
+        <td><span class="cur-pill">${e.currency}</span></td>
+        <td class="red">${e.debit ? formatMoney(e.debit, e.currency) : ''}</td>
+        <td class="grn">${e.credit ? formatMoney(e.credit, e.currency) : ''}</td>
+      </tr>`;
+    }).join('');
+
+    return `<div class="card" style="padding-bottom:0">
+      <div class="ledger-month-hdr">${fmtMonth(mon)}</div>
+      <div class="ledger-tbl-wrap">
+        <table class="ledger-tbl">
+          <thead><tr><th>Date</th><th>Description</th><th>Cur</th><th>Debit</th><th>Credit</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+
+  const balSummary = Object.entries(balByCur).map(([c, v]) =>
+    `<span style="margin-right:12px;font-weight:700;color:${v >= 0 ? 'var(--income)' : 'var(--expense)'}">${c} ${v >= 0 ? '+' : ''}${formatMoney(v, c)}</span>`
+  ).join('');
+
+  return `<div class="card">
+    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#6366f1"></span><span class="sec-title">Ledger Book</span></div><div class="sec-sub">All financial activity</div></div><button class="ibtn" data-action="toggle-ledger" title="Back to Dashboard">${svgChevronLeft}</button></div>
+    ${filterHtml}
+    <div style="padding:4px 16px 10px;font-size:12px">Net: ${balSummary}</div>
+  </div>${monthCards}`;
+}
+
 function renderOverview() {
   const allCurs = new Set();
   for (const t of S.transactions) allCurs.add(getCur(t));
@@ -604,7 +713,19 @@ function renderOverview() {
     </div>`;
   }).join('');
 
-  document.getElementById('tab-dashboard').innerHTML = cards + renderProjections();
+  if (S.showLedger) {
+    document.getElementById('tab-dashboard').innerHTML = buildLedgerHtml();
+    return;
+  }
+
+  const ledgerBtn = `<div class="card month-nav" style="justify-content:center;gap:12px">
+    <button class="ibtn" data-action="toggle-ledger" title="Open Ledger Book" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--accent)">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/><path d="M8 7h8M8 11h6"/></svg>
+      Ledger Book
+    </button>
+  </div>`;
+
+  document.getElementById('tab-dashboard').innerHTML = cards + renderProjections() + ledgerBtn;
 }
 
 let insightsResult = localStorage.getItem('mmc.insights') || '';
@@ -1965,6 +2086,7 @@ function handleClick(e) {
   if (action==='toggle-pp-form') { S.showingPPForm=S.showingPPForm===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
   if (action==='toggle-month') { S.expandedMonth=S.expandedMonth===btn.dataset.month?null:btn.dataset.month; renderDashboard(); return; }
   if (action==='toggle-history') { S.showHistory=!S.showHistory; renderDashboard(); return; }
+  if (action==='toggle-ledger') { S.showLedger=!S.showLedger; renderOverview(); return; }
   if (action==='toggle-section') { const k=btn.dataset.sec; S.secOpen[k]=!S.secOpen[k]; renderOverview(); renderDashboard(); renderPortfolio(); return; }
   if (action==='del-part-payment') {
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.loanId);
@@ -2068,6 +2190,11 @@ document.addEventListener('submit', handleSubmit);
 document.addEventListener('click', handleClick);
 document.addEventListener('input', handleInput);
 document.addEventListener('change', function(e) {
+  if (e.target.dataset.action === 'ledger-filter') {
+    if (e.target.dataset.filter === 'currency') S.ledgerFilterCurrency = e.target.value;
+    if (e.target.dataset.filter === 'source') S.ledgerFilterSource = e.target.value;
+    renderOverview();
+  }
   if (e.target.dataset.action === 'change-ai-provider') {
     localStorage.setItem('mmc.aiProvider', e.target.value);
     localStorage.removeItem('mmc.apiKey');
