@@ -572,7 +572,7 @@ function renderOverview() {
     }
     const txNet = txIncome - txExpense + transferNet;
     const credit = sav + Math.max(0, txNet);
-    const loans = S.portfolio.loans.filter(i=>getCur(i)===cur).reduce((a,i)=>a+computeOutstanding(i),0);
+    const loans = S.portfolio.loans.filter(i=>getCur(i)===cur&&!i.closed).reduce((a,i)=>a+computeOutstanding(i),0);
     const gold  = S.portfolio.goldLoans.filter(i=>getCur(i)===cur&&!i.closed).reduce((a,i)=>a+i.principal+computeGoldLoanInterest(i),0);
     const debt  = loans + gold;
     const net = credit - debt;
@@ -1345,7 +1345,7 @@ function renderPortfolioSummary() {
   if (!S.portfolio.savings.length && !S.portfolio.loans.length && !S.portfolio.goldLoans.length) return '';
   return getPortfolioCurrencies().map(cur => {
     const sav = S.portfolio.savings.filter(i=>getCur(i)===cur).reduce((a,i)=>a+i.amount,0);
-    const loans = S.portfolio.loans.filter(i=>getCur(i)===cur).reduce((a,i)=>a+computeOutstanding(i),0);
+    const loans = S.portfolio.loans.filter(i=>getCur(i)===cur&&!i.closed).reduce((a,i)=>a+computeOutstanding(i),0);
     const gold = S.portfolio.goldLoans.filter(i=>getCur(i)===cur&&!i.closed).reduce((a,i)=>a+i.principal+computeGoldLoanInterest(i),0);
     return `<div class="cards-row">
       <div class="stat-card"><div class="sc-label"><span class="sc-dot" style="background:#10b981;display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:4px;vertical-align:middle"></span>Savings · ${cur}</div><div class="sc-amount income">${formatMoney(sav,cur)}</div></div>
@@ -1551,7 +1551,7 @@ function investmentForm(item) {
 function renderLoans() {
   const items = S.portfolio.loans;
   const totals = {};
-  for (const l of items) { const c=getCur(l); totals[c]=(totals[c]||0)+computeOutstanding(l); }
+  for (const l of items) { if (l.closed) continue; const c=getCur(l); totals[c]=(totals[c]||0)+computeOutstanding(l); }
   const rows = items.map(loan => {
     const c = getCur(loan);
     if (S.editingId===loan.id && S.editSection==='loan') return `<div class="add-form">${loanForm(loan)}</div>`;
@@ -1584,18 +1584,23 @@ function renderLoans() {
     </div>` : '';
     const curPillClass = c==='USD'?'':''; // default blue pill for all
     return `<div>
-      <div class="p-row" data-action="toggle-loan" data-id="${loan.id}" style="cursor:pointer">
+      <div class="p-row" data-action="toggle-loan" data-id="${loan.id}" style="cursor:pointer${loan.closed?';opacity:0.5':''}">
         <div class="p-row-icon loan">${svgHome.replace('stroke="currentColor"','stroke="#e11d48"')}</div>
         <div class="p-row-meta"><div class="p-row-name">${esc(loan.name)}<span class="cur-pill red">${c}</span></div><div class="p-row-sub">${loan.lender?esc(loan.lender)+' · ':''}${formatMoney(loan.principal,c)} · ${loan.tenureYears}yr · ${loan.interestRate}% · EMI ${formatMoney(emi,c)}</div></div>
         <div class="p-row-right">
-          <div><div class="p-row-amt-lbl">Outstanding</div><div class="p-row-amt red">${formatMoney(outstanding,c)}</div></div>
+          ${loan.closed
+            ? `<span class="rec-badge paid">✓ Closed</span>`
+            : `<div><div class="p-row-amt-lbl">Outstanding</div><div class="p-row-amt red">${formatMoney(outstanding,c)}</div></div>`}
           <div class="p-row-btns">
+            ${loan.closed
+              ? `<button class="ibtn" title="Reopen" data-action="reopen-loan" data-id="${loan.id}">${svgUndo}</button>`
+              : `<button class="ibtn" title="Close Loan" data-action="close-loan" data-id="${loan.id}">✓</button>`}
             <button class="ibtn" title="Edit" data-action="edit-loan" data-id="${loan.id}">${svgEdit}</button>
             <button class="ibtn del" title="Delete" data-action="del-loan" data-id="${loan.id}">${svgTrash}</button>
           </div>
         </div>
       </div>
-      ${schedHtml}
+      ${loan.closed?'':schedHtml}
     </div>`;
   }).join('');
   const addHtml = S.addingLoan ? `<div class="add-form">${loanForm(null)}</div>` : `<button class="add-row-btn" data-action="toggle-add-loan">${svgPlus} Add loan</button>`;
@@ -1945,6 +1950,16 @@ function handleClick(e) {
   if (action==='del-loan') {
     if (!confirm('Delete this loan?')) return;
     S.portfolio.loans=S.portfolio.loans.filter(i=>i.id!==btn.dataset.id); save(); renderPortfolio(); return;
+  }
+  if (action==='close-loan') {
+    const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.id); if (!loan) return;
+    loan.closed = true; loan.closedDate = new Date().toISOString();
+    save(); renderPortfolio(); toast(loan.name + ' closed'); return;
+  }
+  if (action==='reopen-loan') {
+    const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.id); if (!loan) return;
+    loan.closed = false; delete loan.closedDate;
+    save(); renderPortfolio(); toast(loan.name + ' reopened'); return;
   }
   if (action==='toggle-loan') { S.expandedLoan=S.expandedLoan===btn.dataset.id?null:btn.dataset.id; S.showingPPForm=null; renderPortfolio(); return; }
   if (action==='toggle-pp-form') { S.showingPPForm=S.showingPPForm===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
