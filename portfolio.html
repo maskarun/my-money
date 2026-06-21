@@ -1154,10 +1154,11 @@ function renderHeroCards() {
   const byCur = {};
   const add = (cur, type, amt) => { if (!byCur[cur]) byCur[cur]={income:0,expense:0}; byCur[cur][type]+=amt; };
 
-  // Prior-month cumulative balance per currency
+  // Previous month balance (net of last month only)
+  const prevMon = shiftMonth(mon, -1);
   const prevBal = {};
   for (const t of S.transactions) {
-    if (!t.date || localTxMonth(t.date) >= mon) continue;
+    if (!t.date || localTxMonth(t.date) !== prevMon) continue;
     if (t.type==='transfer') {
       prevBal[t.fromCurrency] = (prevBal[t.fromCurrency]||0) - t.fromAmount;
       prevBal[t.toCurrency] = (prevBal[t.toCurrency]||0) + t.toAmount;
@@ -1167,13 +1168,13 @@ function renderHeroCards() {
     prevBal[c] = (prevBal[c]||0) + (t.type==='income' ? t.amount : -t.amount);
   }
   for (const loan of S.portfolio.loans) {
-    for (const p of (loan.partPayments || [])) { if (p.date && localTxMonth(p.date) < mon) { const c=getCur(loan); prevBal[c]=(prevBal[c]||0)-p.amount; } }
+    for (const p of (loan.partPayments || [])) { if (p.date && localTxMonth(p.date) === prevMon) { const c=getCur(loan); prevBal[c]=(prevBal[c]||0)-p.amount; } }
   }
   for (const saving of S.portfolio.savings) {
-    for (const p of (saving.payments || [])) { if (p.date && localTxMonth(p.date) < mon) { const c=getCur(saving); prevBal[c]=(prevBal[c]||0)+(p.type==='deposit'?p.amount:-p.amount); } }
+    for (const p of (saving.payments || [])) { if (p.date && localTxMonth(p.date) === prevMon) { const c=getCur(saving); prevBal[c]=(prevBal[c]||0)+(p.type==='deposit'?p.amount:-p.amount); } }
   }
   for (const loan of S.portfolio.goldLoans) {
-    for (const p of (loan.payments || [])) { if (p.date && localTxMonth(p.date) < mon) { const c=getCur(loan); prevBal[c]=(prevBal[c]||0)-p.amount; } }
+    for (const p of (loan.payments || [])) { if (p.date && localTxMonth(p.date) === prevMon) { const c=getCur(loan); prevBal[c]=(prevBal[c]||0)-p.amount; } }
   }
 
   // recurring-linked txIds for this month (avoid double counting with S.transactions)
