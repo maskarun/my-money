@@ -1003,7 +1003,10 @@ function renderQuickAdd() {
         <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(S.txCurrency)}</select></div></div>
         <div><label class="form-label">Amount *</label><input class="input" type="number" name="amount" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required></div>
       </div>
-      <div class="form-row"><label class="form-label">Category</label><div class="select-wrap"><select class="input" name="category">${cats.map(c=>`<option>${c}</option>`).join('')}</select></div></div>
+      <div class="form-row-2">
+        <div><label class="form-label">Date</label><input class="input" type="date" name="date" value="${todayISO()}"></div>
+        <div><label class="form-label">Category</label><div class="select-wrap"><select class="input" name="category">${cats.map(c=>`<option>${c}</option>`).join('')}</select></div></div>
+      </div>
       <div class="form-row"><label class="form-label">Note <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label><input class="input" type="text" name="note" placeholder="e.g. Lunch with team" maxlength="120"></div>
       <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-entry">Cancel</button><button type="submit" class="btn btn-accent">${svgPlus} Add ${S.addEntryType==='tx-income'?'Income':'Expense'}</button></div>
     </form>`;
@@ -1052,6 +1055,7 @@ function renderQuickAdd() {
         <div><label class="form-label">To Currency</label><div class="select-wrap"><select class="input" name="toCurrency">${curOptions(otherCur(S.txCurrency))}</select></div></div>
         <div><label class="form-label">Amount Received *</label><input class="input" type="number" name="toAmount" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required></div>
       </div>
+      <div class="form-row"><label class="form-label">Date</label><input class="input" type="date" name="date" value="${todayISO()}"></div>
       <div class="form-row"><label class="form-label">Note <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label><input class="input" type="text" name="note" placeholder="e.g. Wise transfer" maxlength="120"></div>
       <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-entry">Cancel</button><button type="submit" class="btn btn-accent">${svgPlus} Add Transfer</button></div>
     </form>`;
@@ -1846,7 +1850,8 @@ function handleSubmit(e) {
   if (action==='add-tx') {
     const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
     const type = S.addEntryType==='tx-income' ? 'income' : 'expense';
-    S.transactions.unshift({id:uid(),type,amount,category:d.category,note:d.note||undefined,date:new Date().toISOString(),currency:d.currency});
+    const txDate = d.date ? new Date(d.date+'T12:00:00').toISOString() : new Date().toISOString();
+    S.transactions.unshift({id:uid(),type,amount,category:d.category,note:d.note||undefined,date:txDate,currency:d.currency});
     if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
     S.addEntryType=null; save(); renderOverview(); renderDashboard(); toast('Transaction added'); return;
   }
@@ -1876,7 +1881,8 @@ function handleSubmit(e) {
     const fromAmount = parseFloat(d.fromAmount), toAmount = parseFloat(d.toAmount);
     if (!fromAmount||fromAmount<=0||!toAmount||toAmount<=0) return toast('Enter valid amounts');
     if (d.fromCurrency===d.toCurrency) return toast('Choose two different currencies');
-    S.transactions.unshift({id:uid(),type:'transfer',fromCurrency:d.fromCurrency,fromAmount,toCurrency:d.toCurrency,toAmount,currency:d.fromCurrency,note:d.note||undefined,date:new Date().toISOString()});
+    const txDate = d.date ? new Date(d.date+'T12:00:00').toISOString() : new Date().toISOString();
+    S.transactions.unshift({id:uid(),type:'transfer',fromCurrency:d.fromCurrency,fromAmount,toCurrency:d.toCurrency,toAmount,currency:d.fromCurrency,note:d.note||undefined,date:txDate});
     S.txCurrency=d.fromCurrency; localStorage.setItem('mmc.lastCurrency.v1',d.fromCurrency);
     S.addEntryType=null; save(); renderOverview(); renderDashboard(); toast('Transfer recorded'); return;
   }
