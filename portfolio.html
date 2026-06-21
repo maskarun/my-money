@@ -424,7 +424,7 @@ const S = {
   recurring: { items: [], creditCards: [] },
   txCurrency: 'USD',
   addingSaving: false, addingLoan: false, addingGoldLoan: false, addingInvestment: false, addingInsurance: false,
-  addEntryType: null,
+  addEntryType: null, portfolioAddType: null,
   editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, expandedSaving: null, showingPPForm: null, showingSavingPayForm: null, showingGoldPayForm: null, expandedMonth: null, selectedMonth: null, showHistory: false, showLedger: false, ledgerFilterCurrency: 'all', ledgerFilterSource: 'all',
   secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, projections: true },
 };
@@ -1456,9 +1456,28 @@ function renderActivity() {
 }
 
 // ── Portfolio ──────────────────────────────────────────────────────────────────
+function renderPortfolioQuickAdd() {
+  const types = [
+    {type:'saving', label:'Saving'},
+    {type:'loan', label:'Loan'},
+    {type:'gold-loan', label:'Gold Loan'},
+  ];
+  const chips = types.map(({type,label}) =>
+    `<button class="toggle-chip${S.portfolioAddType===type?' active':''}" data-action="set-portfolio-add-type" data-type="${type}">${label}</button>`
+  ).join('');
+  let form = '';
+  if (S.portfolioAddType==='saving') form = savingForm(null);
+  else if (S.portfolioAddType==='loan') form = loanForm(null);
+  else if (S.portfolioAddType==='gold-loan') form = goldLoanForm(null);
+  const panel = S.portfolioAddType !== null
+    ? `<div class="add-form"><div class="toggle-chip-row">${chips}</div>${form}</div>`
+    : `<button class="add-row-btn" data-action="toggle-portfolio-add">${svgPlus} Add Entry</button>`;
+  return `<div class="card">${panel}</div>`;
+}
+
 function renderPortfolio() {
   document.getElementById('tab-portfolio').innerHTML =
-    renderPortfolioSummary() + renderSavings() + renderLoans() + renderGoldLoans();
+    renderPortfolioQuickAdd() + renderPortfolioSummary() + renderSavings() + renderLoans() + renderGoldLoans();
 }
 
 function getPortfolioCurrencies() {
@@ -1522,14 +1541,13 @@ function renderSavings() {
       ${payHtml}
     </div>`;
   }).join('');
-  const addHtml = S.addingSaving ? `<div class="add-form">${savingForm(null)}</div>` : `<button class="add-row-btn" data-action="toggle-add-saving">${svgPlus} Add entry</button>`;
   const isOpen = S.secOpen.savings;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="savings" style="cursor:pointer">
       <div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Savings</span></div><div class="sec-sub">Bank accounts, deposits, cash</div></div>
       ${items.length?`<div class="sec-totals"><div class="sec-total-lbl">Total Balance</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt grn">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
     </div>`;
   if (!isOpen) return `<div class="card">${hdr}</div>`;
-  return `<div class="card">${hdr}${rows}${addHtml}</div>`;
+  return `<div class="card">${hdr}${rows}</div>`;
 }
 
 function savingForm(item) {
@@ -1752,14 +1770,13 @@ function renderLoans() {
       ${loan.closed?'':schedHtml}
     </div>`;
   }).join('');
-  const addHtml = S.addingLoan ? `<div class="add-form">${loanForm(null)}</div>` : `<button class="add-row-btn" data-action="toggle-add-loan">${svgPlus} Add loan</button>`;
   const isOpen = S.secOpen.loans;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="loans" style="cursor:pointer">
       <div><div class="sec-title-row"><span class="sec-dot red"></span><span class="sec-title">Loans</span></div><div class="sec-sub">EMI-based amortising loans</div></div>
       ${Object.keys(totals).length?`<div class="sec-totals"><div class="sec-total-lbl">Outstanding Today</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt red">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
     </div>`;
   if (!isOpen) return `<div class="card">${hdr}</div>`;
-  return `<div class="card">${hdr}${rows}${addHtml}</div>`;
+  return `<div class="card">${hdr}${rows}</div>`;
 }
 
 function loanForm(loan) {
@@ -1840,14 +1857,13 @@ function renderGoldLoans() {
       ${schedHtml}
     </div>`;
   }).join('');
-  const addHtml = S.addingGoldLoan ? `<div class="add-form">${goldLoanForm(null)}</div>` : `<button class="add-row-btn" data-action="toggle-add-gold">${svgPlus} Add Gold Loan</button>`;
   const isOpen = S.secOpen.goldLoans;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="goldLoans" style="cursor:pointer">
       <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Gold Loans</span></div><div class="sec-sub">Bullet repayment, daily interest</div></div>
       ${Object.keys(totals).length?`<div class="sec-totals"><div class="sec-total-lbl">Total Owed</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt amb">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
     </div>`;
   if (!isOpen) return `<div class="card">${hdr}</div>`;
-  return `<div class="card">${hdr}${rows}${addHtml}</div>`;
+  return `<div class="card">${hdr}${rows}</div>`;
 }
 
 function goldLoanForm(loan) {
@@ -1949,7 +1965,7 @@ function handleSubmit(e) {
     if (!d.name.trim()) return toast('Name is required');
     const amount = parseFloat(d.amount); if (!amount||amount<0) return toast('Enter a valid amount');
     S.portfolio.savings.unshift({id:uid(),name:d.name.trim(),institution:d.institution||undefined,amount,interestRate:d.interestRate?parseFloat(d.interestRate):undefined,note:d.note||undefined,currency:d.currency,createdAt:todayISO()});
-    S.addingSaving=false; save(); renderPortfolio(); toast('Saving added'); return;
+    S.addingSaving=false; S.portfolioAddType=null; save(); renderPortfolio(); toast('Saving added'); return;
   }
   if (action==='update-saving') {
     const amount = parseFloat(d.amount);
@@ -1986,7 +2002,7 @@ function handleSubmit(e) {
   if (action==='add-loan') {
     if (!d.name.trim()) return toast('Name is required');
     S.portfolio.loans.unshift({id:uid(),name:d.name.trim(),lender:d.lender||undefined,principal:parseFloat(d.principal),startDate:d.startDate,tenureYears:parseFloat(d.tenureYears),interestRate:parseFloat(d.interestRate),note:d.note||undefined,currency:d.currency,partPayments:[],createdAt:todayISO()});
-    S.addingLoan=false; save(); renderPortfolio(); toast('Loan added'); return;
+    S.addingLoan=false; S.portfolioAddType=null; save(); renderPortfolio(); toast('Loan added'); return;
   }
   if (action==='update-loan') {
     S.portfolio.loans = S.portfolio.loans.map(i=>i.id===form.dataset.id?{...i,name:d.name.trim(),lender:d.lender||undefined,principal:parseFloat(d.principal),startDate:d.startDate,tenureYears:parseFloat(d.tenureYears),interestRate:parseFloat(d.interestRate),note:d.note||undefined,currency:d.currency}:i);
@@ -2021,7 +2037,7 @@ function handleSubmit(e) {
   if (action==='add-gold') {
     if (!d.name.trim()) return toast('Name is required');
     S.portfolio.goldLoans.unshift({id:uid(),name:d.name.trim(),lender:d.lender||undefined,principal:parseFloat(d.principal),interestRate:parseFloat(d.interestRate),startDate:d.startDate||undefined,note:d.note||undefined,currency:d.currency,createdAt:todayISO()});
-    S.addingGoldLoan=false; save(); renderPortfolio(); toast('Gold loan added'); return;
+    S.addingGoldLoan=false; S.portfolioAddType=null; save(); renderPortfolio(); toast('Gold loan added'); return;
   }
   if (action==='update-gold') {
     S.portfolio.goldLoans = S.portfolio.goldLoans.map(i=>i.id===form.dataset.id?{...i,name:d.name.trim(),lender:d.lender||undefined,principal:parseFloat(d.principal),interestRate:parseFloat(d.interestRate),startDate:d.startDate||undefined,note:d.note||undefined,currency:d.currency}:i);
@@ -2122,15 +2138,17 @@ function handleClick(e) {
     if (!confirm('Delete this policy?')) return;
     S.portfolio.insurance=S.portfolio.insurance.filter(i=>i.id!==btn.dataset.id); save(); renderInvestments(); return;
   }
+  if (action==='toggle-portfolio-add') { S.portfolioAddType=S.portfolioAddType?null:'saving'; renderPortfolio(); return; }
+  if (action==='set-portfolio-add-type') { S.portfolioAddType=btn.dataset.type; renderPortfolio(); return; }
   if (action==='toggle-add-saving') { S.addingSaving=!S.addingSaving; S.editingId=null; renderPortfolio(); return; }
-  if (action==='cancel-saving') { S.addingSaving=false; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
+  if (action==='cancel-saving') { S.addingSaving=false; S.portfolioAddType=null; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
   if (action==='edit-saving') { S.editingId=btn.dataset.id; S.editSection='saving'; S.addingSaving=false; renderPortfolio(); return; }
   if (action==='del-saving') {
     if (!confirm('Delete this saving?')) return;
     S.portfolio.savings=S.portfolio.savings.filter(i=>i.id!==btn.dataset.id); save(); renderPortfolio(); return;
   }
   if (action==='toggle-add-loan') { S.addingLoan=!S.addingLoan; S.editingId=null; renderPortfolio(); return; }
-  if (action==='cancel-loan') { S.addingLoan=false; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
+  if (action==='cancel-loan') { S.addingLoan=false; S.portfolioAddType=null; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
   if (action==='edit-loan') { S.editingId=btn.dataset.id; S.editSection='loan'; S.addingLoan=false; renderPortfolio(); return; }
   if (action==='del-loan') {
     if (!confirm('Delete this loan?')) return;
@@ -2181,7 +2199,7 @@ function handleClick(e) {
     return;
   }
   if (action==='toggle-add-gold') { S.addingGoldLoan=!S.addingGoldLoan; S.editingId=null; renderPortfolio(); return; }
-  if (action==='cancel-gold') { S.addingGoldLoan=false; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
+  if (action==='cancel-gold') { S.addingGoldLoan=false; S.portfolioAddType=null; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
   if (action==='edit-gold') { S.editingId=btn.dataset.id; S.editSection='goldLoan'; S.addingGoldLoan=false; renderPortfolio(); return; }
   if (action==='close-gold') {
     const loan = S.portfolio.goldLoans.find(l=>l.id===btn.dataset.id); if (!loan) return;
