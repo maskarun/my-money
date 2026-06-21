@@ -430,7 +430,7 @@ const S = {
   txCurrency: 'USD',
   addingSaving: false, addingLoan: false, addingGoldLoan: false, addingInvestment: false, addingInsurance: false,
   addEntryType: null, portfolioAddType: null, recurringAddType: null,
-  editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, expandedSaving: null, showingPPForm: null, showingSavingPayForm: null, showingGoldPayForm: null, expandedMonth: null, selectedMonth: null, showLedger: false, ledgerFilterCurrency: 'all', ledgerFilterSource: 'all',
+  editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, expandedSaving: null, showingPPForm: null, showingSavingPayForm: null, showingGoldPayForm: null, expandedMonth: null, selectedMonth: null, ledgerFilterCurrency: 'all', ledgerFilterSource: 'all',
   secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, projections: true },
 };
 
@@ -576,100 +576,6 @@ const otherCur = c => CURRENCIES.find(x=>x!==c) || CURRENCIES[0];
 function catOptions(type, sel) { return (type==='income'?INCOME_CATS:EXPENSE_CATS).map(c=>`<option value="${c}"${c===sel?' selected':''}>${c}</option>`).join(''); }
 
 // ── Dashboard Overview ─────────────────────────────────────────────────────────
-function buildLedgerHtml() {
-  const entries = [];
-
-  for (const t of S.transactions) {
-    if (t.type === 'transfer') {
-      entries.push({ date: t.date, desc: 'Transfer' + (t.note ? ': ' + t.note : ''), currency: t.fromCurrency, debit: t.fromAmount, credit: 0, source: 'xfr' });
-      entries.push({ date: t.date, desc: 'Transfer' + (t.note ? ': ' + t.note : ''), currency: t.toCurrency, debit: 0, credit: t.toAmount, source: 'xfr' });
-    } else if (t.type === 'income') {
-      entries.push({ date: t.date, desc: t.category + (t.note ? ': ' + t.note : ''), currency: getCur(t), debit: 0, credit: t.amount, source: 'inc' });
-    } else {
-      entries.push({ date: t.date, desc: t.category + (t.note ? ': ' + t.note : ''), currency: getCur(t), debit: t.amount, credit: 0, source: 'exp' });
-    }
-  }
-
-  for (const loan of S.portfolio.loans) {
-    for (const p of (loan.partPayments || [])) {
-      entries.push({ date: p.date, desc: 'Part Payment: ' + loan.name + (p.note ? ' (' + p.note + ')' : ''), currency: getCur(loan), debit: p.amount, credit: 0, source: 'loan' });
-    }
-  }
-
-  const fc = S.ledgerFilterCurrency, fs = S.ledgerFilterSource;
-  const filtered = entries.filter(e => {
-    if (fc !== 'all' && e.currency !== fc) return false;
-    if (fs !== 'all' && e.source !== fs) return false;
-    return true;
-  });
-
-  filtered.sort((a, b) => b.date.localeCompare(a.date));
-
-  const allCurs = [...new Set(entries.map(e => e.currency))];
-  const sourceLabels = { inc: 'Income', exp: 'Expense', xfr: 'Transfer', loan: 'Loan' };
-
-  const filterHtml = `<div class="ledger-filters">
-    <select data-action="ledger-filter" data-filter="currency">
-      <option value="all"${fc==='all'?' selected':''}>All Currencies</option>
-      ${allCurs.map(c => `<option value="${c}"${fc===c?' selected':''}>${c}</option>`).join('')}
-    </select>
-    <select data-action="ledger-filter" data-filter="source">
-      <option value="all"${fs==='all'?' selected':''}>All Types</option>
-      <option value="inc"${fs==='inc'?' selected':''}>Income</option>
-      <option value="exp"${fs==='exp'?' selected':''}>Expenses</option>
-      <option value="xfr"${fs==='xfr'?' selected':''}>Transfers</option>
-      <option value="loan"${fs==='loan'?' selected':''}>Loan Payments</option>
-    </select>
-  </div>`;
-
-  if (!filtered.length) {
-    return `<div class="card"><div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#6366f1"></span><span class="sec-title">Ledger Book</span></div></div><button class="ibtn" data-action="toggle-ledger" title="Back to Dashboard">${svgChevronLeft}</button></div>${filterHtml}<div class="empty"><p>No entries</p></div></div>`;
-  }
-
-  const months = [...new Set(filtered.map(e => e.date.slice(0, 7)))].sort((a, b) => b.localeCompare(a));
-
-  const balByCur = {};
-  const entriesAsc = filtered.slice().sort((a, b) => a.date.localeCompare(b.date));
-  for (const e of entriesAsc) {
-    if (!balByCur[e.currency]) balByCur[e.currency] = 0;
-    balByCur[e.currency] += e.credit - e.debit;
-  }
-
-  const monthCards = months.map(mon => {
-    const monEntries = filtered.filter(e => e.date.slice(0, 7) === mon);
-    const rows = monEntries.map(e => {
-      const srcClass = e.source;
-      return `<tr>
-        <td>${fmtDate(e.date)}</td>
-        <td>${esc(e.desc)} <span class="ledger-src ${srcClass}">${sourceLabels[e.source]}</span></td>
-        <td><span class="cur-pill">${e.currency}</span></td>
-        <td class="red">${e.debit ? formatMoney(e.debit, e.currency) : ''}</td>
-        <td class="grn">${e.credit ? formatMoney(e.credit, e.currency) : ''}</td>
-      </tr>`;
-    }).join('');
-
-    return `<div class="card" style="padding-bottom:0">
-      <div class="ledger-month-hdr">${fmtMonth(mon)}</div>
-      <div class="ledger-tbl-wrap">
-        <table class="ledger-tbl">
-          <thead><tr><th>Date</th><th>Description</th><th>Cur</th><th>Debit</th><th>Credit</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    </div>`;
-  }).join('');
-
-  const balSummary = Object.entries(balByCur).map(([c, v]) =>
-    `<span style="margin-right:12px;font-weight:700;color:${v >= 0 ? 'var(--income)' : 'var(--expense)'}">${c} ${v >= 0 ? '+' : ''}${formatMoney(v, c)}</span>`
-  ).join('');
-
-  return `<div class="card">
-    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#6366f1"></span><span class="sec-title">Ledger Book</span></div><div class="sec-sub">All financial activity</div></div><button class="ibtn" data-action="toggle-ledger" title="Back to Dashboard">${svgChevronLeft}</button></div>
-    ${filterHtml}
-    <div style="padding:4px 16px 10px;font-size:12px">Net: ${balSummary}</div>
-  </div>${monthCards}`;
-}
-
 function renderOverview() {
   const allCurs = new Set();
   for (const t of S.transactions) allCurs.add(getCur(t));
@@ -720,19 +626,7 @@ function renderOverview() {
     </div>`;
   }).join('');
 
-  if (S.showLedger) {
-    document.getElementById('tab-dashboard').innerHTML = buildLedgerHtml();
-    return;
-  }
-
-  const ledgerBtn = `<div class="card month-nav" style="justify-content:center;gap:12px">
-    <button class="ibtn" data-action="toggle-ledger" title="Open Ledger Book" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--accent)">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/><path d="M8 7h8M8 11h6"/></svg>
-      Ledger Book
-    </button>
-  </div>`;
-
-  document.getElementById('tab-dashboard').innerHTML = cards + renderProjections() + ledgerBtn;
+  document.getElementById('tab-dashboard').innerHTML = cards + renderProjections();
 }
 
 let insightsResult = localStorage.getItem('mmc.insights') || '';
@@ -1123,9 +1017,98 @@ function renderCreditCards() {
   return `<div class="card">${hdr}${cardRows}</div>`;
 }
 
+function buildMonthLedger() {
+  const mon = S.selectedMonth;
+  const entries = [];
+  const sourceLabels = { inc: 'Income', exp: 'Expense', xfr: 'Transfer', loan: 'Loan' };
+
+  for (const t of S.transactions) {
+    if (!t.date) continue;
+    const tMon = t.date.slice(0, 7);
+    if (tMon !== mon) continue;
+    if (t.type === 'transfer') {
+      entries.push({ date: t.date, desc: 'Transfer' + (t.note ? ': ' + t.note : ''), currency: t.fromCurrency, debit: t.fromAmount, credit: 0, source: 'xfr', id: t.id });
+      entries.push({ date: t.date, desc: 'Transfer' + (t.note ? ': ' + t.note : ''), currency: t.toCurrency, debit: 0, credit: t.toAmount, source: 'xfr', id: t.id });
+    } else if (t.type === 'income') {
+      entries.push({ date: t.date, desc: t.category + (t.note ? ': ' + t.note : ''), currency: getCur(t), debit: 0, credit: t.amount, source: 'inc', id: t.id });
+    } else {
+      entries.push({ date: t.date, desc: t.category + (t.note ? ': ' + t.note : ''), currency: getCur(t), debit: t.amount, credit: 0, source: 'exp', id: t.id });
+    }
+  }
+
+  for (const loan of S.portfolio.loans) {
+    for (const p of (loan.partPayments || [])) {
+      if (!p.date || p.date.slice(0, 7) !== mon) continue;
+      entries.push({ date: p.date, desc: 'Part Payment: ' + loan.name + (p.note ? ' (' + p.note + ')' : ''), currency: getCur(loan), debit: p.amount, credit: 0, source: 'loan' });
+    }
+  }
+
+  const fc = S.ledgerFilterCurrency, fs = S.ledgerFilterSource;
+  const filtered = entries.filter(e => {
+    if (fc !== 'all' && e.currency !== fc) return false;
+    if (fs !== 'all' && e.source !== fs) return false;
+    return true;
+  });
+
+  filtered.sort((a, b) => b.date.localeCompare(a.date));
+
+  const allCurs = [...new Set(entries.map(e => e.currency))];
+  let totalIncome = 0, totalExpense = 0;
+  for (const e of filtered) { totalIncome += e.credit; totalExpense += e.debit; }
+  const net = totalIncome - totalExpense;
+
+  const filterHtml = `<div class="ledger-filters">
+    <select data-action="ledger-filter" data-filter="currency">
+      <option value="all"${fc==='all'?' selected':''}>All Currencies</option>
+      ${allCurs.map(c => `<option value="${c}"${fc===c?' selected':''}>${c}</option>`).join('')}
+    </select>
+    <select data-action="ledger-filter" data-filter="source">
+      <option value="all"${fs==='all'?' selected':''}>All Types</option>
+      <option value="inc"${fs==='inc'?' selected':''}>Income</option>
+      <option value="exp"${fs==='exp'?' selected':''}>Expenses</option>
+      <option value="xfr"${fs==='xfr'?' selected':''}>Transfers</option>
+      <option value="loan"${fs==='loan'?' selected':''}>Loan Payments</option>
+    </select>
+  </div>`;
+
+  const summaryHtml = `<div style="display:flex;gap:12px;padding:8px 16px;font-size:12px;font-weight:700;flex-wrap:wrap">
+    <span style="color:var(--income)">↑ ${formatMoney(totalIncome,'USD')}</span>
+    <span style="color:var(--expense)">↓ ${formatMoney(totalExpense,'USD')}</span>
+    <span style="color:${net>=0?'var(--income)':'var(--expense)'}">Net ${net>=0?'+':''}${formatMoney(net,'USD')}</span>
+  </div>`;
+
+  if (!filtered.length) {
+    return `<div class="card">
+      <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">Ledger</span></div><div class="sec-sub">${entries.length} entries (${filtered.length} shown)</div></div></div>
+      ${filterHtml}<div class="empty"><p>No entries this month</p></div>
+    </div>`;
+  }
+
+  const rows = filtered.map(e => {
+    return `<tr>
+      <td>${fmtDate(e.date)}</td>
+      <td>${esc(e.desc)} <span class="ledger-src ${e.source}">${sourceLabels[e.source]}</span></td>
+      <td><span class="cur-pill">${e.currency}</span></td>
+      <td class="red">${e.debit ? formatMoney(e.debit, e.currency) : ''}</td>
+      <td class="grn">${e.credit ? formatMoney(e.credit, e.currency) : ''}</td>
+    </tr>`;
+  }).join('');
+
+  return `<div class="card" style="padding-bottom:0">
+    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">Ledger</span></div><div class="sec-sub">${filtered.length} entries</div></div></div>
+    ${filterHtml}${summaryHtml}
+    <div class="ledger-tbl-wrap">
+      <table class="ledger-tbl">
+        <thead><tr><th>Date</th><th>Description</th><th>Cur</th><th>Debit</th><th>Credit</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
 function renderDashboard() {
   document.getElementById('tab-transactions').innerHTML =
-    renderMonthNav() + renderHeroCards() + renderQuickAdd() + renderCatBreakdown() + renderActivity();
+    renderMonthNav() + renderQuickAdd() + buildMonthLedger();
 }
 
 function renderRecurring() {
@@ -1143,139 +1126,6 @@ function renderMonthNav() {
   </div>`;
 }
 
-function renderHeroCards() {
-  const mon = S.selectedMonth;
-  const monthLabel = fmtMonth(mon);
-  const byCur = {};
-  const add = (cur, type, amt) => { if (!byCur[cur]) byCur[cur]={income:0,expense:0}; byCur[cur][type]+=amt; };
-
-  // Prior-month cumulative balance per currency
-  const prevBal = {};
-  for (const t of S.transactions) {
-    if (!t.date || localTxMonth(t.date) >= mon) continue;
-    if (t.type==='transfer') {
-      prevBal[t.fromCurrency] = (prevBal[t.fromCurrency]||0) - t.fromAmount;
-      prevBal[t.toCurrency] = (prevBal[t.toCurrency]||0) + t.toAmount;
-      continue;
-    }
-    const c = getCur(t);
-    prevBal[c] = (prevBal[c]||0) + (t.type==='income' ? t.amount : -t.amount);
-  }
-
-  // recurring-linked txIds for this month (avoid double counting with S.transactions)
-  const recurTxIds = new Set();
-  for (const item of (S.recurring?.items||[])) { const ms=item.months?.[mon]; if (ms?.txId) recurTxIds.add(ms.txId); }
-  for (const card of (S.recurring?.creditCards||[])) { const ms=card.months?.[mon]; if (ms?.txId) recurTxIds.add(ms.txId); }
-
-  for (const t of S.transactions) {
-    if (!t.date || localTxMonth(t.date) !== mon) continue;
-    if (recurTxIds.has(t.id)) continue;
-    if (t.type==='transfer') { add(t.fromCurrency,'expense',t.fromAmount); add(t.toCurrency,'income',t.toAmount); continue; }
-    add(getCur(t), t.type==='income'?'income':'expense', t.amount);
-  }
-  // confirmed recurring income / paid bills for this month
-  for (const item of (S.recurring?.items||[])) {
-    const ms = item.months?.[mon];
-    if (ms?.paid && ms.amount>0) add(item.currency||'USD', item.type==='income'?'income':'expense', ms.amount);
-  }
-  // paid credit card bills for this month
-  for (const card of (S.recurring?.creditCards||[])) {
-    const ms = card.months?.[mon];
-    if (ms?.paid && ms.amount>0) add(card.currency||'USD', 'expense', ms.amount);
-  }
-
-  // Ensure currencies with prior balance but no current-month activity show up
-  for (const c of Object.keys(prevBal)) { if (!byCur[c]) byCur[c] = {income:0, expense:0}; }
-
-  if (!Object.keys(byCur).length) byCur['USD'] = {income:0,expense:0};
-  return Object.entries(byCur).map(([cur,{income,expense}]) => {
-    const prev = prevBal[cur] || 0;
-    const net = prev + income - expense;
-    return `<div class="card-hero">
-    <div class="eyebrow">${cur} · ${monthLabel}</div>
-    <div class="amount">${formatMoney(net,cur)}</div>
-    <div class="chips">
-      ${prev?`<div class="chip"><div class="chip-lbl">Prev Bal</div><div class="chip-val${prev>=0?' inc':' exp'}">${formatMoney(prev,cur)}</div></div>`:''}
-      <div class="chip"><div class="chip-lbl">Income</div><div class="chip-val inc">${formatMoney(income,cur)}</div></div>
-      <div class="chip"><div class="chip-lbl">Expenses</div><div class="chip-val exp">${formatMoney(expense,cur)}</div></div>
-    </div>
-  </div>`;
-  }).join('');
-}
-
-function renderCatBreakdown() {
-  const mon = S.selectedMonth;
-  const expByCur = {};
-  const incByCur = {};
-  const transfers = [];
-  const addExp = (cur, cat, amt, subName) => {
-    if (!expByCur[cur]) expByCur[cur] = {};
-    if (!expByCur[cur][cat]) expByCur[cur][cat] = {amt:0, sub:{}};
-    expByCur[cur][cat].amt += amt;
-    if (subName) expByCur[cur][cat].sub[subName] = (expByCur[cur][cat].sub[subName]||0) + amt;
-  };
-  const addInc = (cur, cat, amt) => { if (!incByCur[cur]) incByCur[cur]={}; incByCur[cur][cat]=(incByCur[cur][cat]||0)+amt; };
-
-  for (const t of S.transactions) {
-    if (!t.date || localTxMonth(t.date)!==mon) continue;
-    if (t.type==='transfer') { transfers.push(t); continue; }
-    if (t.type==='income') { addInc(getCur(t), t.category, t.amount); continue; }
-    if (t.category==='Bills' && t.note) {
-      if (/ CC Bill$/.test(t.note)) addExp(getCur(t), 'Credit Card', t.amount, t.note.replace(/ CC Bill$/, ''));
-      else addExp(getCur(t), 'Bills', t.amount, t.note);
-    } else {
-      addExp(getCur(t), t.category, t.amount);
-    }
-  }
-
-  const curs = [...new Set([...Object.keys(expByCur), ...Object.keys(incByCur)])];
-  const monthLabel = fmtMonth(mon);
-  const isOpen = S.secOpen.catBreak;
-  const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="catBreak" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
-      <div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">By Category</span></div><div class="sec-sub">${monthLabel}</div></div>
-    </div>`;
-  if (!curs.length && !transfers.length) return `<div class="card">${hdr}${isOpen?`<div class="empty" style="padding-top:8px"><p>No activity yet</p></div>`:''}</div>`;
-  if (!isOpen) return `<div class="card">${hdr}</div>`;
-
-  const sections = curs.map(cur => {
-    let html = curs.length>1 ? `<div class="cur-section-label">${cur}</div>` : '';
-    const cats = expByCur[cur];
-    if (cats) {
-      const total = Object.values(cats).reduce((a,c)=>a+c.amt,0);
-      html += Object.entries(cats).sort((a,b)=>b[1].amt-a[1].amt).map(([cat,{amt,sub}])=>{
-        const pct = Math.round(amt/total*100);
-        const subRows = Object.entries(sub).sort((a,b)=>b[1]-a[1]).map(([name,subAmt])=>
-          `<div class="cat-subrow"><span>${esc(name)}</span><span>${formatMoney(subAmt,cur)}</span></div>`).join('');
-        return `<div class="cat-row">
-          <div class="cat-hdr"><span class="cat-name">${esc(cat)}</span><span><span class="cat-amt">${formatMoney(amt,cur)}</span><span class="cat-pct">${pct}%</span></span></div>
-          <div class="bar-bg"><div class="bar-fill" style="width:${pct}%"></div></div>
-          ${subRows}
-        </div>`;
-      }).join('');
-    }
-    const incCats = incByCur[cur];
-    if (incCats) {
-      const incTotal = Object.values(incCats).reduce((a,b)=>a+b,0);
-      html += `<div class="rec-sub-hdr">Income</div>` + Object.entries(incCats).sort((a,b)=>b[1]-a[1]).map(([cat,amt])=>{
-        const pct = Math.round(amt/incTotal*100);
-        return `<div class="cat-row">
-          <div class="cat-hdr"><span class="cat-name">${esc(cat)}</span><span><span class="cat-amt grn">${formatMoney(amt,cur)}</span><span class="cat-pct">${pct}%</span></span></div>
-          <div class="bar-bg"><div class="bar-fill inc" style="width:${pct}%"></div></div>
-        </div>`;
-      }).join('');
-    }
-    return html;
-  }).join('');
-
-  let transferSection = '';
-  if (transfers.length) {
-    transferSection = `<div class="rec-sub-hdr">Transfers</div>` + transfers.map(t =>
-      `<div class="cat-row"><div class="cat-hdr"><span class="cat-name">Transfer</span><span class="cat-amt">${formatMoney(t.fromAmount,t.fromCurrency)} → ${formatMoney(t.toAmount,t.toCurrency)}</span></div></div>`
-    ).join('');
-  }
-
-  return `<div class="card">${hdr}<div class="cat-wrap">${sections}${transferSection}</div></div>`;
-}
 
 function computeProjections() {
   const curMonth = thisMonth();
@@ -1352,37 +1202,7 @@ function renderProjections() {
   return `<div class="card">${hdr}${body}</div>`;
 }
 
-function renderActivity() {
-  const monTxs = S.transactions.filter(t=>t.date && localTxMonth(t.date)===S.selectedMonth);
-  const isOpen = S.secOpen.tx;
-  const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="tx" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
-      <div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">Transactions</span></div><div class="sec-sub">${monTxs.length?`${monTxs.length} this month`:'Recent activity'}</div></div>
-    </div>`;
-  if (!isOpen) return `<div class="card">${hdr}</div>`;
-  if (!monTxs.length) return `<div class="card">${hdr}<div class="empty"><p>No transactions this month</p></div></div>`;
-  const sorted = [...monTxs].sort((a,b)=>getCur(a).localeCompare(getCur(b)) || b.date.localeCompare(a.date));
-  const rows = sorted.map(t => {
-    if (t.type==='transfer') {
-      return `<li class="tx-row">
-        <div class="tx-icon transfer">${svgTransfer}</div>
-        <div class="tx-body"><div class="tx-cat">Transfer</div><div class="tx-meta">${t.note?esc(t.note)+' · ':''}${fmtDate(t.date)}</div></div>
-        <div class="tx-right"><div class="tx-amount transfer">${formatMoney(t.fromAmount,t.fromCurrency)} → ${formatMoney(t.toAmount,t.toCurrency)}</div></div>
-        <button class="tx-del" data-action="del-tx" data-id="${t.id}" title="Delete">${svgTrash}</button>
-      </li>`;
-    }
-    const isIncome = t.type==='income';
-    const isBill = t.category==='Bills' && t.note;
-    const dispName = isBill ? t.note : t.category;
-    const dispMeta = isBill ? fmtDate(t.date) : (t.note?esc(t.note):fmtDate(t.date));
-    return `<li class="tx-row">
-      <div class="tx-icon ${t.type}">${isIncome?svgArrowUp:svgArrowDown}</div>
-      <div class="tx-body"><div class="tx-cat">${esc(dispName)}<span class="tx-badge">${getCur(t)}</span></div><div class="tx-meta">${dispMeta}</div></div>
-      <div class="tx-right"><div class="tx-amount ${t.type}">${isIncome?'+':'−'}${formatMoney(t.amount,getCur(t))}</div></div>
-      <button class="tx-del" data-action="del-tx" data-id="${t.id}" title="Delete">${svgTrash}</button>
-    </li>`;
-  }).join('');
-  return `<div class="card">${hdr}<ul class="tx-list">${rows}</ul></div>`;
-}
+
 
 // ── Portfolio ──────────────────────────────────────────────────────────────────
 function renderPortfolioQuickAdd() {
@@ -2104,7 +1924,6 @@ function handleClick(e) {
   if (action==='toggle-gold-pay-form') { S.showingGoldPayForm=S.showingGoldPayForm===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
 
 
-  if (action==='toggle-ledger') { S.showLedger=!S.showLedger; renderOverview(); return; }
   if (action==='toggle-section') { const k=btn.dataset.sec; S.secOpen[k]=!S.secOpen[k]; renderOverview(); renderDashboard(); renderPortfolio(); return; }
   if (action==='del-part-payment') {
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.loanId);
@@ -2231,7 +2050,7 @@ document.addEventListener('change', function(e) {
   if (e.target.dataset.action === 'ledger-filter') {
     if (e.target.dataset.filter === 'currency') S.ledgerFilterCurrency = e.target.value;
     if (e.target.dataset.filter === 'source') S.ledgerFilterSource = e.target.value;
-    renderOverview();
+    renderDashboard();
   }
   if (e.target.dataset.action === 'change-ai-provider') {
     localStorage.setItem('mmc.aiProvider', e.target.value);
