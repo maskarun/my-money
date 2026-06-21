@@ -1166,6 +1166,15 @@ function renderHeroCards() {
     const c = getCur(t);
     prevBal[c] = (prevBal[c]||0) + (t.type==='income' ? t.amount : -t.amount);
   }
+  for (const loan of S.portfolio.loans) {
+    for (const p of (loan.partPayments || [])) { if (p.date && localTxMonth(p.date) < mon) { const c=getCur(loan); prevBal[c]=(prevBal[c]||0)-p.amount; } }
+  }
+  for (const saving of S.portfolio.savings) {
+    for (const p of (saving.payments || [])) { if (p.date && localTxMonth(p.date) < mon) { const c=getCur(saving); prevBal[c]=(prevBal[c]||0)+(p.type==='deposit'?p.amount:-p.amount); } }
+  }
+  for (const loan of S.portfolio.goldLoans) {
+    for (const p of (loan.payments || [])) { if (p.date && localTxMonth(p.date) < mon) { const c=getCur(loan); prevBal[c]=(prevBal[c]||0)-p.amount; } }
+  }
 
   // recurring-linked txIds for this month (avoid double counting with S.transactions)
   const recurTxIds = new Set();
@@ -1187,6 +1196,16 @@ function renderHeroCards() {
   for (const card of (S.recurring?.creditCards||[])) {
     const ms = card.months?.[mon];
     if (ms?.paid && ms.amount>0) add(card.currency||'USD', 'expense', ms.amount);
+  }
+  // portfolio activity for this month
+  for (const loan of S.portfolio.loans) {
+    for (const p of (loan.partPayments || [])) { if (p.date && localTxMonth(p.date) === mon) add(getCur(loan), 'expense', p.amount); }
+  }
+  for (const saving of S.portfolio.savings) {
+    for (const p of (saving.payments || [])) { if (p.date && localTxMonth(p.date) === mon) add(getCur(saving), p.type==='deposit'?'income':'expense', p.amount); }
+  }
+  for (const loan of S.portfolio.goldLoans) {
+    for (const p of (loan.payments || [])) { if (p.date && localTxMonth(p.date) === mon) add(getCur(loan), 'expense', p.amount); }
   }
 
   // Ensure currencies with prior balance but no current-month activity show up
