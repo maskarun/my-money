@@ -425,7 +425,7 @@ const S = {
   txCurrency: 'USD',
   addingSaving: false, addingLoan: false, addingGoldLoan: false, addingInvestment: false, addingInsurance: false,
   addEntryType: null,
-  editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, showingPPForm: null, expandedMonth: null, selectedMonth: null, showHistory: false, showLedger: false, ledgerFilterCurrency: 'all', ledgerFilterSource: 'all',
+  editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, expandedSaving: null, showingPPForm: null, showingSavingPayForm: null, showingGoldPayForm: null, expandedMonth: null, selectedMonth: null, showHistory: false, showLedger: false, ledgerFilterCurrency: 'all', ledgerFilterSource: 'all',
   secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, projections: true },
 };
 
@@ -446,6 +446,8 @@ function load() {
   try { const p = localStorage.getItem('mmc.portfolio.v1'); if (p) S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[],insurance:[]}, JSON.parse(p)); } catch(e) {}
   if (!S.portfolio.insurance) S.portfolio.insurance = [];
   S.portfolio.loans = S.portfolio.loans.map(l => ({partPayments:[], ...l}));
+  S.portfolio.savings = S.portfolio.savings.map(s => ({payments:[], ...s}));
+  S.portfolio.goldLoans = S.portfolio.goldLoans.map(g => ({payments:[], ...g}));
   try { const r = localStorage.getItem('mmc.recurring.v1'); if (r) S.recurring = JSON.parse(r); } catch(e) {}
   if (!S.recurring) S.recurring = {items:[], creditCards:[]};
   if (!S.recurring.items) S.recurring.items = [];
@@ -1486,16 +1488,38 @@ function renderSavings() {
   const rows = items.map(item => {
     const c = getCur(item);
     if (S.editingId===item.id && S.editSection==='saving') return `<div class="add-form">${savingForm(item)}</div>`;
-    return `<div class="p-row">
-      <div class="p-row-icon sav">${svgBank.replace('stroke="currentColor"','stroke="#0284c7"')}</div>
-      <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span></div><div class="p-row-sub">${item.institution?'Institution: '+esc(item.institution):''}${item.interestRate?' · '+item.interestRate+'% p.a.':''}</div></div>
-      <div class="p-row-right">
-        <div><div class="p-row-amt-lbl">Balance</div><div class="p-row-amt grn">${formatMoney(item.amount,c)}</div></div>
-        <div class="p-row-btns">
-          <button class="ibtn" title="Edit" data-action="edit-saving" data-id="${item.id}">${svgEdit}</button>
-          <button class="ibtn del" title="Delete" data-action="del-saving" data-id="${item.id}">${svgTrash}</button>
+    const isExpanded = S.expandedSaving===item.id;
+    const payments = item.payments||[];
+    const payFormOpen = S.showingSavingPayForm===item.id;
+    const payHtml = isExpanded ? `<div class="schedule-wrap"><div class="pp-section">
+      <div class="pp-hdr-row"><span class="pp-hdr-title">Payments${payments.length?` <span class="pp-count">${payments.length}</span>`:''}</span></div>
+      ${payments.length?`<div class="pp-tbl-wrap"><table class="pp-tbl"><thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Note</th><th></th></tr></thead><tbody>${payments.map(p=>`<tr><td>${p.date}</td><td>${p.type==='deposit'?'<span class="ledger-src inc">Deposit</span>':'<span class="ledger-src exp">Withdrawal</span>'}</td><td class="pp-tbl-amt ${p.type==='deposit'?'grn':'red'}">${p.type==='deposit'?'+':'−'}${formatMoney(p.amount,c)}</td><td>${p.note?esc(p.note):''}</td><td><button class="ibtn del" data-action="del-saving-payment" data-saving-id="${item.id}" data-payment-id="${p.id}" title="Delete">${svgTrash}</button></td></tr>`).join('')}</tbody></table></div>`:''}
+      ${payFormOpen?`<form class="pp-form add-form" data-action="add-saving-payment" data-id="${item.id}">
+        <div class="add-form-title">Record Payment</div>
+        <div class="form-row-2">
+          <div><label class="form-label">Date</label><input class="input" type="date" name="date" value="${todayISO()}"></div>
+          <div><label class="form-label">Type</label><div class="select-wrap"><select class="input" name="type"><option value="deposit">Deposit</option><option value="withdrawal">Withdrawal</option></select></div></div>
+        </div>
+        <div class="form-row-2">
+          <div><label class="form-label">Amount *</label><input class="input" type="number" name="amount" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required></div>
+          <div><label class="form-label">Note</label><input class="input" type="text" name="note" placeholder="Optional"></div>
+        </div>
+        <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="toggle-saving-pay-form" data-id="${item.id}">Cancel</button><button type="submit" class="btn btn-accent">Record</button></div>
+      </form>`:`<button class="add-row-btn" data-action="toggle-saving-pay-form" data-id="${item.id}">${svgPlus} Record Payment</button>`}
+    </div></div>` : '';
+    return `<div>
+      <div class="p-row" data-action="toggle-saving" data-id="${item.id}" style="cursor:pointer">
+        <div class="p-row-icon sav">${svgBank.replace('stroke="currentColor"','stroke="#0284c7"')}</div>
+        <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span></div><div class="p-row-sub">${item.institution?'Institution: '+esc(item.institution):''}${item.interestRate?' · '+item.interestRate+'% p.a.':''}</div></div>
+        <div class="p-row-right">
+          <div><div class="p-row-amt-lbl">Balance</div><div class="p-row-amt grn">${formatMoney(item.amount,c)}</div></div>
+          <div class="p-row-btns">
+            <button class="ibtn" title="Edit" data-action="edit-saving" data-id="${item.id}">${svgEdit}</button>
+            <button class="ibtn del" title="Delete" data-action="del-saving" data-id="${item.id}">${svgTrash}</button>
+          </div>
         </div>
       </div>
+      ${payHtml}
     </div>`;
   }).join('');
   const addHtml = S.addingSaving ? `<div class="add-form">${savingForm(null)}</div>` : `<button class="add-row-btn" data-action="toggle-add-saving">${svgPlus} Add entry</button>`;
@@ -1776,9 +1800,25 @@ function renderGoldLoans() {
     const payoff = loan.startDate ? new Date(new Date(loan.startDate).getTime()+365*86400000) : null;
     const isExpanded = S.expandedGoldLoan===loan.id;
     const schedule = isExpanded ? computeGoldSchedule(loan) : [];
+    const goldPayments = loan.payments||[];
+    const goldPayFormOpen = S.showingGoldPayForm===loan.id;
+    const goldPayHtml = `<div class="pp-section">
+      <div class="pp-hdr-row"><span class="pp-hdr-title">Payments${goldPayments.length?` <span class="pp-count">${goldPayments.length}</span>`:''}</span></div>
+      ${goldPayments.length?`<div class="pp-tbl-wrap"><table class="pp-tbl"><thead><tr><th>Date</th><th>Amount</th><th>Note</th><th></th></tr></thead><tbody>${goldPayments.map(p=>`<tr><td>${p.date}</td><td class="pp-tbl-amt">${formatMoney(p.amount,c)}</td><td>${p.note?esc(p.note):''}</td><td><button class="ibtn del" data-action="del-gold-payment" data-gold-id="${loan.id}" data-payment-id="${p.id}" title="Delete">${svgTrash}</button></td></tr>`).join('')}</tbody><tfoot><tr><td colspan="4" class="pp-tbl-footer">Total paid: <strong>${formatMoney(goldPayments.reduce((s,p)=>s+p.amount,0),c)}</strong></td></tr></tfoot></table></div>`:''}
+      ${goldPayFormOpen?`<form class="pp-form add-form" data-action="add-gold-payment" data-id="${loan.id}">
+        <div class="add-form-title">Record Payment</div>
+        <div class="form-row-2">
+          <div><label class="form-label">Date</label><input class="input" type="date" name="date" value="${todayISO()}"></div>
+          <div><label class="form-label">Amount *</label><input class="input" type="number" name="amount" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required></div>
+        </div>
+        <div class="form-row" style="margin-top:6px"><label class="form-label">Note</label><input class="input" type="text" name="note" placeholder="Optional"></div>
+        <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="toggle-gold-pay-form" data-id="${loan.id}">Cancel</button><button type="submit" class="btn btn-accent">Record</button></div>
+      </form>`:`<button class="add-row-btn" data-action="toggle-gold-pay-form" data-id="${loan.id}">${svgPlus} Record Payment</button>`}
+    </div>`;
     const schedHtml = isExpanded ? `<div class="schedule-wrap">
       <div class="text-sm text-muted" style="margin-bottom:6px">Interest accrued: ${formatMoney(interest,c)}</div>
       ${schedule.length?`<div class="schedule-tbl-wrap"><table class="schedule-tbl"><thead><tr><th>Day</th><th>Date</th><th>Daily</th><th>Total Owed</th></tr></thead><tbody>${schedule.map(r=>`<tr><td>${r.day}</td><td>${r.date}</td><td>${formatMoney(r.daily,c)}</td><td>${formatMoney(r.total,c)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="text-sm text-muted">No interest accrued yet</p>'}
+      ${goldPayHtml}
     </div>` : '';
     return `<div>
       <div class="p-row" data-action="toggle-gold" data-id="${loan.id}" style="cursor:pointer${loan.closed?';opacity:0.5':''}">
@@ -1960,6 +2000,24 @@ function handleSubmit(e) {
     loan.partPayments.unshift({id:uid(), date:d.date||todayISO(), amount, note:d.note||undefined});
     S.showingPPForm=null; save(); renderPortfolio(); toast('Part payment recorded'); return;
   }
+  if (action==='add-saving-payment') {
+    const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
+    const saving = S.portfolio.savings.find(s=>s.id===form.dataset.id);
+    if (!saving) return;
+    if (!saving.payments) saving.payments = [];
+    saving.payments.unshift({id:uid(), date:d.date||todayISO(), amount, type:d.type||'deposit', note:d.note||undefined});
+    if (d.type==='deposit') saving.amount += amount; else saving.amount = Math.max(0, saving.amount - amount);
+    S.showingSavingPayForm=null; save(); renderPortfolio(); renderOverview(); toast((d.type==='deposit'?'Deposit':'Withdrawal')+' recorded'); return;
+  }
+  if (action==='add-gold-payment') {
+    const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
+    const loan = S.portfolio.goldLoans.find(l=>l.id===form.dataset.id);
+    if (!loan) return;
+    if (!loan.payments) loan.payments = [];
+    loan.payments.unshift({id:uid(), date:d.date||todayISO(), amount, note:d.note||undefined});
+    loan.principal = Math.max(0, loan.principal - amount);
+    S.showingGoldPayForm=null; save(); renderPortfolio(); renderOverview(); toast('Payment recorded'); return;
+  }
   if (action==='add-gold') {
     if (!d.name.trim()) return toast('Name is required');
     S.portfolio.goldLoans.unshift({id:uid(),name:d.name.trim(),lender:d.lender||undefined,principal:parseFloat(d.principal),interestRate:parseFloat(d.interestRate),startDate:d.startDate||undefined,note:d.note||undefined,currency:d.currency,createdAt:todayISO()});
@@ -2090,6 +2148,9 @@ function handleClick(e) {
   }
   if (action==='toggle-loan') { S.expandedLoan=S.expandedLoan===btn.dataset.id?null:btn.dataset.id; S.showingPPForm=null; renderPortfolio(); return; }
   if (action==='toggle-pp-form') { S.showingPPForm=S.showingPPForm===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
+  if (action==='toggle-saving') { S.expandedSaving=S.expandedSaving===btn.dataset.id?null:btn.dataset.id; S.showingSavingPayForm=null; renderPortfolio(); return; }
+  if (action==='toggle-saving-pay-form') { S.showingSavingPayForm=S.showingSavingPayForm===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
+  if (action==='toggle-gold-pay-form') { S.showingGoldPayForm=S.showingGoldPayForm===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
   if (action==='toggle-month') { S.expandedMonth=S.expandedMonth===btn.dataset.month?null:btn.dataset.month; renderDashboard(); return; }
   if (action==='toggle-history') { S.showHistory=!S.showHistory; renderDashboard(); return; }
   if (action==='toggle-ledger') { S.showLedger=!S.showLedger; renderOverview(); return; }
@@ -2097,6 +2158,26 @@ function handleClick(e) {
   if (action==='del-part-payment') {
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.loanId);
     if (loan) { loan.partPayments=(loan.partPayments||[]).filter(p=>p.id!==btn.dataset.paymentId); save(); renderPortfolio(); }
+    return;
+  }
+  if (action==='del-saving-payment') {
+    const saving = S.portfolio.savings.find(s=>s.id===btn.dataset.savingId);
+    if (saving) {
+      const pay = (saving.payments||[]).find(p=>p.id===btn.dataset.paymentId);
+      if (pay) { if (pay.type==='deposit') saving.amount = Math.max(0, saving.amount - pay.amount); else saving.amount += pay.amount; }
+      saving.payments = (saving.payments||[]).filter(p=>p.id!==btn.dataset.paymentId);
+      save(); renderPortfolio(); renderOverview();
+    }
+    return;
+  }
+  if (action==='del-gold-payment') {
+    const loan = S.portfolio.goldLoans.find(l=>l.id===btn.dataset.goldId);
+    if (loan) {
+      const pay = (loan.payments||[]).find(p=>p.id===btn.dataset.paymentId);
+      if (pay) loan.principal += pay.amount;
+      loan.payments = (loan.payments||[]).filter(p=>p.id!==btn.dataset.paymentId);
+      save(); renderPortfolio(); renderOverview();
+    }
     return;
   }
   if (action==='toggle-add-gold') { S.addingGoldLoan=!S.addingGoldLoan; S.editingId=null; renderPortfolio(); return; }
