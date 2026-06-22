@@ -737,6 +737,8 @@ function renderOverview() {
 
 let insightsResult = localStorage.getItem('mmc.insights') || '';
 let insightsLoading = false;
+let investResult = localStorage.getItem('mmc.investSuggestions') || '';
+let investLoading = false;
 
 function formatInsights(txt) {
   const lines = txt.split('\n');
@@ -816,6 +818,46 @@ async function getInsights() {
   renderInsights();
 }
 
+async function getInvestmentSuggestions() {
+  const apiKey = localStorage.getItem('mmc.apiKey');
+  const provider = localStorage.getItem('mmc.aiProvider') || 'claude';
+  if (!apiKey) { toast('Set your API key in Settings'); return; }
+
+  const summary = buildPortfolioSummary();
+  const prompt = `You are an investment advisor. Based on this portfolio, suggest 3-5 specific investment opportunities. Consider current allocations, risk diversification, and growth potential. Be specific with types, amounts, and reasoning. Keep it brief and actionable.\n\n${summary}`;
+  investLoading = true; investResult = '';
+  renderInsights();
+
+  try {
+    let text;
+    if (provider === 'gemini') {
+      const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-goog-api-key': apiKey },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      });
+      if (!resp.ok) { const err = await resp.text(); throw new Error(resp.status === 400 ? 'Invalid API key.' : `API error: ${resp.status} - ${err}`); }
+      const data = await resp.json();
+      text = data.candidates?.[0]?.content?.parts?.map(p => p.text).filter(Boolean).join('\n') || '';
+    } else {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1024, messages: [{ role: 'user', content: prompt }] })
+      });
+      if (!resp.ok) { const err = await resp.text(); throw new Error(resp.status === 401 ? 'Invalid API key.' : `API error: ${resp.status} - ${err}`); }
+      const data = await resp.json();
+      text = data.content?.[0]?.text;
+    }
+    investResult = text || 'No response received';
+    localStorage.setItem('mmc.investSuggestions', investResult);
+  } catch(e) {
+    investResult = 'Error: ' + (e.message || String(e));
+  }
+  investLoading = false;
+  renderInsights();
+}
+
 function buildPortfolioSummary() {
   const lines = [];
   const allCurs = new Set();
@@ -890,11 +932,23 @@ function renderInsights() {
       : insightsResult
         ? `<div style="padding:12px 16px;font-size:12px;line-height:1.6">${formatInsights(insightsResult)}</div>`
         : `<div class="empty"><p>Tap below to get AI-powered insights</p></div>`;
+    const investBody = investLoading
+      ? `<div class="empty"><p>Generating investment suggestions...</p></div>`
+      : investResult
+        ? `<div style="padding:12px 16px;font-size:12px;line-height:1.6">${formatInsights(investResult)}</div>`
+        : `<div class="empty"><p>Tap below to get investment suggestions</p></div>`;
     content = `<div class="card">
       <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">AI Insights</span></div><div class="sec-sub">Powered by ${providerLabel}</div></div></div>
       ${body}
       <div class="add-form-btns" style="padding:12px 16px">
         <button class="btn btn-accent" data-action="get-insights" ${insightsLoading?'disabled':''}>Get Insights</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#10b981"></span><span class="sec-title">Investment Suggestions</span></div><div class="sec-sub">Powered by ${providerLabel}</div></div></div>
+      ${investBody}
+      <div class="add-form-btns" style="padding:12px 16px">
+        <button class="btn btn-accent" data-action="get-invest-suggestions" ${investLoading?'disabled':''}>Get Suggestions</button>
       </div>
     </div>`;
   }
@@ -2230,6 +2284,7 @@ function handleClick(e) {
   if (action==='toggle-gold') { S.expandedGoldLoan=S.expandedGoldLoan===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
   if (action==='export') { exportJSON(); return; }
   if (action==='get-insights') { getInsights(); return; }
+  if (action==='get-invest-suggestions') { getInvestmentSuggestions(); return; }
   if (action==='import-trigger') { document.getElementById('file-input').click(); return; }
   if (action==='restore-backup') {
     if (!confirm('Restore from last auto-backup? This will overwrite current data.')) return;
