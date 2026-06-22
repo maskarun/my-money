@@ -1030,7 +1030,7 @@ function renderRecurringQuickAdd() {
 
 function renderRecurringIncome() {
   const mon = S.selectedMonth;
-  const incomeItems = S.recurring.items.filter(i=>i.type==='income')
+  const incomeItems = S.recurring.items.filter(i=>i.type==='income'&&!i.closed)
     .sort((a,b)=>(a.currency||'USD').localeCompare(b.currency||'USD') || (a.dayOfMonth||1)-(b.dayOfMonth||1));
 
   const incomeRows = incomeItems.map(item => {
@@ -1065,7 +1065,7 @@ function renderRecurringIncome() {
 
 function renderBills() {
   const mon = S.selectedMonth;
-  const billItems = S.recurring.items.filter(i=>i.type==='expense')
+  const billItems = S.recurring.items.filter(i=>i.type==='expense'&&!i.closed)
     .sort((a,b)=>(a.currency||'USD').localeCompare(b.currency||'USD') || (a.dayOfMonth||1)-(b.dayOfMonth||1));
 
   const billRows = billItems.map(item => {
@@ -2156,12 +2156,14 @@ function handleClick(e) {
   if (action==='close-loan') {
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.id); if (!loan) return;
     loan.closed = true; loan.closedDate = new Date().toISOString();
-    save(); renderPortfolio(); toast(loan.name + ' closed'); return;
+    for (const item of (S.recurring?.items||[])) { if (item.name===loan.name && !item.closed) { item.closed=true; item.closedDate=loan.closedDate; } }
+    save(); renderPortfolio(); renderRecurring(); toast(loan.name + ' closed'); return;
   }
   if (action==='reopen-loan') {
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.id); if (!loan) return;
     loan.closed = false; delete loan.closedDate;
-    save(); renderPortfolio(); toast(loan.name + ' reopened'); return;
+    for (const item of (S.recurring?.items||[])) { if (item.name===loan.name && item.closed) { item.closed=false; delete item.closedDate; } }
+    save(); renderPortfolio(); renderRecurring(); toast(loan.name + ' reopened'); return;
   }
   if (action==='toggle-loan') { S.expandedLoan=S.expandedLoan===btn.dataset.id?null:btn.dataset.id; S.showingPPForm=null; renderPortfolio(); return; }
   if (action==='toggle-pp-form') { S.showingPPForm=S.showingPPForm===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
@@ -2203,12 +2205,14 @@ function handleClick(e) {
   if (action==='close-gold') {
     const loan = S.portfolio.goldLoans.find(l=>l.id===btn.dataset.id); if (!loan) return;
     loan.closed = true; loan.closedDate = new Date().toISOString();
-    save(); renderPortfolio(); toast(loan.name + ' closed'); return;
+    for (const item of (S.recurring?.items||[])) { if (item.name===loan.name && !item.closed) { item.closed=true; item.closedDate=loan.closedDate; } }
+    save(); renderPortfolio(); renderRecurring(); toast(loan.name + ' closed'); return;
   }
   if (action==='reopen-gold') {
     const loan = S.portfolio.goldLoans.find(l=>l.id===btn.dataset.id); if (!loan) return;
     loan.closed = false; delete loan.closedDate;
-    save(); renderPortfolio(); toast(loan.name + ' reopened'); return;
+    for (const item of (S.recurring?.items||[])) { if (item.name===loan.name && item.closed) { item.closed=false; delete item.closedDate; } }
+    save(); renderPortfolio(); renderRecurring(); toast(loan.name + ' reopened'); return;
   }
   if (action==='del-gold') {
     if (!confirm('Delete this gold loan?')) return;
