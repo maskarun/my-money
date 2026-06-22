@@ -1408,14 +1408,6 @@ function renderActivity() {
     }
   }
 
-  for (const saving of S.portfolio.savings) {
-    for (const p of (saving.payments || [])) {
-      if (localTxMonth(p.date) !== mon) continue;
-      const isDep = p.type === 'deposit';
-      entries.push({ date: p.date, icon: isDep ? 'income' : 'expense', iconSvg: isDep ? svgArrowUp : svgArrowDown, name: (isDep ? 'Deposit: ' : 'Withdrawal: ') + saving.name, meta: (p.note ? esc(p.note) + ' · ' : '') + fmtDate(p.date), amtHtml: `<span class="tx-amount ${isDep?'income':'expense'}">${isDep?'+':'−'}${formatMoney(p.amount, getCur(saving))}</span>`, delBtn: '', badge: getCur(saving), source: 'saving' });
-    }
-  }
-
   for (const loan of S.portfolio.goldLoans) {
     for (const p of (loan.payments || [])) {
       if (localTxMonth(p.date) !== mon) continue;
