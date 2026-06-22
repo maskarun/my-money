@@ -1996,8 +1996,10 @@ function handleSubmit(e) {
   }
   if (action==='add-loan') {
     if (!d.name.trim()) return toast('Name is required');
+    const emi = computeEmi(parseFloat(d.principal), parseFloat(d.interestRate), parseFloat(d.tenureYears));
     S.portfolio.loans.unshift({id:uid(),name:d.name.trim(),lender:d.lender||undefined,principal:parseFloat(d.principal),startDate:d.startDate,tenureYears:parseFloat(d.tenureYears),interestRate:parseFloat(d.interestRate),note:d.note||undefined,currency:d.currency,partPayments:[],createdAt:todayISO()});
-    S.addingLoan=false; S.portfolioAddType=null; save(); renderPortfolio(); toast('Loan added'); return;
+    if (emi > 0) S.recurring.items.push({id:uid(),name:d.name.trim(),type:'expense',amount:Math.round(emi*100)/100,currency:d.currency,months:{},createdAt:todayISO()});
+    S.addingLoan=false; S.portfolioAddType=null; save(); renderPortfolio(); renderRecurring(); toast('Loan added'); return;
   }
   if (action==='update-loan') {
     S.portfolio.loans = S.portfolio.loans.map(i=>i.id===form.dataset.id?{...i,name:d.name.trim(),lender:d.lender||undefined,principal:parseFloat(d.principal),startDate:d.startDate,tenureYears:parseFloat(d.tenureYears),interestRate:parseFloat(d.interestRate),note:d.note||undefined,currency:d.currency}:i);
@@ -2031,8 +2033,11 @@ function handleSubmit(e) {
   }
   if (action==='add-gold') {
     if (!d.name.trim()) return toast('Name is required');
-    S.portfolio.goldLoans.unshift({id:uid(),name:d.name.trim(),lender:d.lender||undefined,principal:parseFloat(d.principal),interestRate:parseFloat(d.interestRate),startDate:d.startDate||undefined,note:d.note||undefined,currency:d.currency,createdAt:todayISO()});
-    S.addingGoldLoan=false; S.portfolioAddType=null; save(); renderPortfolio(); toast('Gold loan added'); return;
+    const principal = parseFloat(d.principal), rate = parseFloat(d.interestRate);
+    S.portfolio.goldLoans.unshift({id:uid(),name:d.name.trim(),lender:d.lender||undefined,principal,interestRate:rate,startDate:d.startDate||undefined,note:d.note||undefined,currency:d.currency,createdAt:todayISO()});
+    const monthlyInterest = (principal && rate) ? Math.round(principal * rate / 100 / 12 * 100) / 100 : 0;
+    if (monthlyInterest > 0) S.recurring.items.push({id:uid(),name:d.name.trim(),type:'expense',amount:monthlyInterest,currency:d.currency,months:{},createdAt:todayISO()});
+    S.addingGoldLoan=false; S.portfolioAddType=null; save(); renderPortfolio(); renderRecurring(); toast('Gold loan added'); return;
   }
   if (action==='update-gold') {
     S.portfolio.goldLoans = S.portfolio.goldLoans.map(i=>i.id===form.dataset.id?{...i,name:d.name.trim(),lender:d.lender||undefined,principal:parseFloat(d.principal),interestRate:parseFloat(d.interestRate),startDate:d.startDate||undefined,note:d.note||undefined,currency:d.currency}:i);
