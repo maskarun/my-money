@@ -1030,7 +1030,7 @@ function renderRecurringQuickAdd() {
 
 function renderRecurringIncome() {
   const mon = S.selectedMonth;
-  const incomeItems = S.recurring.items.filter(i=>i.type==='income'&&!i.closed)
+  const incomeItems = S.recurring.items.filter(i=>i.type==='income'&&!i.closed&&(!i.startMonth||mon>=i.startMonth)&&(!i.endMonth||mon<=i.endMonth))
     .sort((a,b)=>(a.currency||'USD').localeCompare(b.currency||'USD') || (a.dayOfMonth||1)-(b.dayOfMonth||1));
 
   const incomeRows = incomeItems.map(item => {
@@ -1065,7 +1065,7 @@ function renderRecurringIncome() {
 
 function renderBills() {
   const mon = S.selectedMonth;
-  const billItems = S.recurring.items.filter(i=>i.type==='expense'&&!i.closed)
+  const billItems = S.recurring.items.filter(i=>i.type==='expense'&&!i.closed&&(!i.startMonth||mon>=i.startMonth)&&(!i.endMonth||mon<=i.endMonth))
     .sort((a,b)=>(a.currency||'USD').localeCompare(b.currency||'USD') || (a.dayOfMonth||1)-(b.dayOfMonth||1));
 
   const billRows = billItems.map(item => {
@@ -2036,7 +2036,11 @@ function handleSubmit(e) {
     const principal = parseFloat(d.principal), rate = parseFloat(d.interestRate);
     S.portfolio.goldLoans.unshift({id:uid(),name:d.name.trim(),lender:d.lender||undefined,principal,interestRate:rate,startDate:d.startDate||undefined,note:d.note||undefined,currency:d.currency,createdAt:todayISO()});
     const monthlyInterest = (principal && rate) ? Math.round(principal * rate / 100 / 12 * 100) / 100 : 0;
-    if (monthlyInterest > 0) S.recurring.items.push({id:uid(),name:d.name.trim(),type:'expense',amount:monthlyInterest,currency:d.currency,months:{},createdAt:todayISO()});
+    if (monthlyInterest > 0) {
+      const startMon = d.startDate ? d.startDate.slice(0,7) : thisMonth();
+      const endMon = shiftMonth(startMon, 11);
+      S.recurring.items.push({id:uid(),name:d.name.trim(),type:'expense',amount:monthlyInterest,currency:d.currency,months:{},createdAt:todayISO(),startMonth:startMon,endMonth:endMon});
+    }
     S.addingGoldLoan=false; S.portfolioAddType=null; save(); renderPortfolio(); renderRecurring(); toast('Gold loan added'); return;
   }
   if (action==='update-gold') {
