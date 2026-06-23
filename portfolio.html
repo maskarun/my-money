@@ -1138,7 +1138,7 @@ function renderCreditCards() {
 function updateHeaderMonthNav() {
   const el = document.getElementById('header-month-nav');
   if (!el) return;
-  if (S.tab === 'dashboard' || S.tab === 'recurring') {
+  if (S.tab === 'recurring') {
     const label = fmtMonth(S.selectedMonth);
     const isCurrent = S.selectedMonth === thisMonth();
     el.innerHTML = `<button class="ibtn" data-action="prev-month" title="Previous month">${svgChevronLeft}</button>` +
@@ -1152,9 +1152,19 @@ function updateHeaderMonthNav() {
   }
 }
 
+function renderMonthNavCard() {
+  const label = fmtMonth(S.selectedMonth);
+  const isCurrent = S.selectedMonth === thisMonth();
+  return `<div class="card month-nav">
+    <button class="ibtn" data-action="prev-month" title="Previous month">${svgChevronLeft}</button>
+    <div class="month-nav-label">${label}${isCurrent?'':` <button class="link-btn" data-action="goto-current-month">Today</button>`}</div>
+    <button class="ibtn" data-action="next-month" ${isCurrent?'disabled':''} title="Next month">${svgChevronRight}</button>
+  </div>`;
+}
+
 function renderDashboard() {
   document.getElementById('tab-dashboard').innerHTML =
-    renderHeroCards() + renderOverviewCards() + renderCatBreakdown() + renderActivity();
+    renderHeroCards() + renderOverviewCards() + renderActivity() + renderMonthNavCard();
   updateHeaderMonthNav();
 }
 
