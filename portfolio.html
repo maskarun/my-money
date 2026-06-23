@@ -428,9 +428,9 @@ const S = {
   portfolio: { savings: [], loans: [], goldLoans: [], investments: [], insurance: [] },
   recurring: { items: [], creditCards: [] },
   txCurrency: 'USD',
-  addingSaving: false, addingLoan: false, addingGoldLoan: false, addingInvestment: false, addingInsurance: false,
+  addingInvestment: false, addingInsurance: false,
   addEntryType: null, portfolioAddType: null, recurringAddType: null,
-  editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, expandedSaving: null, showingPPForm: null, showingSavingPayForm: null, showingGoldPayForm: null, expandedMonth: null, selectedMonth: null, showLedger: false, ledgerFilterCurrency: 'all', ledgerFilterSource: 'all',
+  editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, expandedSaving: null, showingPPForm: null, showingSavingPayForm: null, showingGoldPayForm: null, selectedMonth: null, showLedger: false, ledgerFilterCurrency: 'all', ledgerFilterSource: 'all',
   secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, projections: true },
 };
 
@@ -474,7 +474,6 @@ function formatMoney(n, cur='USD') {
   return new Intl.NumberFormat(cur==='INR'?'en-IN':'en-US',{style:'currency',currency:cur,maximumFractionDigits:0}).format(n);
 }
 function fmtDate(iso) { if (!iso) return ''; return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric'}); }
-function fmtDateFull(iso) { return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 function computeEmi(principal, ratePct, years) {
@@ -678,6 +677,7 @@ function renderOverview() {
 
   const cards = [...allCurs].map(cur => {
     const sav = S.portfolio.savings.filter(i=>getCur(i)===cur).reduce((a,i)=>a+i.amount,0);
+    const inv = S.portfolio.investments.filter(i=>getCur(i)===cur).reduce((a,i)=>a+(i.currentValue||0),0);
     let txIncome=0, txExpense=0;
     for (const t of S.transactions) { if (t.type==='transfer') continue; if (getCur(t)!==cur) continue; if (t.type==='income') txIncome+=t.amount; else txExpense+=t.amount; }
     let transferNet = 0;
@@ -687,7 +687,7 @@ function renderOverview() {
       if (t.toCurrency===cur) transferNet += t.toAmount;
     }
     const txNet = txIncome - txExpense + transferNet;
-    const credit = sav + Math.max(0, txNet);
+    const credit = sav + inv + Math.max(0, txNet);
     const loans = S.portfolio.loans.filter(i=>getCur(i)===cur&&!i.closed).reduce((a,i)=>a+computeOutstanding(i),0);
     const gold  = S.portfolio.goldLoans.filter(i=>getCur(i)===cur&&!i.closed).reduce((a,i)=>a+i.principal+computeGoldLoanInterest(i),0);
     const debt  = loans + gold;
@@ -696,10 +696,11 @@ function renderOverview() {
 
     const creditSubs = [
       sav>0?`Savings ${formatMoney(sav,cur)}`:'',
+      inv>0?`Investments ${formatMoney(inv,cur)}`:'',
       txIncome>0?`Income ${formatMoney(txIncome,cur)}`:'',
       txExpense>0?`Expenses −${formatMoney(txExpense,cur)}`:'',
       txNet>0?`Surplus ${formatMoney(txNet,cur)}`:''
-    ].filter(Boolean).join(' · ') || 'No savings or income surplus';
+    ].filter(Boolean).join(' · ') || 'No savings, investments, or income surplus';
 
     const debtSubs = [
       loans>0?`Loans ${formatMoney(loans,cur)}`:'',
@@ -763,14 +764,12 @@ function formatInsights(txt) {
 }
 
 
-async function getInsights() {
+async function callAI(prompt, setResult, setLoading, cacheKey) {
   const apiKey = localStorage.getItem('mmc.apiKey');
   const provider = localStorage.getItem('mmc.aiProvider') || 'claude';
   if (!apiKey) { toast('Set your API key in Settings'); return; }
 
-  const summary = buildPortfolioSummary();
-  const prompt = `You are a personal finance advisor. Analyze this portfolio and give 3-5 concise, actionable recommendations. Be specific to the numbers. Keep it brief.\n\n${summary}`;
-  insightsLoading = true; insightsResult = '';
+  setLoading(true); setResult('');
   renderInsights();
 
   try {
@@ -809,53 +808,26 @@ async function getInsights() {
       const data = await resp.json();
       text = data.content?.[0]?.text;
     }
-    insightsResult = text || 'No response received';
-    localStorage.setItem('mmc.insights', insightsResult);
+    const result = text || 'No response received';
+    setResult(result);
+    localStorage.setItem(cacheKey, result);
   } catch(e) {
-    insightsResult = 'Error: ' + (e.message || String(e));
+    setResult('Error: ' + (e.message || String(e)));
   }
-  insightsLoading = false;
+  setLoading(false);
   renderInsights();
 }
 
-async function getInvestmentSuggestions() {
-  const apiKey = localStorage.getItem('mmc.apiKey');
-  const provider = localStorage.getItem('mmc.aiProvider') || 'claude';
-  if (!apiKey) { toast('Set your API key in Settings'); return; }
+async function getInsights() {
+  const summary = buildPortfolioSummary();
+  const prompt = `You are a personal finance advisor. Analyze this portfolio and give 3-5 concise, actionable recommendations. Be specific to the numbers. Keep it brief.\n\n${summary}`;
+  await callAI(prompt, v => { insightsResult = v; }, v => { insightsLoading = v; }, 'mmc.insights');
+}
 
+async function getInvestmentSuggestions() {
   const summary = buildPortfolioSummary();
   const prompt = `You are an investment advisor. Based on this portfolio, suggest 3-5 specific investment opportunities. Consider current allocations, risk diversification, and growth potential. Be specific with types, amounts, and reasoning. Keep it brief and actionable.\n\n${summary}`;
-  investLoading = true; investResult = '';
-  renderInsights();
-
-  try {
-    let text;
-    if (provider === 'gemini') {
-      const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-goog-api-key': apiKey },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-      });
-      if (!resp.ok) { const err = await resp.text(); throw new Error(resp.status === 400 ? 'Invalid API key.' : `API error: ${resp.status} - ${err}`); }
-      const data = await resp.json();
-      text = data.candidates?.[0]?.content?.parts?.map(p => p.text).filter(Boolean).join('\n') || '';
-    } else {
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1024, messages: [{ role: 'user', content: prompt }] })
-      });
-      if (!resp.ok) { const err = await resp.text(); throw new Error(resp.status === 401 ? 'Invalid API key.' : `API error: ${resp.status} - ${err}`); }
-      const data = await resp.json();
-      text = data.content?.[0]?.text;
-    }
-    investResult = text || 'No response received';
-    localStorage.setItem('mmc.investSuggestions', investResult);
-  } catch(e) {
-    investResult = 'Error: ' + (e.message || String(e));
-  }
-  investLoading = false;
-  renderInsights();
+  await callAI(prompt, v => { investResult = v; }, v => { investLoading = v; }, 'mmc.investSuggestions');
 }
 
 function buildPortfolioSummary() {
@@ -1734,12 +1706,7 @@ function renderSettings() {
     </div>
   </div>`;
 
-  const moreCard = `<div class="card">
-    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">More Options</span></div><div class="sec-sub">Additional settings coming soon</div></div></div>
-    <div class="empty"><p>Nothing here yet</p></div>
-  </div>`;
-
-  document.getElementById('tab-settings').innerHTML = aboutCard + dataCard + aiCard + moreCard;
+  document.getElementById('tab-settings').innerHTML = aboutCard + dataCard + aiCard;
 }
 
 function investmentForm(item) {
@@ -2019,7 +1986,7 @@ function handleSubmit(e) {
     if (!d.name.trim()) return toast('Name is required');
     const amount = parseFloat(d.amount); if (!amount||amount<0) return toast('Enter a valid amount');
     S.portfolio.savings.unshift({id:uid(),name:d.name.trim(),institution:d.institution||undefined,amount,interestRate:d.interestRate?parseFloat(d.interestRate):undefined,note:d.note||undefined,currency:d.currency,createdAt:todayISO()});
-    S.addingSaving=false; S.portfolioAddType=null; save(); renderPortfolio(); toast('Saving added'); return;
+    S.portfolioAddType=null; save(); renderPortfolio(); toast('Saving added'); return;
   }
   if (action==='update-saving') {
     const amount = parseFloat(d.amount);
@@ -2204,16 +2171,14 @@ function handleClick(e) {
   }
   if (action==='toggle-portfolio-add') { S.portfolioAddType=S.portfolioAddType?null:'saving'; renderPortfolio(); return; }
   if (action==='set-portfolio-add-type') { S.portfolioAddType=btn.dataset.type; renderPortfolio(); return; }
-  if (action==='toggle-add-saving') { S.addingSaving=!S.addingSaving; S.editingId=null; renderPortfolio(); return; }
-  if (action==='cancel-saving') { S.addingSaving=false; S.portfolioAddType=null; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
-  if (action==='edit-saving') { S.editingId=btn.dataset.id; S.editSection='saving'; S.addingSaving=false; renderPortfolio(); return; }
+  if (action==='cancel-saving') { S.portfolioAddType=null; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
+  if (action==='edit-saving') { S.editingId=btn.dataset.id; S.editSection='saving'; renderPortfolio(); return; }
   if (action==='del-saving') {
     if (!confirm('Delete this saving?')) return;
     S.portfolio.savings=S.portfolio.savings.filter(i=>i.id!==btn.dataset.id); save(); renderPortfolio(); return;
   }
-  if (action==='toggle-add-loan') { S.addingLoan=!S.addingLoan; S.editingId=null; renderPortfolio(); return; }
-  if (action==='cancel-loan') { S.addingLoan=false; S.portfolioAddType=null; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
-  if (action==='edit-loan') { S.editingId=btn.dataset.id; S.editSection='loan'; S.addingLoan=false; renderPortfolio(); return; }
+  if (action==='cancel-loan') { S.portfolioAddType=null; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
+  if (action==='edit-loan') { S.editingId=btn.dataset.id; S.editSection='loan'; renderPortfolio(); return; }
   if (action==='del-loan') {
     if (!confirm('Delete this loan?')) return;
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.id);
@@ -2242,11 +2207,13 @@ function handleClick(e) {
   if (action==='toggle-ledger') { S.showLedger=!S.showLedger; renderOverview(); return; }
   if (action==='toggle-section') { const k=btn.dataset.sec; S.secOpen[k]=!S.secOpen[k]; renderOverview(); renderDashboard(); renderPortfolio(); return; }
   if (action==='del-part-payment') {
+    if (!confirm('Delete this payment?')) return;
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.loanId);
     if (loan) { loan.partPayments=(loan.partPayments||[]).filter(p=>p.id!==btn.dataset.paymentId); save(); renderPortfolio(); }
     return;
   }
   if (action==='del-saving-payment') {
+    if (!confirm('Delete this payment?')) return;
     const saving = S.portfolio.savings.find(s=>s.id===btn.dataset.savingId);
     if (saving) {
       const pay = (saving.payments||[]).find(p=>p.id===btn.dataset.paymentId);
@@ -2257,6 +2224,7 @@ function handleClick(e) {
     return;
   }
   if (action==='del-gold-payment') {
+    if (!confirm('Delete this payment?')) return;
     const loan = S.portfolio.goldLoans.find(l=>l.id===btn.dataset.goldId);
     if (loan) {
       const pay = (loan.payments||[]).find(p=>p.id===btn.dataset.paymentId);
@@ -2266,9 +2234,8 @@ function handleClick(e) {
     }
     return;
   }
-  if (action==='toggle-add-gold') { S.addingGoldLoan=!S.addingGoldLoan; S.editingId=null; renderPortfolio(); return; }
-  if (action==='cancel-gold') { S.addingGoldLoan=false; S.portfolioAddType=null; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
-  if (action==='edit-gold') { S.editingId=btn.dataset.id; S.editSection='goldLoan'; S.addingGoldLoan=false; renderPortfolio(); return; }
+  if (action==='cancel-gold') { S.portfolioAddType=null; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
+  if (action==='edit-gold') { S.editingId=btn.dataset.id; S.editSection='goldLoan'; renderPortfolio(); return; }
   if (action==='close-gold') {
     const loan = S.portfolio.goldLoans.find(l=>l.id===btn.dataset.id); if (!loan) return;
     loan.closed = true; loan.closedDate = new Date().toISOString();
@@ -2375,8 +2342,7 @@ document.addEventListener('change', function(e) {
   }
   if (e.target.dataset.action === 'change-ai-provider') {
     localStorage.setItem('mmc.aiProvider', e.target.value);
-    localStorage.removeItem('mmc.apiKey');
-    toast('Provider changed to ' + (e.target.value === 'gemini' ? 'Gemini' : 'Claude') + '. Enter your API key.');
+    toast('Provider changed to ' + (e.target.value === 'gemini' ? 'Gemini' : 'Claude') + '.');
     renderSettings();
   }
 });
