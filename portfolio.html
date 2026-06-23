@@ -372,19 +372,13 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
   </div>
   <div class="header-actions">
     <span id="header-date" style="font-size:12px;color:var(--text);font-weight:700;margin-right:8px"></span>
-    <button class="hbtn" data-action="switch-tab" data-tab="settings" title="Settings">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 005 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 005 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 5a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09A1.65 1.65 0 0015 5a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09A1.65 1.65 0 0019 15z"/></svg>
-    </button>
   </div>
 </div>
 
 <div id="scroll">
   <div id="tab-dashboard" class="tab-panel active"></div>
-  <div id="tab-transactions" class="tab-panel"></div>
   <div id="tab-portfolio" class="tab-panel"></div>
-  <div id="tab-investments" class="tab-panel"></div>
   <div id="tab-recurring" class="tab-panel"></div>
-  <div id="tab-insights" class="tab-panel"></div>
   <div id="tab-settings" class="tab-panel"></div>
 </div>
 
@@ -393,25 +387,17 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
     Dashboard
   </button>
-  <button class="nav-btn" data-action="switch-tab" data-tab="transactions">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7h18M3 12h18M3 17h18"/></svg>
-    Transactions
-  </button>
   <button class="nav-btn" data-action="switch-tab" data-tab="portfolio">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
     Portfolio
-  </button>
-  <button class="nav-btn" data-action="switch-tab" data-tab="investments">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 17l6-6 4 4 8-8M21 7v6m0-6h-6"/></svg>
-    Investments
   </button>
   <button class="nav-btn" data-action="switch-tab" data-tab="recurring">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
     Recurring
   </button>
-  <button class="nav-btn" data-action="switch-tab" data-tab="insights">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 017 7c0 3-2 5-3 6.5S15 18 15 19H9c0-1-1-2.5-2-3.5S5 12 5 9a7 7 0 017-7z"/><path d="M9 19v1a3 3 0 006 0v-1"/><path d="M10 2.5a4 4 0 013 0"/></svg>
-    Insights
+  <button class="nav-btn" data-action="switch-tab" data-tab="settings">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 005 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 005 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 5a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09A1.65 1.65 0 0015 5a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09A1.65 1.65 0 0019 15z"/></svg>
+    Settings
   </button>
 </nav>
 
@@ -430,7 +416,7 @@ const S = {
   txCurrency: 'USD',
   addingInvestment: false, addingInsurance: false,
   addEntryType: null, portfolioAddType: null, recurringAddType: null,
-  editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, expandedSaving: null, showingPPForm: null, showingSavingPayForm: null, showingGoldPayForm: null, selectedMonth: null, showLedger: false, ledgerFilterCurrency: 'all', ledgerFilterSource: 'all',
+  editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, expandedSaving: null, showingPPForm: null, showingGoldPayForm: null, selectedMonth: null,
   secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, projections: true },
 };
 
@@ -575,101 +561,7 @@ const otherCur = c => CURRENCIES.find(x=>x!==c) || CURRENCIES[0];
 function catOptions(type, sel) { return (type==='income'?INCOME_CATS:EXPENSE_CATS).map(c=>`<option value="${c}"${c===sel?' selected':''}>${c}</option>`).join(''); }
 
 // ── Dashboard Overview ─────────────────────────────────────────────────────────
-function buildLedgerHtml() {
-  const entries = [];
-
-  for (const t of S.transactions) {
-    if (t.type === 'transfer') {
-      entries.push({ date: t.date, desc: 'Transfer' + (t.note ? ': ' + t.note : ''), currency: t.fromCurrency, debit: t.fromAmount, credit: 0, source: 'xfr' });
-      entries.push({ date: t.date, desc: 'Transfer' + (t.note ? ': ' + t.note : ''), currency: t.toCurrency, debit: 0, credit: t.toAmount, source: 'xfr' });
-    } else if (t.type === 'income') {
-      entries.push({ date: t.date, desc: t.category + (t.note ? ': ' + t.note : ''), currency: getCur(t), debit: 0, credit: t.amount, source: 'inc' });
-    } else {
-      entries.push({ date: t.date, desc: t.category + (t.note ? ': ' + t.note : ''), currency: getCur(t), debit: t.amount, credit: 0, source: 'exp' });
-    }
-  }
-
-  for (const loan of S.portfolio.loans) {
-    for (const p of (loan.partPayments || [])) {
-      entries.push({ date: p.date, desc: 'Part Payment: ' + loan.name + (p.note ? ' (' + p.note + ')' : ''), currency: getCur(loan), debit: p.amount, credit: 0, source: 'loan' });
-    }
-  }
-
-  const fc = S.ledgerFilterCurrency, fs = S.ledgerFilterSource;
-  const filtered = entries.filter(e => {
-    if (fc !== 'all' && e.currency !== fc) return false;
-    if (fs !== 'all' && e.source !== fs) return false;
-    return true;
-  });
-
-  filtered.sort((a, b) => b.date.localeCompare(a.date));
-
-  const allCurs = [...new Set(entries.map(e => e.currency))];
-  const sourceLabels = { inc: 'Income', exp: 'Expense', xfr: 'Transfer', loan: 'Loan' };
-
-  const filterHtml = `<div class="ledger-filters">
-    <select data-action="ledger-filter" data-filter="currency">
-      <option value="all"${fc==='all'?' selected':''}>All Currencies</option>
-      ${allCurs.map(c => `<option value="${c}"${fc===c?' selected':''}>${c}</option>`).join('')}
-    </select>
-    <select data-action="ledger-filter" data-filter="source">
-      <option value="all"${fs==='all'?' selected':''}>All Types</option>
-      <option value="inc"${fs==='inc'?' selected':''}>Income</option>
-      <option value="exp"${fs==='exp'?' selected':''}>Expenses</option>
-      <option value="xfr"${fs==='xfr'?' selected':''}>Transfers</option>
-      <option value="loan"${fs==='loan'?' selected':''}>Loan Payments</option>
-    </select>
-  </div>`;
-
-  if (!filtered.length) {
-    return `<div class="card"><div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#6366f1"></span><span class="sec-title">Ledger Book</span></div></div><button class="ibtn" data-action="toggle-ledger" title="Back to Dashboard">${svgChevronLeft}</button></div>${filterHtml}<div class="empty"><p>No entries</p></div></div>`;
-  }
-
-  const months = [...new Set(filtered.map(e => e.date.slice(0, 7)))].sort((a, b) => b.localeCompare(a));
-
-  const balByCur = {};
-  const entriesAsc = filtered.slice().sort((a, b) => a.date.localeCompare(b.date));
-  for (const e of entriesAsc) {
-    if (!balByCur[e.currency]) balByCur[e.currency] = 0;
-    balByCur[e.currency] += e.credit - e.debit;
-  }
-
-  const monthCards = months.map(mon => {
-    const monEntries = filtered.filter(e => e.date.slice(0, 7) === mon);
-    const rows = monEntries.map(e => {
-      const srcClass = e.source;
-      return `<tr>
-        <td>${fmtDate(e.date)}</td>
-        <td>${esc(e.desc)} <span class="ledger-src ${srcClass}">${sourceLabels[e.source]}</span></td>
-        <td><span class="cur-pill">${e.currency}</span></td>
-        <td class="red">${e.debit ? formatMoney(e.debit, e.currency) : ''}</td>
-        <td class="grn">${e.credit ? formatMoney(e.credit, e.currency) : ''}</td>
-      </tr>`;
-    }).join('');
-
-    return `<div class="card" style="padding-bottom:0">
-      <div class="ledger-month-hdr">${fmtMonth(mon)}</div>
-      <div class="ledger-tbl-wrap">
-        <table class="ledger-tbl">
-          <thead><tr><th>Date</th><th>Description</th><th>Cur</th><th>Debit</th><th>Credit</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    </div>`;
-  }).join('');
-
-  const balSummary = Object.entries(balByCur).map(([c, v]) =>
-    `<span style="margin-right:12px;font-weight:700;color:${v >= 0 ? 'var(--income)' : 'var(--expense)'}">${c} ${v >= 0 ? '+' : ''}${formatMoney(v, c)}</span>`
-  ).join('');
-
-  return `<div class="card">
-    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#6366f1"></span><span class="sec-title">Ledger Book</span></div><div class="sec-sub">All financial activity</div></div><button class="ibtn" data-action="toggle-ledger" title="Back to Dashboard">${svgChevronLeft}</button></div>
-    ${filterHtml}
-    <div style="padding:4px 16px 10px;font-size:12px">Net: ${balSummary}</div>
-  </div>${monthCards}`;
-}
-
-function renderOverview() {
+function renderOverviewCards() {
   const allCurs = new Set();
   for (const t of S.transactions) allCurs.add(getCur(t));
   for (const i of [...S.portfolio.savings,...S.portfolio.loans,...S.portfolio.goldLoans]) allCurs.add(getCur(i));
@@ -721,19 +613,7 @@ function renderOverview() {
     </div>`;
   }).join('');
 
-  if (S.showLedger) {
-    document.getElementById('tab-dashboard').innerHTML = buildLedgerHtml();
-    return;
-  }
-
-  const ledgerBtn = `<div class="card month-nav" style="justify-content:center;gap:12px">
-    <button class="ibtn" data-action="toggle-ledger" title="Open Ledger Book" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--accent)">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/><path d="M8 7h8M8 11h6"/></svg>
-      Ledger Book
-    </button>
-  </div>`;
-
-  document.getElementById('tab-dashboard').innerHTML = cards + renderProjections() + ledgerBtn;
+  return cards + renderProjections();
 }
 
 let insightsResult = localStorage.getItem('mmc.insights') || '';
@@ -770,7 +650,7 @@ async function callAI(prompt, setResult, setLoading, cacheKey) {
   if (!apiKey) { toast('Set your API key in Settings'); return; }
 
   setLoading(true); setResult('');
-  renderInsights();
+  renderSettings();
 
   try {
     let text;
@@ -815,7 +695,7 @@ async function callAI(prompt, setResult, setLoading, cacheKey) {
     setResult('Error: ' + (e.message || String(e)));
   }
   setLoading(false);
-  renderInsights();
+  renderSettings();
 }
 
 async function getInsights() {
@@ -890,14 +770,14 @@ function dateInMonth(mon) {
   return new Date(y, m, 0, 12).toISOString();
 }
 
-function renderInsights() {
+function buildInsightsCards() {
   const hasKey = !!localStorage.getItem('mmc.apiKey');
   const provider = localStorage.getItem('mmc.aiProvider') || 'claude';
   const providerLabel = provider === 'gemini' ? 'Gemini' : 'Claude';
 
   let content;
   if (!hasKey) {
-    content = `<div class="card"><div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">AI Insights</span></div><div class="sec-sub">Set up your API key in Settings</div></div></div><div class="empty"><p>Go to Settings → AI Insights to add your API key</p></div></div>`;
+    content = `<div class="card"><div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">AI Insights</span></div><div class="sec-sub">Set up your API key below</div></div></div><div class="empty"><p>Add your API key in the AI Insights card below to enable</p></div></div>`;
   } else {
     const body = insightsLoading
       ? `<div class="empty"><p>Analyzing your portfolio...</p></div>`
@@ -924,7 +804,7 @@ function renderInsights() {
       </div>
     </div>`;
   }
-  document.getElementById('tab-insights').innerHTML = content;
+  return content;
 }
 
 function ordinal(n) { const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
@@ -1169,8 +1049,8 @@ function renderCreditCards() {
 }
 
 function renderDashboard() {
-  document.getElementById('tab-transactions').innerHTML =
-    renderMonthNav() + renderHeroCards() + renderQuickAdd() + renderCatBreakdown() + renderActivity();
+  document.getElementById('tab-dashboard').innerHTML =
+    renderMonthNav() + renderOverviewCards() + renderHeroCards() + renderQuickAdd() + renderCatBreakdown() + renderActivity();
 }
 
 function renderRecurring() {
@@ -1492,7 +1372,7 @@ function renderPortfolioQuickAdd() {
 
 function renderPortfolio() {
   document.getElementById('tab-portfolio').innerHTML =
-    renderPortfolioQuickAdd() + renderPortfolioSummary() + renderSavings() + renderLoans() + renderGoldLoans();
+    renderPortfolioQuickAdd() + renderPortfolioSummary() + renderSavings() + renderLoans() + renderGoldLoans() + renderInvestmentsCard() + renderInsuranceCard();
 }
 
 function getPortfolioCurrencies() {
@@ -1524,22 +1404,9 @@ function renderSavings() {
     if (S.editingId===item.id && S.editSection==='saving') return `<div class="add-form">${savingForm(item)}</div>`;
     const isExpanded = S.expandedSaving===item.id;
     const payments = item.payments||[];
-    const payFormOpen = S.showingSavingPayForm===item.id;
     const payHtml = isExpanded ? `<div class="schedule-wrap"><div class="pp-section">
       <div class="pp-hdr-row"><span class="pp-hdr-title">Payments${payments.length?` <span class="pp-count">${payments.length}</span>`:''}</span></div>
-      ${payments.length?`<div class="pp-tbl-wrap"><table class="pp-tbl"><thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Note</th><th></th></tr></thead><tbody>${payments.map(p=>`<tr><td>${p.date}</td><td>${p.type==='deposit'?'<span class="ledger-src inc">Deposit</span>':'<span class="ledger-src exp">Withdrawal</span>'}</td><td class="pp-tbl-amt ${p.type==='deposit'?'grn':'red'}">${p.type==='deposit'?'+':'−'}${formatMoney(p.amount,c)}</td><td>${p.note?esc(p.note):''}</td><td><button class="ibtn del" data-action="del-saving-payment" data-saving-id="${item.id}" data-payment-id="${p.id}" title="Delete">${svgTrash}</button></td></tr>`).join('')}</tbody></table></div>`:''}
-      ${payFormOpen?`<form class="pp-form add-form" data-action="add-saving-payment" data-id="${item.id}">
-        <div class="add-form-title">Record Payment</div>
-        <div class="form-row-2">
-          <div><label class="form-label">Date</label><input class="input" type="date" name="date" value="${todayISO()}"></div>
-          <div><label class="form-label">Type</label><div class="select-wrap"><select class="input" name="type"><option value="deposit">Deposit</option><option value="withdrawal">Withdrawal</option></select></div></div>
-        </div>
-        <div class="form-row-2">
-          <div><label class="form-label">Amount *</label><input class="input" type="number" name="amount" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required></div>
-          <div><label class="form-label">Note</label><input class="input" type="text" name="note" placeholder="Optional"></div>
-        </div>
-        <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="toggle-saving-pay-form" data-id="${item.id}">Cancel</button><button type="submit" class="btn btn-accent">Record</button></div>
-      </form>`:`<button class="add-row-btn" data-action="toggle-saving-pay-form" data-id="${item.id}">${svgPlus} Record Payment</button>`}
+      ${payments.length?`<div class="pp-tbl-wrap"><table class="pp-tbl"><thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Note</th><th></th></tr></thead><tbody>${payments.map(p=>`<tr><td>${p.date}</td><td>${p.type==='deposit'?'<span class="ledger-src inc">Deposit</span>':'<span class="ledger-src exp">Withdrawal</span>'}</td><td class="pp-tbl-amt ${p.type==='deposit'?'grn':'red'}">${p.type==='deposit'?'+':'−'}${formatMoney(p.amount,c)}</td><td>${p.note?esc(p.note):''}</td><td><button class="ibtn del" data-action="del-saving-payment" data-saving-id="${item.id}" data-payment-id="${p.id}" title="Delete">${svgTrash}</button></td></tr>`).join('')}</tbody></table></div>`:`<div class="text-sm text-muted" style="padding:4px 0">No payments yet. Use Dashboard → Add Entry → Savings.</div>`}
     </div></div>` : '';
     return `<div>
       <div class="p-row" data-action="toggle-saving" data-id="${item.id}" style="cursor:pointer">
@@ -1579,10 +1446,6 @@ function savingForm(item) {
     <div class="form-row"><label class="form-label">Note</label><input class="input" type="text" name="note" value="${isEdit?esc(item.note||''):''}" placeholder="Optional"></div>
     <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-saving">Cancel</button><button type="submit" class="btn btn-accent">${isEdit?'Save':'Add'}</button></div>
   </form>`;
-}
-
-function renderInvestments() {
-  document.getElementById('tab-investments').innerHTML = renderInvestmentsCard() + renderInsuranceCard();
 }
 
 function renderInvestmentsCard() {
@@ -1706,7 +1569,7 @@ function renderSettings() {
     </div>
   </div>`;
 
-  document.getElementById('tab-settings').innerHTML = aboutCard + dataCard + aiCard;
+  document.getElementById('tab-settings').innerHTML = buildInsightsCards() + aboutCard + dataCard + aiCard;
 }
 
 function investmentForm(item) {
@@ -1919,7 +1782,7 @@ function handleSubmit(e) {
     const txDate = d.date ? new Date(d.date+'T12:00:00').toISOString() : new Date().toISOString();
     S.transactions.unshift({id:uid(),type,amount,category:d.category,note:d.note||undefined,date:txDate,currency:d.currency});
     if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
-    S.addEntryType=null; save(); renderOverview(); renderDashboard(); toast('Transaction added'); return;
+    S.addEntryType=null; save(); renderDashboard(); toast('Transaction added'); return;
   }
   if (action==='add-recurring-income') {
     if (!d.name.trim()) return toast('Name is required');
@@ -1950,7 +1813,7 @@ function handleSubmit(e) {
     const txDate = d.date ? new Date(d.date+'T12:00:00').toISOString() : new Date().toISOString();
     S.transactions.unshift({id:uid(),type:'transfer',fromCurrency:d.fromCurrency,fromAmount,toCurrency:d.toCurrency,toAmount,currency:d.fromCurrency,note:d.note||undefined,date:txDate});
     S.txCurrency=d.fromCurrency; localStorage.setItem('mmc.lastCurrency.v1',d.fromCurrency);
-    S.addEntryType=null; save(); renderOverview(); renderDashboard(); toast('Transfer recorded'); return;
+    S.addEntryType=null; save(); renderDashboard(); toast('Transfer recorded'); return;
   }
   if (action==='add-savings-fund') {
     const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
@@ -1961,7 +1824,7 @@ function handleSubmit(e) {
     saving.payments.unshift({id:uid(), date:d.date||todayISO(), amount, type:d.type||'deposit', note:d.note||undefined});
     if (d.type==='deposit') { saving.amount += amount; S.transactions.unshift({id:uid(),type:'expense',amount,category:'Saving',note:saving.name+(d.note?' - '+d.note:''),date:txDate,currency:getCur(saving)}); }
     else { saving.amount = Math.max(0, saving.amount - amount); S.transactions.unshift({id:uid(),type:'income',amount,category:'Saving',note:saving.name+(d.note?' - '+d.note:''),date:txDate,currency:getCur(saving)}); }
-    S.addEntryType=null; save(); renderDashboard(); renderPortfolio(); renderOverview(); toast((d.type==='deposit'?'Deposit':'Withdrawal')+' recorded'); return;
+    S.addEntryType=null; save(); renderDashboard(); renderPortfolio(); toast((d.type==='deposit'?'Deposit':'Withdrawal')+' recorded'); return;
   }
   if (action==='save-card-bill') {
     const card = S.recurring.creditCards.find(c=>c.id===form.dataset.id); if (!card) return;
@@ -1971,7 +1834,7 @@ function handleSubmit(e) {
     const txId = uid();
     S.transactions.unshift({id:txId,type:'expense',amount,category:'Bills',note:card.name+' CC Bill',date:dateInMonth(mon),currency:card.currency||'INR'});
     card.months[mon].paid = true; card.months[mon].txId = txId;
-    save(); renderOverview(); renderDashboard(); renderRecurring(); toast(card.name+' bill recorded'); return;
+    save(); renderDashboard(); renderRecurring(); toast(card.name+' bill recorded'); return;
   }
   if (action==='mark-variable-bill') {
     const item = S.recurring.items.find(i=>i.id===form.dataset.id); if (!item) return;
@@ -1980,7 +1843,7 @@ function handleSubmit(e) {
     const txId = uid();
     S.transactions.unshift({id:txId,type:'expense',amount,category:'Bills',note:item.name,date:dateInMonth(mon),currency:item.currency||'INR'});
     item.months[mon] = {paid:true, amount, txId};
-    save(); renderOverview(); renderDashboard(); renderRecurring(); toast(item.name+' marked paid'); return;
+    save(); renderDashboard(); renderRecurring(); toast(item.name+' marked paid'); return;
   }
   if (action==='add-saving') {
     if (!d.name.trim()) return toast('Name is required');
@@ -1998,12 +1861,12 @@ function handleSubmit(e) {
     const amountInvested = parseFloat(d.amountInvested); const currentValue = parseFloat(d.currentValue);
     if (!(amountInvested>=0) || !(currentValue>=0)) return toast('Enter valid amounts');
     S.portfolio.investments.unshift({id:uid(),name:d.name.trim(),type:d.type||undefined,amountInvested,currentValue,note:d.note||undefined,currency:d.currency,createdAt:todayISO()});
-    S.addingInvestment=false; save(); renderInvestments(); toast('Investment added'); return;
+    S.addingInvestment=false; save(); renderPortfolio(); toast('Investment added'); return;
   }
   if (action==='update-investment') {
     const amountInvested = parseFloat(d.amountInvested); const currentValue = parseFloat(d.currentValue);
     S.portfolio.investments = S.portfolio.investments.map(i=>i.id===form.dataset.id?{...i,name:d.name.trim(),type:d.type||undefined,amountInvested,currentValue,note:d.note||undefined,currency:d.currency}:i);
-    S.editingId=null; S.editSection=null; save(); renderInvestments(); toast('Investment updated'); return;
+    S.editingId=null; S.editSection=null; save(); renderPortfolio(); toast('Investment updated'); return;
   }
   if (action==='add-insurance') {
     if (!d.name.trim()) return toast('Name is required');
@@ -2012,13 +1875,13 @@ function handleSubmit(e) {
     if (!d.startDate) return toast('Start date is required');
     const premium = d.premium ? parseFloat(d.premium) : undefined;
     S.portfolio.insurance.unshift({id:uid(),name:d.name.trim(),type:d.type||undefined,sumAssured,premium,premiumFreq:d.premiumFreq||'Yearly',startDate:d.startDate,endDate:d.endDate||undefined,note:d.note||undefined,currency:d.currency,createdAt:todayISO()});
-    S.addingInsurance=false; save(); renderInvestments(); toast('Policy added'); return;
+    S.addingInsurance=false; save(); renderPortfolio(); toast('Policy added'); return;
   }
   if (action==='update-insurance') {
     const sumAssured = parseFloat(d.sumAssured);
     const premium = d.premium ? parseFloat(d.premium) : undefined;
     S.portfolio.insurance = S.portfolio.insurance.map(i=>i.id===form.dataset.id?{...i,name:d.name.trim(),type:d.type||undefined,sumAssured,premium,premiumFreq:d.premiumFreq||'Yearly',startDate:d.startDate,endDate:d.endDate||undefined,note:d.note||undefined,currency:d.currency}:i);
-    S.editingId=null; S.editSection=null; save(); renderInvestments(); toast('Policy updated'); return;
+    S.editingId=null; S.editSection=null; save(); renderPortfolio(); toast('Policy updated'); return;
   }
   if (action==='add-loan') {
     if (!d.name.trim()) return toast('Name is required');
@@ -2042,15 +1905,6 @@ function handleSubmit(e) {
     loan.partPayments.unshift({id:uid(), date:d.date||todayISO(), amount, note:d.note||undefined});
     S.showingPPForm=null; save(); renderPortfolio(); toast('Part payment recorded'); return;
   }
-  if (action==='add-saving-payment') {
-    const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
-    const saving = S.portfolio.savings.find(s=>s.id===form.dataset.id);
-    if (!saving) return;
-    if (!saving.payments) saving.payments = [];
-    saving.payments.unshift({id:uid(), date:d.date||todayISO(), amount, type:d.type||'deposit', note:d.note||undefined});
-    if (d.type==='deposit') saving.amount += amount; else saving.amount = Math.max(0, saving.amount - amount);
-    S.showingSavingPayForm=null; save(); renderPortfolio(); renderOverview(); toast((d.type==='deposit'?'Deposit':'Withdrawal')+' recorded'); return;
-  }
   if (action==='add-gold-payment') {
     const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
     const loan = S.portfolio.goldLoans.find(l=>l.id===form.dataset.id);
@@ -2058,7 +1912,7 @@ function handleSubmit(e) {
     if (!loan.payments) loan.payments = [];
     loan.payments.unshift({id:uid(), date:d.date||todayISO(), amount, note:d.note||undefined});
     loan.principal = Math.max(0, loan.principal - amount);
-    S.showingGoldPayForm=null; save(); renderPortfolio(); renderOverview(); toast('Payment recorded'); return;
+    S.showingGoldPayForm=null; save(); renderPortfolio(); renderDashboard(); toast('Payment recorded'); return;
   }
   if (action==='add-gold') {
     if (!d.name.trim()) return toast('Name is required');
@@ -2087,16 +1941,17 @@ function handleClick(e) {
   const action = btn.dataset.action;
 
   if (action==='switch-tab') {
-    S.tab = btn.dataset.tab;
+    const tabMap = { transactions: 'dashboard', investments: 'portfolio', insights: 'settings' };
+    let tab = btn.dataset.tab;
+    if (tabMap[tab]) tab = tabMap[tab];
+    if (!['dashboard','portfolio','recurring','settings'].includes(tab)) tab = 'dashboard';
+    S.tab = tab;
     document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
     document.getElementById('tab-'+S.tab).classList.add('active');
     document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===S.tab));
-    if (S.tab==='dashboard') renderOverview();
-    else if (S.tab==='transactions') renderDashboard();
+    if (S.tab==='dashboard') renderDashboard();
     else if (S.tab==='portfolio') renderPortfolio();
-    else if (S.tab==='investments') renderInvestments();
     else if (S.tab==='recurring') renderRecurring();
-    else if (S.tab==='insights') renderInsights();
     else if (S.tab==='settings') renderSettings();
     return;
   }
@@ -2116,21 +1971,21 @@ function handleClick(e) {
     const txId = uid();
     S.transactions.unshift({id:txId,type:'income',amount:item.amount,category:item.category||'Salary',note:item.name,date:dateInMonth(mon),currency:item.currency||'USD'});
     item.months[mon] = {paid:true, amount:item.amount, txId};
-    save(); renderOverview(); renderDashboard(); renderRecurring(); toast(item.name+' credited'); return;
+    save(); renderDashboard(); renderRecurring(); toast(item.name+' credited'); return;
   }
   if (action==='unmark-recurring-item') {
     const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
     const mon = S.selectedMonth; const ms = item.months?.[mon]; if (!ms) return;
     if (ms.txId) S.transactions = S.transactions.filter(t=>t.id!==ms.txId);
     ms.paid = false; ms.txId = undefined;
-    save(); renderOverview(); renderDashboard(); renderRecurring(); toast(item.name+' marked unpaid'); return;
+    save(); renderDashboard(); renderRecurring(); toast(item.name+' marked unpaid'); return;
   }
   if (action==='unmark-card') {
     const card = S.recurring.creditCards.find(c=>c.id===btn.dataset.id); if (!card) return;
     const mon = S.selectedMonth; const ms = card.months?.[mon]; if (!ms) return;
     if (ms.txId) S.transactions = S.transactions.filter(t=>t.id!==ms.txId);
     ms.paid = false; ms.txId = undefined;
-    save(); renderOverview(); renderDashboard(); renderRecurring(); toast(card.name+' marked unpaid'); return;
+    save(); renderDashboard(); renderRecurring(); toast(card.name+' marked unpaid'); return;
   }
   if (action==='del-recurring-item') {
     if (!confirm('Remove this recurring entry?')) return;
@@ -2144,7 +1999,7 @@ function handleClick(e) {
     const txId = uid();
     S.transactions.unshift({id:txId,type:'expense',amount:item.amount,category:'Bills',note:item.name,date:dateInMonth(mon),currency:item.currency||'INR'});
     item.months[mon] = {paid:true, amount:item.amount, txId};
-    save(); renderOverview(); renderDashboard(); renderRecurring(); toast(item.name+' marked paid'); return;
+    save(); renderDashboard(); renderRecurring(); toast(item.name+' marked paid'); return;
   }
 
   if (action==='del-credit-card') {
@@ -2153,21 +2008,21 @@ function handleClick(e) {
   }
   if (action==='del-tx') {
     if (!confirm('Delete this transaction?')) return;
-    S.transactions=S.transactions.filter(t=>t.id!==btn.dataset.id); save(); renderOverview(); renderDashboard(); return;
+    S.transactions=S.transactions.filter(t=>t.id!==btn.dataset.id); save(); renderDashboard(); return;
   }
-  if (action==='toggle-add-investment') { S.addingInvestment=!S.addingInvestment; S.editingId=null; renderInvestments(); return; }
-  if (action==='cancel-investment') { S.addingInvestment=false; S.editingId=null; S.editSection=null; renderInvestments(); return; }
-  if (action==='edit-investment') { S.editingId=btn.dataset.id; S.editSection='investment'; S.addingInvestment=false; renderInvestments(); return; }
+  if (action==='toggle-add-investment') { S.addingInvestment=!S.addingInvestment; S.editingId=null; renderPortfolio(); return; }
+  if (action==='cancel-investment') { S.addingInvestment=false; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
+  if (action==='edit-investment') { S.editingId=btn.dataset.id; S.editSection='investment'; S.addingInvestment=false; renderPortfolio(); return; }
   if (action==='del-investment') {
     if (!confirm('Delete this investment?')) return;
-    S.portfolio.investments=S.portfolio.investments.filter(i=>i.id!==btn.dataset.id); save(); renderInvestments(); return;
+    S.portfolio.investments=S.portfolio.investments.filter(i=>i.id!==btn.dataset.id); save(); renderPortfolio(); return;
   }
-  if (action==='toggle-add-insurance') { S.addingInsurance=!S.addingInsurance; S.editingId=null; renderInvestments(); return; }
-  if (action==='cancel-insurance') { S.addingInsurance=false; S.editingId=null; S.editSection=null; renderInvestments(); return; }
-  if (action==='edit-insurance') { S.editingId=btn.dataset.id; S.editSection='insurance'; S.addingInsurance=false; renderInvestments(); return; }
+  if (action==='toggle-add-insurance') { S.addingInsurance=!S.addingInsurance; S.editingId=null; renderPortfolio(); return; }
+  if (action==='cancel-insurance') { S.addingInsurance=false; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
+  if (action==='edit-insurance') { S.editingId=btn.dataset.id; S.editSection='insurance'; S.addingInsurance=false; renderPortfolio(); return; }
   if (action==='del-insurance') {
     if (!confirm('Delete this policy?')) return;
-    S.portfolio.insurance=S.portfolio.insurance.filter(i=>i.id!==btn.dataset.id); save(); renderInvestments(); return;
+    S.portfolio.insurance=S.portfolio.insurance.filter(i=>i.id!==btn.dataset.id); save(); renderPortfolio(); return;
   }
   if (action==='toggle-portfolio-add') { S.portfolioAddType=S.portfolioAddType?null:'saving'; renderPortfolio(); return; }
   if (action==='set-portfolio-add-type') { S.portfolioAddType=btn.dataset.type; renderPortfolio(); return; }
@@ -2199,13 +2054,11 @@ function handleClick(e) {
   }
   if (action==='toggle-loan') { S.expandedLoan=S.expandedLoan===btn.dataset.id?null:btn.dataset.id; S.showingPPForm=null; renderPortfolio(); return; }
   if (action==='toggle-pp-form') { S.showingPPForm=S.showingPPForm===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
-  if (action==='toggle-saving') { S.expandedSaving=S.expandedSaving===btn.dataset.id?null:btn.dataset.id; S.showingSavingPayForm=null; renderPortfolio(); return; }
-  if (action==='toggle-saving-pay-form') { S.showingSavingPayForm=S.showingSavingPayForm===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
+  if (action==='toggle-saving') { S.expandedSaving=S.expandedSaving===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
   if (action==='toggle-gold-pay-form') { S.showingGoldPayForm=S.showingGoldPayForm===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
 
 
-  if (action==='toggle-ledger') { S.showLedger=!S.showLedger; renderOverview(); return; }
-  if (action==='toggle-section') { const k=btn.dataset.sec; S.secOpen[k]=!S.secOpen[k]; renderOverview(); renderDashboard(); renderPortfolio(); return; }
+  if (action==='toggle-section') { const k=btn.dataset.sec; S.secOpen[k]=!S.secOpen[k]; renderDashboard(); renderPortfolio(); return; }
   if (action==='del-part-payment') {
     if (!confirm('Delete this payment?')) return;
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.loanId);
@@ -2219,7 +2072,7 @@ function handleClick(e) {
       const pay = (saving.payments||[]).find(p=>p.id===btn.dataset.paymentId);
       if (pay) { if (pay.type==='deposit') saving.amount = Math.max(0, saving.amount - pay.amount); else saving.amount += pay.amount; }
       saving.payments = (saving.payments||[]).filter(p=>p.id!==btn.dataset.paymentId);
-      save(); renderPortfolio(); renderOverview();
+      save(); renderPortfolio(); renderDashboard();
     }
     return;
   }
@@ -2230,7 +2083,7 @@ function handleClick(e) {
       const pay = (loan.payments||[]).find(p=>p.id===btn.dataset.paymentId);
       if (pay) loan.principal += pay.amount;
       loan.payments = (loan.payments||[]).filter(p=>p.id!==btn.dataset.paymentId);
-      save(); renderPortfolio(); renderOverview();
+      save(); renderPortfolio(); renderDashboard();
     }
     return;
   }
@@ -2268,7 +2121,7 @@ function handleClick(e) {
       S.transactions = data.transactions || [];
       S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[],insurance:[]}, data.portfolio||{});
       S.recurring = Object.assign({items:[],creditCards:[]}, data.recurring||{});
-      save(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderRecurring(); renderInsights(); renderSettings();
+      save(); renderDashboard(); renderPortfolio(); renderRecurring(); renderSettings();
       toast('Restored from backup');
     } catch(e) { toast('Backup corrupted'); }
     return;
@@ -2326,7 +2179,7 @@ document.getElementById('file-input').addEventListener('change', async function(
       recurring=Object.assign({items:[],creditCards:[]},data.recurring||{});
     }
     S.transactions=transactions; S.portfolio=portfolio; S.recurring=recurring;
-    save(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderRecurring(); renderInsights(); toast(`Imported ${transactions.length} transactions`);
+    save(); renderDashboard(); renderPortfolio(); renderRecurring(); renderSettings(); toast(`Imported ${transactions.length} transactions`);
   } catch(err) { toast('Import failed — invalid JSON'); }
   this.value='';
 });
@@ -2335,11 +2188,6 @@ document.addEventListener('submit', handleSubmit);
 document.addEventListener('click', handleClick);
 document.addEventListener('input', handleInput);
 document.addEventListener('change', function(e) {
-  if (e.target.dataset.action === 'ledger-filter') {
-    if (e.target.dataset.filter === 'currency') S.ledgerFilterCurrency = e.target.value;
-    if (e.target.dataset.filter === 'source') S.ledgerFilterSource = e.target.value;
-    renderOverview();
-  }
   if (e.target.dataset.action === 'change-ai-provider') {
     localStorage.setItem('mmc.aiProvider', e.target.value);
     toast('Provider changed to ' + (e.target.value === 'gemini' ? 'Gemini' : 'Claude') + '.');
@@ -2347,7 +2195,7 @@ document.addEventListener('change', function(e) {
   }
 });
 
-load(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderRecurring(); renderInsights();
+load(); renderDashboard(); renderPortfolio(); renderRecurring(); renderSettings();
 document.getElementById('header-date').textContent = new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
 </script>
 <script>
