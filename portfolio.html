@@ -422,7 +422,7 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 </button>
 <div id="bottom-sheet" class="bottom-sheet-overlay" style="display:none" data-action="close-fab-backdrop">
-  <div class="bottom-sheet" onclick="event.stopPropagation()">
+  <div class="bottom-sheet">
     <div class="bottom-sheet-handle"></div>
     <div id="bottom-sheet-content"></div>
   </div>
@@ -2099,7 +2099,7 @@ function handleClick(e) {
   if (action==='set-entry-type') { S.addEntryType=btn.dataset.type; const bs=document.getElementById('bottom-sheet'); if(bs.style.display!=='none'){document.getElementById('bottom-sheet-content').innerHTML=renderQuickAdd();}else{renderDashboard();} return; }
   if (action==='cancel-entry') { S.addEntryType=null; document.getElementById('bottom-sheet').style.display='none'; renderDashboard(); return; }
   if (action==='toggle-fab') { if (!S.addEntryType) S.addEntryType='tx-expense'; document.getElementById('bottom-sheet-content').innerHTML=renderQuickAdd(); document.getElementById('bottom-sheet').style.display=''; return; }
-  if (action==='close-fab-backdrop') { S.addEntryType=null; document.getElementById('bottom-sheet').style.display='none'; return; }
+  if (action==='close-fab-backdrop') { if (btn.id==='bottom-sheet') { S.addEntryType=null; btn.style.display='none'; } return; }
   if (action==='toggle-recurring-add') { S.recurringAddType = S.recurringAddType ? null : 'recurring-income'; renderRecurring(); return; }
   if (action==='set-recurring-add-type') { S.recurringAddType=btn.dataset.type; renderRecurring(); return; }
   if (action==='cancel-recurring-add') { S.recurringAddType=null; renderRecurring(); return; }
