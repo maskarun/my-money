@@ -1258,11 +1258,13 @@ function updateHeaderMonthNav() {
 
 function renderMonthNavCard() {
   const label = fmtMonth(S.selectedMonth);
+  const maxMonth = S.tab==='recurring' ? shiftMonth(thisMonth(),1) : thisMonth();
+  const atMax = S.selectedMonth >= maxMonth;
   const isCurrent = S.selectedMonth === thisMonth();
   return `<div class="card month-nav">
     <button class="ibtn" data-action="prev-month" title="Previous month">${svgChevronLeft}</button>
     <div class="month-nav-label">${label}${isCurrent?'':` <button class="link-btn" data-action="goto-current-month">Today</button>`}</div>
-    <button class="ibtn" data-action="next-month" ${isCurrent?'disabled':''} title="Next month">${svgChevronRight}</button>
+    <button class="ibtn" data-action="next-month" ${atMax?'disabled':''} title="Next month">${svgChevronRight}</button>
   </div>`;
 }
 
@@ -2217,7 +2219,7 @@ function handleClick(e) {
     return;
   }
   if (action==='prev-month') { S.selectedMonth = shiftMonth(S.selectedMonth, -1); renderDashboard(); renderRecurring(); return; }
-  if (action==='next-month') { const next = shiftMonth(S.selectedMonth, 1); if (next <= thisMonth()) S.selectedMonth = next; renderDashboard(); renderRecurring(); return; }
+  if (action==='next-month') { const next = shiftMonth(S.selectedMonth, 1); const limit = S.tab==='recurring' ? shiftMonth(thisMonth(),1) : thisMonth(); if (next <= limit) S.selectedMonth = next; renderDashboard(); renderRecurring(); return; }
   if (action==='goto-current-month') { S.selectedMonth = thisMonth(); renderDashboard(); renderRecurring(); return; }
   if (action==='filter-activity-cur') { S.activityCurFilter = btn.dataset.cur || null; renderDashboard(); return; }
   if (action==='toggle-add-entry') { S.addEntryType = S.addEntryType ? null : 'tx-expense'; renderDashboard(); return; }
