@@ -1497,6 +1497,8 @@ function renderPortfolioQuickAdd() {
     {type:'saving', label:'Saving'},
     {type:'loan', label:'Loan'},
     {type:'gold-loan', label:'Gold Loan'},
+    {type:'investment', label:'Investment'},
+    {type:'insurance', label:'Insurance'},
   ];
   const chips = types.map(({type,label}) =>
     `<button class="toggle-chip${S.portfolioAddType===type?' active':''}" data-action="set-portfolio-add-type" data-type="${type}">${label}</button>`
@@ -1505,6 +1507,8 @@ function renderPortfolioQuickAdd() {
   if (S.portfolioAddType==='saving') form = savingForm(null);
   else if (S.portfolioAddType==='loan') form = loanForm(null);
   else if (S.portfolioAddType==='gold-loan') form = goldLoanForm(null);
+  else if (S.portfolioAddType==='investment') form = investmentForm(null);
+  else if (S.portfolioAddType==='insurance') form = insuranceForm(null);
   if (S.portfolioAddType === null) return '';
   return `<div class="card"><div class="add-form"><div class="toggle-chip-row">${chips}</div>${form}</div></div>`;
 }
@@ -1606,13 +1610,12 @@ function renderInvestmentsCard() {
       </div>
     </div>`;
   }).join('');
-  const addHtml = S.addingInvestment ? `<div class="add-form">${investmentForm(null)}</div>` : `<button class="add-row-btn" data-action="toggle-add-investment">${svgPlus} Add entry</button>`;
   return `<div class="card">
     <div class="sec-hdr">
       <div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Investments</span></div><div class="sec-sub">Stocks, mutual funds, FDs, and more</div></div>
       ${items.length?`<div class="sec-totals"><div class="sec-total-lbl">Current Value</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt grn">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
     </div>
-    ${rows}${addHtml}</div>`;
+    ${rows}</div>`;
 }
 
 function insuranceForm(item) {
@@ -1658,13 +1661,12 @@ function renderInsuranceCard() {
       </div>
     </div>`;
   }).join('');
-  const addHtml = S.addingInsurance ? `<div class="add-form">${insuranceForm(null)}</div>` : `<button class="add-row-btn" data-action="toggle-add-insurance">${svgPlus} Add entry</button>`;
   return `<div class="card">
     <div class="sec-hdr">
       <div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">Insurance</span></div><div class="sec-sub">Life, health & other policies</div></div>
       ${items.length?`<div class="sec-totals"><div class="sec-total-lbl">Sum Assured</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt grn">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
     </div>
-    ${rows}${addHtml}</div>`;
+    ${rows}</div>`;
 }
 
 function renderSettings() {
@@ -2000,7 +2002,7 @@ function handleSubmit(e) {
     const amountInvested = parseFloat(d.amountInvested); const currentValue = parseFloat(d.currentValue);
     if (!(amountInvested>=0) || !(currentValue>=0)) return toast('Enter valid amounts');
     S.portfolio.investments.unshift({id:uid(),name:d.name.trim(),type:d.type||undefined,amountInvested,currentValue,note:d.note||undefined,currency:d.currency,createdAt:todayISO()});
-    S.addingInvestment=false; save(); renderPortfolio(); toast('Investment added'); return;
+    S.addingInvestment=false; S.portfolioAddType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderPortfolio(); toast('Investment added'); return;
   }
   if (action==='update-investment') {
     const amountInvested = parseFloat(d.amountInvested); const currentValue = parseFloat(d.currentValue);
@@ -2014,7 +2016,7 @@ function handleSubmit(e) {
     if (!d.startDate) return toast('Start date is required');
     const premium = d.premium ? parseFloat(d.premium) : undefined;
     S.portfolio.insurance.unshift({id:uid(),name:d.name.trim(),type:d.type||undefined,sumAssured,premium,premiumFreq:d.premiumFreq||'Yearly',startDate:d.startDate,endDate:d.endDate||undefined,note:d.note||undefined,currency:d.currency,createdAt:todayISO()});
-    S.addingInsurance=false; save(); renderPortfolio(); toast('Policy added'); return;
+    S.addingInsurance=false; S.portfolioAddType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderPortfolio(); toast('Policy added'); return;
   }
   if (action==='update-insurance') {
     const sumAssured = parseFloat(d.sumAssured);
@@ -2161,14 +2163,14 @@ function handleClick(e) {
     S.transactions=S.transactions.filter(t=>t.id!==btn.dataset.id); save(); renderDashboard(); return;
   }
   if (action==='toggle-add-investment') { S.addingInvestment=!S.addingInvestment; S.editingId=null; renderPortfolio(); return; }
-  if (action==='cancel-investment') { S.addingInvestment=false; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
+  if (action==='cancel-investment') { S.addingInvestment=false; S.portfolioAddType=null; S.editingId=null; S.editSection=null; document.getElementById('bottom-sheet').style.display='none'; renderPortfolio(); return; }
   if (action==='edit-investment') { S.editingId=btn.dataset.id; S.editSection='investment'; S.addingInvestment=false; renderPortfolio(); return; }
   if (action==='del-investment') {
     if (!confirm('Delete this investment?')) return;
     S.portfolio.investments=S.portfolio.investments.filter(i=>i.id!==btn.dataset.id); save(); renderPortfolio(); return;
   }
   if (action==='toggle-add-insurance') { S.addingInsurance=!S.addingInsurance; S.editingId=null; renderPortfolio(); return; }
-  if (action==='cancel-insurance') { S.addingInsurance=false; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
+  if (action==='cancel-insurance') { S.addingInsurance=false; S.portfolioAddType=null; S.editingId=null; S.editSection=null; document.getElementById('bottom-sheet').style.display='none'; renderPortfolio(); return; }
   if (action==='edit-insurance') { S.editingId=btn.dataset.id; S.editSection='insurance'; S.addingInsurance=false; renderPortfolio(); return; }
   if (action==='del-insurance') {
     if (!confirm('Delete this policy?')) return;
