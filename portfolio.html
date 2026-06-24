@@ -1085,24 +1085,27 @@ function renderRecurringSummary() {
   const curs = Object.keys(byCur);
   if (!curs.length) return '';
 
-  return curs.map(cur => {
+  let totalPaid = 0, totalAll = 0;
+  for (const d of Object.values(byCur)) { totalPaid += d.paidCount; totalAll += d.totalCount; }
+
+  const rows = curs.map(cur => {
     const d = byCur[cur];
-    const expectedIncome = d.expectedIncome;
     const expectedBills = d.expectedBills + d.expectedCC;
-    const paidCount = d.paidCount;
-    const totalCount = d.totalCount;
-    const pct = totalCount ? Math.round(paidCount / totalCount * 100) : 0;
-    return `<div class="card">
-  <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">Monthly Overview</span></div><div class="sec-sub">${fmtMonth(mon)} · ${paidCount} of ${totalCount} done</div></div></div>
-  <div style="padding:0 16px 12px">
-    <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:8px">
-      <span style="color:var(--income);font-weight:700">Income ${formatMoney(expectedIncome,cur)}</span>
-      <span style="color:var(--expense);font-weight:700">Bills ${formatMoney(expectedBills,cur)}</span>
-    </div>
-    <div class="bar-bg" style="height:6px;border-radius:3px"><div class="bar-fill" style="width:${pct}%;border-radius:3px"></div></div>
-  </div>
-</div>`;
+    const pct = d.totalCount ? Math.round(d.paidCount / d.totalCount * 100) : 0;
+    return `<div style="padding:4px 16px 10px">
+      ${curs.length > 1 ? `<div style="font-size:10px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">${cur}</div>` : ''}
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px">
+        <span style="color:var(--income);font-weight:700">Income ${formatMoney(d.expectedIncome,cur)}</span>
+        <span style="color:var(--expense);font-weight:700">Bills ${formatMoney(expectedBills,cur)}</span>
+      </div>
+      <div class="bar-bg" style="height:6px;border-radius:3px"><div class="bar-fill" style="width:${pct}%;border-radius:3px"></div></div>
+    </div>`;
   }).join('');
+
+  return `<div class="card">
+    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">Monthly Overview</span></div><div class="sec-sub">${fmtMonth(mon)} · ${totalPaid} of ${totalAll} done</div></div></div>
+    ${rows}
+  </div>`;
 }
 
 function renderRecurringIncome() {
@@ -1162,9 +1165,6 @@ function renderBills() {
   const totalCount = billItems.length;
   const monthLabel = fmtMonth(mon);
 
-  // Count unpaid fixed bills for "Pay All" button
-  const unpaidFixedCount = billItems.filter(i=>!i.isVariable && !i.months?.[mon]?.paid).length;
-
   const billRows = billItems.map(item => {
     const ms = item.months||{}, paid = ms[mon]?.paid;
     const c = item.currency||'USD';
@@ -1195,7 +1195,6 @@ function renderBills() {
   const isOpen = S.secOpen.bills;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="bills" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
       <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Bills</span></div><div class="sec-sub">${monthLabel} · ${paidCount} of ${totalCount} paid</div></div>
-      ${unpaidFixedCount > 0 ? '<button class="btn btn-accent" style="font-size:10px;padding:3px 8px" data-action="mark-all-bills-paid">Pay All</button>' : ''}
     </div>`;
 
   if (!isOpen) return `<div class="card">${hdr}</div>`;
@@ -2273,23 +2272,6 @@ function handleClick(e) {
     save(); renderDashboard(); renderRecurring(); toast(item.name+' marked paid'); return;
   }
 
-  if (action==='mark-all-bills-paid') {
-    const mon = S.selectedMonth;
-    let count = 0;
-    for (const item of S.recurring.items) {
-      if (item.type!=='expense' || item.closed || item.isVariable) continue;
-      if (item.startMonth && mon < item.startMonth) continue;
-      if (item.endMonth && mon > item.endMonth) continue;
-      if (!item.months) item.months = {};
-      if (item.months[mon]?.paid) continue;
-      const txId = uid();
-      S.transactions.unshift({id:txId, type:'expense', amount:item.amount, category:'Bills', note:item.name, date:dateInMonth(mon), currency:item.currency||'INR'});
-      item.months[mon] = {paid:true, amount:item.amount, txId};
-      count++;
-    }
-    if (count) { save(); renderDashboard(); renderRecurring(); toast(count + ' bill' + (count>1?'s':'') + ' marked as paid'); }
-    return;
-  }
   if (action==='del-credit-card') {
     if (!confirm('Remove this card?')) return;
     S.recurring.creditCards = S.recurring.creditCards.filter(c=>c.id!==btn.dataset.id); save(); renderDashboard(); renderRecurring(); return;
