@@ -1069,6 +1069,9 @@ function renderRecurringSummary() {
 
   // Credit cards
   for (const card of S.recurring.creditCards) {
+    if (card.closed) continue;
+    if (card.startMonth && mon < card.startMonth) continue;
+    if (card.endMonth && mon > card.endMonth) continue;
     const cur = card.currency || 'INR';
     ensure(cur);
     let sum = 0, cnt = 0;
@@ -1204,7 +1207,7 @@ function renderBills() {
 
 function renderCreditCards() {
   const mon = S.selectedMonth;
-  const cards = [...S.recurring.creditCards]
+  const cards = S.recurring.creditCards.filter(c=>!c.closed&&(!c.startMonth||mon>=c.startMonth)&&(!c.endMonth||mon<=c.endMonth))
     .sort((a,b)=>{
       const ap = a.months?.[mon]?.paid ? 1 : 0, bp = b.months?.[mon]?.paid ? 1 : 0;
       if (ap !== bp) return ap - bp;
@@ -2260,8 +2263,17 @@ function handleClick(e) {
     save(); renderDashboard(); renderRecurring(); toast(card.name+' marked unpaid'); return;
   }
   if (action==='del-recurring-item') {
-    if (!confirm('Remove this recurring entry?')) return;
-    S.recurring.items = S.recurring.items.filter(i=>i.id!==btn.dataset.id); save(); renderDashboard(); renderRecurring(); return;
+    const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
+    const mon = S.selectedMonth;
+    if (item.startMonth && mon <= item.startMonth) {
+      if (!confirm('Delete this recurring entry permanently?')) return;
+      S.recurring.items = S.recurring.items.filter(i=>i.id!==btn.dataset.id);
+    } else {
+      if (!confirm('Stop this recurring entry from ' + fmtMonth(mon) + '?')) return;
+      item.endMonth = shiftMonth(mon, -1);
+      item.closed = true;
+    }
+    save(); renderDashboard(); renderRecurring(); return;
   }
   // Bills
   if (action==='mark-bill-paid') {
@@ -2275,8 +2287,18 @@ function handleClick(e) {
   }
 
   if (action==='del-credit-card') {
-    if (!confirm('Remove this card?')) return;
-    S.recurring.creditCards = S.recurring.creditCards.filter(c=>c.id!==btn.dataset.id); save(); renderDashboard(); renderRecurring(); return;
+    const card = S.recurring.creditCards.find(c=>c.id===btn.dataset.id); if (!card) return;
+    const mon = S.selectedMonth;
+    const hasHistory = Object.keys(card.months||{}).some(m => m < mon && card.months[m]?.paid);
+    if (!hasHistory) {
+      if (!confirm('Delete this card permanently?')) return;
+      S.recurring.creditCards = S.recurring.creditCards.filter(c=>c.id!==btn.dataset.id);
+    } else {
+      if (!confirm('Stop this card from ' + fmtMonth(mon) + '?')) return;
+      card.endMonth = shiftMonth(mon, -1);
+      card.closed = true;
+    }
+    save(); renderDashboard(); renderRecurring(); return;
   }
   if (action==='del-tx') {
     if (!confirm('Delete this transaction?')) return;
