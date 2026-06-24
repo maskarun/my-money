@@ -234,6 +234,9 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .rec-badge { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 99px; white-space: nowrap; }
 .rec-badge.paid { background: #d1fae5; color: #065f46; }
 .rec-badge.pending { background: #fef9c3; color: #92400e; }
+.rec-badge.due-today { background: #dbeafe; color: #1d4ed8; }
+.rec-badge.overdue { background: #fee2e2; color: #dc2626; }
+.rec-badge.due-soon { background: #fef3c7; color: #d97706; }
 .rec-btn { font-size: 10.5px; padding: 4px 8px; height: auto; min-width: 54px; white-space: nowrap; }
 .rec-amt-input { width: 72px; height: 32px; font-size: 13px; padding: 0 8px; flex-shrink: 0; }
 .hist-note { font-size: 10px; color: var(--muted-fg); font-weight: 400; margin-top: 1px; }
@@ -1016,19 +1019,114 @@ function renderRecurringQuickAdd() {
   return `<div class="card"><div class="add-form"><div class="toggle-chip-row">${chips}</div>${form}</div></div>`;
 }
 
+function getDueBadge(dueDay, isPaid, mon) {
+  if (!dueDay || isPaid || mon !== thisMonth()) return '';
+  const today = new Date().getDate();
+  if (dueDay === today) return '<span class="rec-badge due-today">Due Today</span>';
+  if (dueDay < today) return '<span class="rec-badge overdue">Overdue</span>';
+  if (dueDay > today && dueDay <= today + 3) return '<span class="rec-badge due-soon">Due Soon</span>';
+  return '';
+}
+
+function renderRecurringSummary() {
+  const mon = S.selectedMonth;
+  const byCur = {};
+  const ensure = (cur) => { if (!byCur[cur]) byCur[cur] = {expectedIncome:0, expectedBills:0, expectedCC:0, totalCount:0, paidCount:0}; };
+
+  // Income items
+  for (const item of S.recurring.items) {
+    if (item.type !== 'income' || item.closed) continue;
+    if (item.startMonth && mon < item.startMonth) continue;
+    if (item.endMonth && mon > item.endMonth) continue;
+    const cur = item.currency || 'USD';
+    ensure(cur);
+    byCur[cur].expectedIncome += item.amount || 0;
+    byCur[cur].totalCount++;
+    if (item.months?.[mon]?.paid) byCur[cur].paidCount++;
+  }
+
+  // Bill items
+  for (const item of S.recurring.items) {
+    if (item.type !== 'expense' || item.closed) continue;
+    if (item.startMonth && mon < item.startMonth) continue;
+    if (item.endMonth && mon > item.endMonth) continue;
+    const cur = item.currency || 'USD';
+    ensure(cur);
+    if (item.isVariable) {
+      let sum = 0, cnt = 0;
+      for (let d = 1; d <= 3; d++) {
+        const pm = shiftMonth(mon, -d);
+        const a = item.months?.[pm]?.amount;
+        if (a) { sum += a; cnt++; }
+      }
+      byCur[cur].expectedBills += cnt ? sum / cnt : 0;
+    } else {
+      byCur[cur].expectedBills += item.amount || 0;
+    }
+    byCur[cur].totalCount++;
+    if (item.months?.[mon]?.paid) byCur[cur].paidCount++;
+  }
+
+  // Credit cards
+  for (const card of S.recurring.creditCards) {
+    const cur = card.currency || 'INR';
+    ensure(cur);
+    let sum = 0, cnt = 0;
+    for (let d = 1; d <= 3; d++) {
+      const pm = shiftMonth(mon, -d);
+      const a = card.months?.[pm]?.amount;
+      if (a) { sum += a; cnt++; }
+    }
+    byCur[cur].expectedCC += cnt ? sum / cnt : 0;
+    byCur[cur].totalCount++;
+    if (card.months?.[mon]?.paid) byCur[cur].paidCount++;
+  }
+
+  const curs = Object.keys(byCur);
+  if (!curs.length) return '';
+
+  return curs.map(cur => {
+    const d = byCur[cur];
+    const expectedIncome = d.expectedIncome;
+    const expectedBills = d.expectedBills + d.expectedCC;
+    const paidCount = d.paidCount;
+    const totalCount = d.totalCount;
+    const pct = totalCount ? Math.round(paidCount / totalCount * 100) : 0;
+    return `<div class="card">
+  <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">Monthly Overview</span></div><div class="sec-sub">${fmtMonth(mon)} · ${paidCount} of ${totalCount} done</div></div></div>
+  <div style="padding:0 16px 12px">
+    <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:8px">
+      <span style="color:var(--income);font-weight:700">Income ${formatMoney(expectedIncome,cur)}</span>
+      <span style="color:var(--expense);font-weight:700">Bills ${formatMoney(expectedBills,cur)}</span>
+    </div>
+    <div class="bar-bg" style="height:6px;border-radius:3px"><div class="bar-fill" style="width:${pct}%;border-radius:3px"></div></div>
+  </div>
+</div>`;
+  }).join('');
+}
+
 function renderRecurringIncome() {
   const mon = S.selectedMonth;
   const incomeItems = S.recurring.items.filter(i=>i.type==='income'&&!i.closed&&(!i.startMonth||mon>=i.startMonth)&&(!i.endMonth||mon<=i.endMonth))
-    .sort((a,b)=>(a.currency||'USD').localeCompare(b.currency||'USD') || (a.dayOfMonth||1)-(b.dayOfMonth||1));
+    .sort((a,b)=>{
+      const ap = a.months?.[mon]?.paid ? 1 : 0, bp = b.months?.[mon]?.paid ? 1 : 0;
+      if (ap !== bp) return ap - bp;
+      return (a.currency||'USD').localeCompare(b.currency||'USD') || (a.dayOfMonth||1)-(b.dayOfMonth||1);
+    });
+
+  const paidCount = incomeItems.filter(i=>i.months?.[mon]?.paid).length;
+  const totalCount = incomeItems.length;
+  const monthLabel = fmtMonth(mon);
 
   const incomeRows = incomeItems.map(item => {
     const ms = item.months||{}, paid = ms[mon]?.paid;
     const c = item.currency||'USD';
-    return `<div class="p-row">
+    const badge = getDueBadge(item.dayOfMonth, paid, mon);
+    return `<div class="p-row"${paid?' style="opacity:.55"':''}>
       <div class="p-row-icon sav">${svgArrowUp.replace('stroke="currentColor"','stroke="#059669"')}</div>
       <div class="p-row-meta">
         <div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span></div>
-        <div class="p-row-sub">${item.category||'Salary'}${item.dayOfMonth?' · '+ordinal(item.dayOfMonth)+' of month':''}</div>
+        <div class="p-row-sub">${item.category||'Salary'}${item.dayOfMonth?' · '+ordinal(item.dayOfMonth)+' of month':''}${badge?' '+badge:''}</div>
       </div>
       <div class="p-row-right">
         <div class="p-row-btns">
@@ -1043,7 +1141,7 @@ function renderRecurringIncome() {
 
   const isOpen = S.secOpen.recIncome;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="recIncome" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
-      <div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Recurring Income</span></div><div class="sec-sub">Salary & other monthly income · ${fmtMonth(mon)}</div></div>
+      <div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Recurring Income</span></div><div class="sec-sub">${monthLabel} · ${paidCount} of ${totalCount} confirmed</div></div>
     </div>`;
 
   if (!isOpen) return `<div class="card">${hdr}</div>`;
@@ -1054,17 +1152,29 @@ function renderRecurringIncome() {
 function renderBills() {
   const mon = S.selectedMonth;
   const billItems = S.recurring.items.filter(i=>i.type==='expense'&&!i.closed&&(!i.startMonth||mon>=i.startMonth)&&(!i.endMonth||mon<=i.endMonth))
-    .sort((a,b)=>(a.currency||'USD').localeCompare(b.currency||'USD') || (a.dayOfMonth||1)-(b.dayOfMonth||1));
+    .sort((a,b)=>{
+      const ap = a.months?.[mon]?.paid ? 1 : 0, bp = b.months?.[mon]?.paid ? 1 : 0;
+      if (ap !== bp) return ap - bp;
+      return (a.currency||'USD').localeCompare(b.currency||'USD') || (a.dayOfMonth||1)-(b.dayOfMonth||1);
+    });
+
+  const paidCount = billItems.filter(i=>i.months?.[mon]?.paid).length;
+  const totalCount = billItems.length;
+  const monthLabel = fmtMonth(mon);
+
+  // Count unpaid fixed bills for "Pay All" button
+  const unpaidFixedCount = billItems.filter(i=>!i.isVariable && !i.months?.[mon]?.paid).length;
 
   const billRows = billItems.map(item => {
     const ms = item.months||{}, paid = ms[mon]?.paid;
     const c = item.currency||'USD';
     const lastAmt = ms[mon]?.amount || item.amount || 0;
-    return `<div class="p-row">
+    const badge = getDueBadge(item.dayOfMonth, paid, mon);
+    return `<div class="p-row"${paid?' style="opacity:.55"':''}>
       <div class="p-row-icon loan">${svgArrowDown.replace('stroke="currentColor"','stroke="#e11d48"')}</div>
       <div class="p-row-meta">
         <div class="p-row-name">${esc(item.name)}<span class="cur-pill red">${c}</span></div>
-        <div class="p-row-sub">${item.isVariable?'Variable':'Fixed · '+formatMoney(item.amount,c)}${item.dayOfMonth?' · Due '+ordinal(item.dayOfMonth):''}</div>
+        <div class="p-row-sub">${item.isVariable?'Variable':'Fixed · '+formatMoney(item.amount,c)}${item.dayOfMonth?' · Due '+ordinal(item.dayOfMonth):''}${badge?' '+badge:''}</div>
       </div>
       <div class="p-row-right">
         <div class="p-row-btns">
@@ -1084,7 +1194,8 @@ function renderBills() {
 
   const isOpen = S.secOpen.bills;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="bills" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
-      <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Bills</span></div><div class="sec-sub">Monthly recurring bills · ${fmtMonth(mon)}</div></div>
+      <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Bills</span></div><div class="sec-sub">${monthLabel} · ${paidCount} of ${totalCount} paid</div></div>
+      ${unpaidFixedCount > 0 ? '<button class="btn btn-accent" style="font-size:10px;padding:3px 8px" data-action="mark-all-bills-paid">Pay All</button>' : ''}
     </div>`;
 
   if (!isOpen) return `<div class="card">${hdr}</div>`;
@@ -1095,16 +1206,25 @@ function renderBills() {
 function renderCreditCards() {
   const mon = S.selectedMonth;
   const cards = [...S.recurring.creditCards]
-    .sort((a,b)=>(a.currency||'INR').localeCompare(b.currency||'INR') || (a.dueDay||1)-(b.dueDay||1));
+    .sort((a,b)=>{
+      const ap = a.months?.[mon]?.paid ? 1 : 0, bp = b.months?.[mon]?.paid ? 1 : 0;
+      if (ap !== bp) return ap - bp;
+      return (a.currency||'INR').localeCompare(b.currency||'INR') || (a.dueDay||1)-(b.dueDay||1);
+    });
+
+  const paidCount = cards.filter(c=>c.months?.[mon]?.paid).length;
+  const totalCount = cards.length;
+  const monthLabel = fmtMonth(mon);
 
   const cardRows = cards.map(card => {
     const ms = card.months||{}, paid = ms[mon]?.paid, billAmt = ms[mon]?.amount||0;
     const c = card.currency||'INR';
-    return `<div class="p-row">
+    const badge = getDueBadge(card.dueDay, paid, mon);
+    return `<div class="p-row"${paid?' style="opacity:.55"':''}>
       <div class="p-row-icon" style="background:#ede9fe">${svgCard.replace('stroke="currentColor"','stroke="#7c3aed"')}</div>
       <div class="p-row-meta">
         <div class="p-row-name">${esc(card.name)}<span class="cur-pill amb">${c}</span></div>
-        <div class="p-row-sub">Due ${ordinal(card.dueDay)} of month</div>
+        <div class="p-row-sub">Due ${ordinal(card.dueDay)} of month${badge?' '+badge:''}</div>
       </div>
       <div class="p-row-right">
         <div class="p-row-btns">
@@ -1122,7 +1242,7 @@ function renderCreditCards() {
 
   const isOpen = S.secOpen.cards;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="cards" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
-      <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Credit Cards</span></div><div class="sec-sub">Monthly credit card payments · ${fmtMonth(mon)}</div></div>
+      <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Credit Cards</span></div><div class="sec-sub">${monthLabel} · ${paidCount} of ${totalCount} paid</div></div>
     </div>`;
 
   if (!isOpen) return `<div class="card">${hdr}</div>`;
@@ -1155,7 +1275,7 @@ function renderDashboard() {
 
 function renderRecurring() {
   document.getElementById('tab-recurring').innerHTML =
-    renderRecurringIncome() + renderBills() + renderCreditCards() + renderMonthNavCard();
+    renderRecurringSummary() + renderRecurringIncome() + renderBills() + renderCreditCards() + renderMonthNavCard();
   updateHeaderMonthNav();
 }
 
@@ -2153,6 +2273,23 @@ function handleClick(e) {
     save(); renderDashboard(); renderRecurring(); toast(item.name+' marked paid'); return;
   }
 
+  if (action==='mark-all-bills-paid') {
+    const mon = S.selectedMonth;
+    let count = 0;
+    for (const item of S.recurring.items) {
+      if (item.type!=='expense' || item.closed || item.isVariable) continue;
+      if (item.startMonth && mon < item.startMonth) continue;
+      if (item.endMonth && mon > item.endMonth) continue;
+      if (!item.months) item.months = {};
+      if (item.months[mon]?.paid) continue;
+      const txId = uid();
+      S.transactions.unshift({id:txId, type:'expense', amount:item.amount, category:'Bills', note:item.name, date:dateInMonth(mon), currency:item.currency||'INR'});
+      item.months[mon] = {paid:true, amount:item.amount, txId};
+      count++;
+    }
+    if (count) { save(); renderDashboard(); renderRecurring(); toast(count + ' bill' + (count>1?'s':'') + ' marked as paid'); }
+    return;
+  }
   if (action==='del-credit-card') {
     if (!confirm('Remove this card?')) return;
     S.recurring.creditCards = S.recurring.creditCards.filter(c=>c.id!==btn.dataset.id); save(); renderDashboard(); renderRecurring(); return;
