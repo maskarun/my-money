@@ -463,7 +463,7 @@ const S = {
   addingInvestment: false, addingInsurance: false,
   addEntryType: null, portfolioAddType: null, recurringAddType: null, activityCurFilter: null,
   editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, expandedSaving: null, showingPPForm: null, showingGoldPayForm: null, selectedMonth: null,
-  secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, investments: true, insurance: true, projections: true, netWorth: false },
+  secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, investments: true, insurance: true, projections: true, netWorth: false, aiInsights: true, investSuggestions: true },
 };
 
 function save() {
@@ -873,18 +873,16 @@ function buildInsightsCards() {
         ? `<div style="padding:12px 16px;font-size:12px;line-height:1.6">${formatInsights(investResult)}</div>`
         : `<div class="empty"><p>Tap below to get investment suggestions</p></div>`;
     content = `<div class="card">
-      <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">AI Insights</span></div><div class="sec-sub">Powered by ${providerLabel}</div></div></div>
-      ${body}
-      <div class="add-form-btns" style="padding:12px 16px">
+      <div class="sec-hdr" data-action="toggle-section" data-sec="aiInsights" style="cursor:pointer${S.secOpen.aiInsights?'':';padding-bottom:14px'}"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">AI Insights</span></div><div class="sec-sub">Powered by ${providerLabel}</div></div></div>
+      ${S.secOpen.aiInsights?`${body}<div class="add-form-btns" style="padding:12px 16px">
         <button class="btn btn-accent" data-action="get-insights" ${insightsLoading?'disabled':''}>Get Insights</button>
-      </div>
+      </div>`:''}
     </div>
     <div class="card">
-      <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#10b981"></span><span class="sec-title">Investment Suggestions</span></div><div class="sec-sub">Powered by ${providerLabel}</div></div></div>
-      ${investBody}
-      <div class="add-form-btns" style="padding:12px 16px">
+      <div class="sec-hdr" data-action="toggle-section" data-sec="investSuggestions" style="cursor:pointer${S.secOpen.investSuggestions?'':';padding-bottom:14px'}"><div><div class="sec-title-row"><span class="sec-dot" style="background:#10b981"></span><span class="sec-title">Investment Suggestions</span></div><div class="sec-sub">Powered by ${providerLabel}</div></div></div>
+      ${S.secOpen.investSuggestions?`${investBody}<div class="add-form-btns" style="padding:12px 16px">
         <button class="btn btn-accent" data-action="get-invest-suggestions" ${investLoading?'disabled':''}>Get Suggestions</button>
-      </div>
+      </div>`:''}
     </div>`;
   }
   return content;
@@ -2211,7 +2209,7 @@ function handleClick(e) {
   if (action==='toggle-gold-pay-form') { S.showingGoldPayForm=S.showingGoldPayForm===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
 
 
-  if (action==='toggle-section') { const k=btn.dataset.sec; S.secOpen[k]=!S.secOpen[k]; renderDashboard(); renderPortfolio(); renderRecurring(); return; }
+  if (action==='toggle-section') { const k=btn.dataset.sec; S.secOpen[k]=!S.secOpen[k]; renderDashboard(); renderPortfolio(); renderRecurring(); renderInsights(); return; }
   if (action==='del-part-payment') {
     if (!confirm('Delete this payment?')) return;
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.loanId);
