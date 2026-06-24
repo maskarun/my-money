@@ -1014,11 +1014,8 @@ function renderRecurringQuickAdd() {
     </form>`;
   }
 
-  const panel = S.recurringAddType !== null
-    ? `<div class="add-form"><div class="toggle-chip-row">${chips}</div>${form}</div>`
-    : `<button class="add-row-btn" data-action="toggle-recurring-add">${svgPlus} Add Entry</button>`;
-
-  return `<div class="card">${panel}</div>`;
+  if (S.recurringAddType === null) return '';
+  return `<div class="card"><div class="add-form"><div class="toggle-chip-row">${chips}</div>${form}</div></div>`;
 }
 
 function renderRecurringIncome() {
@@ -1170,7 +1167,7 @@ function renderDashboard() {
 
 function renderRecurring() {
   document.getElementById('tab-recurring').innerHTML =
-    renderRecurringQuickAdd() + renderRecurringIncome() + renderBills() + renderCreditCards();
+    renderRecurringIncome() + renderBills() + renderCreditCards();
   updateHeaderMonthNav();
 }
 
@@ -1508,15 +1505,13 @@ function renderPortfolioQuickAdd() {
   if (S.portfolioAddType==='saving') form = savingForm(null);
   else if (S.portfolioAddType==='loan') form = loanForm(null);
   else if (S.portfolioAddType==='gold-loan') form = goldLoanForm(null);
-  const panel = S.portfolioAddType !== null
-    ? `<div class="add-form"><div class="toggle-chip-row">${chips}</div>${form}</div>`
-    : `<button class="add-row-btn" data-action="toggle-portfolio-add">${svgPlus} Add Entry</button>`;
-  return `<div class="card">${panel}</div>`;
+  if (S.portfolioAddType === null) return '';
+  return `<div class="card"><div class="add-form"><div class="toggle-chip-row">${chips}</div>${form}</div></div>`;
 }
 
 function renderPortfolio() {
   document.getElementById('tab-portfolio').innerHTML =
-    renderPortfolioQuickAdd() + renderPortfolioSummary() + renderSavings() + renderLoans() + renderGoldLoans() + renderInvestmentsCard() + renderInsuranceCard();
+    renderPortfolioSummary() + renderSavings() + renderLoans() + renderGoldLoans() + renderInvestmentsCard() + renderInsuranceCard();
 }
 
 function getPortfolioCurrencies() {
@@ -1933,7 +1928,7 @@ function handleSubmit(e) {
     const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
     S.recurring.items.push({id:uid(),name:d.name.trim(),type:'income',category:d.category||'Salary',amount,currency:d.currency,dayOfMonth:d.dayOfMonth?parseInt(d.dayOfMonth):undefined,months:{},createdAt:todayISO()});
     if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
-    S.recurringAddType=null; save(); renderDashboard(); renderRecurring(); toast('Recurring income added'); return;
+    S.recurringAddType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderDashboard(); renderRecurring(); toast('Recurring income added'); return;
   }
   if (action==='add-bill') {
     if (!d.name.trim()) return toast('Name is required');
@@ -1941,14 +1936,14 @@ function handleSubmit(e) {
     const amount = isVariable ? 0 : (parseFloat(d.amount)||0);
     S.recurring.items.push({id:uid(),name:d.name.trim(),type:'expense',isVariable,amount,currency:d.currency,dayOfMonth:d.dayOfMonth?parseInt(d.dayOfMonth):undefined,months:{},createdAt:todayISO()});
     if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
-    S.recurringAddType=null; save(); renderDashboard(); renderRecurring(); toast('Bill added'); return;
+    S.recurringAddType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderDashboard(); renderRecurring(); toast('Bill added'); return;
   }
   if (action==='add-credit-card') {
     if (!d.name.trim()) return toast('Card name is required');
     const dueDay = parseInt(d.dueDay); if (!dueDay||dueDay<1||dueDay>31) return toast('Enter a valid due day');
     S.recurring.creditCards.push({id:uid(),name:d.name.trim(),currency:d.currency,dueDay,months:{},createdAt:todayISO()});
     if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
-    S.recurringAddType=null; save(); renderDashboard(); renderRecurring(); toast('Card added'); return;
+    S.recurringAddType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderDashboard(); renderRecurring(); toast('Card added'); return;
   }
   if (action==='add-transfer') {
     const fromAmount = parseFloat(d.fromAmount), toAmount = parseFloat(d.toAmount);
@@ -1993,7 +1988,7 @@ function handleSubmit(e) {
     if (!d.name.trim()) return toast('Name is required');
     const amount = parseFloat(d.amount); if (!amount||amount<0) return toast('Enter a valid amount');
     S.portfolio.savings.unshift({id:uid(),name:d.name.trim(),institution:d.institution||undefined,amount,interestRate:d.interestRate?parseFloat(d.interestRate):undefined,note:d.note||undefined,currency:d.currency,createdAt:todayISO()});
-    S.portfolioAddType=null; save(); renderPortfolio(); toast('Saving added'); return;
+    S.portfolioAddType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderPortfolio(); toast('Saving added'); return;
   }
   if (action==='update-saving') {
     const amount = parseFloat(d.amount);
@@ -2035,7 +2030,7 @@ function handleSubmit(e) {
     const loan = {id:loanId,name:d.name.trim(),lender:d.lender||undefined,principal:parseFloat(d.principal),startDate:d.startDate,tenureYears:parseFloat(d.tenureYears),interestRate:parseFloat(d.interestRate),note:d.note||undefined,currency:d.currency,partPayments:[],createdAt:todayISO()};
     if (emi > 0) { loan.linkedRecurringId = recurId; S.recurring.items.push({id:recurId,name:d.name.trim(),type:'expense',amount:Math.round(emi*100)/100,currency:d.currency,months:{},createdAt:todayISO(),linkedLoanId:loanId}); }
     S.portfolio.loans.unshift(loan);
-    S.portfolioAddType=null; save(); renderPortfolio(); renderRecurring(); toast('Loan added'); return;
+    S.portfolioAddType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderPortfolio(); renderRecurring(); toast('Loan added'); return;
   }
   if (action==='update-loan') {
     S.portfolio.loans = S.portfolio.loans.map(i=>i.id===form.dataset.id?{...i,name:d.name.trim(),lender:d.lender||undefined,principal:parseFloat(d.principal),startDate:d.startDate,tenureYears:parseFloat(d.tenureYears),interestRate:parseFloat(d.interestRate),note:d.note||undefined,currency:d.currency}:i);
@@ -2072,7 +2067,7 @@ function handleSubmit(e) {
       S.recurring.items.push({id:recurId,name:d.name.trim(),type:'expense',amount:monthlyInterest,currency:d.currency,months:{},createdAt:todayISO(),startMonth:startMon,endMonth:endMon,linkedLoanId:loanId});
     }
     S.portfolio.goldLoans.unshift(loan);
-    S.portfolioAddType=null; save(); renderPortfolio(); renderRecurring(); toast('Gold loan added'); return;
+    S.portfolioAddType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderPortfolio(); renderRecurring(); toast('Gold loan added'); return;
   }
   if (action==='update-gold') {
     S.portfolio.goldLoans = S.portfolio.goldLoans.map(i=>i.id===form.dataset.id?{...i,name:d.name.trim(),lender:d.lender||undefined,principal:parseFloat(d.principal),interestRate:parseFloat(d.interestRate),startDate:d.startDate||undefined,note:d.note||undefined,currency:d.currency}:i);
@@ -2099,7 +2094,7 @@ function handleClick(e) {
     else if (S.tab==='insights') renderInsights();
     else if (S.tab==='settings') renderSettings();
     updateHeaderMonthNav();
-    const fab = document.getElementById('fab'); if(fab) fab.classList.toggle('hidden', S.tab !== 'dashboard');
+    const fab = document.getElementById('fab'); if(fab) fab.classList.toggle('hidden', !['dashboard','portfolio','recurring'].includes(S.tab));
     return;
   }
   if (action==='prev-month') { S.selectedMonth = shiftMonth(S.selectedMonth, -1); renderDashboard(); renderRecurring(); return; }
@@ -2108,11 +2103,17 @@ function handleClick(e) {
   if (action==='toggle-add-entry') { S.addEntryType = S.addEntryType ? null : 'tx-expense'; renderDashboard(); return; }
   if (action==='set-entry-type') { S.addEntryType=btn.dataset.type; const bs=document.getElementById('bottom-sheet'); if(bs.style.display!=='none'){document.getElementById('bottom-sheet-content').innerHTML=renderQuickAdd();}else{renderDashboard();} return; }
   if (action==='cancel-entry') { S.addEntryType=null; document.getElementById('bottom-sheet').style.display='none'; renderDashboard(); return; }
-  if (action==='toggle-fab') { if (!S.addEntryType) S.addEntryType='tx-expense'; document.getElementById('bottom-sheet-content').innerHTML=renderQuickAdd(); document.getElementById('bottom-sheet').style.display=''; return; }
+  if (action==='toggle-fab') {
+    const bs=document.getElementById('bottom-sheet'), bsc=document.getElementById('bottom-sheet-content');
+    if (S.tab==='portfolio') { if(!S.portfolioAddType) S.portfolioAddType='saving'; bsc.innerHTML=renderPortfolioQuickAdd(); }
+    else if (S.tab==='recurring') { if(!S.recurringAddType) S.recurringAddType='recurring-income'; bsc.innerHTML=renderRecurringQuickAdd(); }
+    else { if(!S.addEntryType) S.addEntryType='tx-expense'; bsc.innerHTML=renderQuickAdd(); }
+    bs.style.display=''; return;
+  }
   if (action==='close-fab-backdrop') { if (btn.id==='bottom-sheet') { S.addEntryType=null; btn.style.display='none'; } return; }
   if (action==='toggle-recurring-add') { S.recurringAddType = S.recurringAddType ? null : 'recurring-income'; renderRecurring(); return; }
-  if (action==='set-recurring-add-type') { S.recurringAddType=btn.dataset.type; renderRecurring(); return; }
-  if (action==='cancel-recurring-add') { S.recurringAddType=null; renderRecurring(); return; }
+  if (action==='set-recurring-add-type') { S.recurringAddType=btn.dataset.type; const bs=document.getElementById('bottom-sheet'); if(bs.style.display!=='none'){document.getElementById('bottom-sheet-content').innerHTML=renderRecurringQuickAdd();}else{renderRecurring();} return; }
+  if (action==='cancel-recurring-add') { S.recurringAddType=null; document.getElementById('bottom-sheet').style.display='none'; renderRecurring(); return; }
   if (action==='confirm-recurring') {
     const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
     const mon = S.selectedMonth;
@@ -2174,14 +2175,14 @@ function handleClick(e) {
     S.portfolio.insurance=S.portfolio.insurance.filter(i=>i.id!==btn.dataset.id); save(); renderPortfolio(); return;
   }
   if (action==='toggle-portfolio-add') { S.portfolioAddType=S.portfolioAddType?null:'saving'; renderPortfolio(); return; }
-  if (action==='set-portfolio-add-type') { S.portfolioAddType=btn.dataset.type; renderPortfolio(); return; }
-  if (action==='cancel-saving') { S.portfolioAddType=null; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
+  if (action==='set-portfolio-add-type') { S.portfolioAddType=btn.dataset.type; const bs=document.getElementById('bottom-sheet'); if(bs.style.display!=='none'){document.getElementById('bottom-sheet-content').innerHTML=renderPortfolioQuickAdd();}else{renderPortfolio();} return; }
+  if (action==='cancel-saving') { S.portfolioAddType=null; S.editingId=null; S.editSection=null; document.getElementById('bottom-sheet').style.display='none'; renderPortfolio(); return; }
   if (action==='edit-saving') { S.editingId=btn.dataset.id; S.editSection='saving'; renderPortfolio(); return; }
   if (action==='del-saving') {
     if (!confirm('Delete this saving?')) return;
     S.portfolio.savings=S.portfolio.savings.filter(i=>i.id!==btn.dataset.id); save(); renderPortfolio(); return;
   }
-  if (action==='cancel-loan') { S.portfolioAddType=null; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
+  if (action==='cancel-loan') { S.portfolioAddType=null; S.editingId=null; S.editSection=null; document.getElementById('bottom-sheet').style.display='none'; renderPortfolio(); return; }
   if (action==='edit-loan') { S.editingId=btn.dataset.id; S.editSection='loan'; renderPortfolio(); return; }
   if (action==='del-loan') {
     if (!confirm('Delete this loan?')) return;
@@ -2236,7 +2237,7 @@ function handleClick(e) {
     }
     return;
   }
-  if (action==='cancel-gold') { S.portfolioAddType=null; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
+  if (action==='cancel-gold') { S.portfolioAddType=null; S.editingId=null; S.editSection=null; document.getElementById('bottom-sheet').style.display='none'; renderPortfolio(); return; }
   if (action==='edit-gold') { S.editingId=btn.dataset.id; S.editSection='goldLoan'; renderPortfolio(); return; }
   if (action==='close-gold') {
     const loan = S.portfolio.goldLoans.find(l=>l.id===btn.dataset.id); if (!loan) return;
