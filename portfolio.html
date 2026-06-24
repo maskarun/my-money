@@ -461,7 +461,7 @@ const S = {
   recurring: { items: [], creditCards: [] },
   txCurrency: 'USD',
   addingInvestment: false, addingInsurance: false,
-  addEntryType: null, portfolioAddType: null, recurringAddType: null,
+  addEntryType: null, portfolioAddType: null, recurringAddType: null, activityCurFilter: null,
   editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, expandedSaving: null, showingPPForm: null, showingGoldPayForm: null, selectedMonth: null,
   secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, projections: true, netWorth: false },
 };
@@ -1419,7 +1419,7 @@ function renderActivity() {
   for (const t of S.transactions) {
     if (!t.date || localTxMonth(t.date) !== mon) continue;
     if (t.type==='transfer') {
-      entries.push({ date: t.date, icon: 'transfer', iconSvg: svgTransfer, name: 'Transfer', meta: t.note ? esc(t.note) + ' · ' + fmtDate(t.date) : fmtDate(t.date), amtHtml: `<span class="tx-amount transfer">${formatMoney(t.fromAmount,t.fromCurrency)} → ${formatMoney(t.toAmount,t.toCurrency)}</span>`, delBtn: `<button class="tx-del" data-action="del-tx" data-id="${t.id}" title="Delete">${svgTrash}</button>`, badge: '', source: 'txn' });
+      entries.push({ date: t.date, icon: 'transfer', iconSvg: svgTransfer, name: 'Transfer', meta: t.note ? esc(t.note) + ' · ' + fmtDate(t.date) : fmtDate(t.date), amtHtml: `<span class="tx-amount transfer">${formatMoney(t.fromAmount,t.fromCurrency)} → ${formatMoney(t.toAmount,t.toCurrency)}</span>`, delBtn: `<button class="tx-del" data-action="del-tx" data-id="${t.id}" title="Delete">${svgTrash}</button>`, badge: '', currencies: [t.fromCurrency, t.toCurrency], source: 'txn' });
     } else {
       const isIncome = t.type==='income';
       const isBill = t.category==='Bills' && t.note;
@@ -1443,14 +1443,22 @@ function renderActivity() {
     }
   }
 
+  const allCurs = [...new Set(entries.flatMap(e => e.currencies || (e.badge ? [e.badge] : [])))];
+  const filter = S.activityCurFilter;
+  const filtered = filter ? entries.filter(e => e.currencies ? e.currencies.includes(filter) : e.badge === filter) : entries;
+
   const isOpen = S.secOpen.tx;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="tx" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
-      <div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">All Activity</span></div><div class="sec-sub">${entries.length?`${entries.length} this month`:'Recent activity'}</div></div>
+      <div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">All Activity</span></div><div class="sec-sub">${filtered.length?`${filtered.length} this month`:'Recent activity'}</div></div>
     </div>`;
+  const filterChips = allCurs.length > 1 ? `<div class="toggle-chip-row" style="padding:4px 16px 8px">
+    <button class="toggle-chip${!filter?' active':''}" data-action="filter-activity-cur" data-cur="">All</button>
+    ${allCurs.map(c=>`<button class="toggle-chip${filter===c?' active':''}" data-action="filter-activity-cur" data-cur="${c}">${c}</button>`).join('')}
+  </div>` : '';
   if (!isOpen) return `<div class="card">${hdr}</div>`;
-  if (!entries.length) return `<div class="card">${hdr}<div class="empty"><p>No activity this month</p></div></div>`;
+  if (!filtered.length) return `<div class="card">${hdr}${filterChips}<div class="empty"><p>No activity this month</p></div></div>`;
 
-  entries.sort((a, b) => b.date.localeCompare(a.date));
+  filtered.sort((a, b) => b.date.localeCompare(a.date));
 
   const sourceColors = { txn: '', loan: '#ef4444', saving: '#10b981', gold: '#f59e0b' };
   const sourceLabels = { txn: '', loan: 'Loan', saving: 'Savings', gold: 'Gold Loan' };
@@ -1459,7 +1467,7 @@ function renderActivity() {
   const yesterdayDate = new Date(); yesterdayDate.setDate(yesterdayDate.getDate() - 1);
   const yesterdayStr = `${yesterdayDate.getFullYear()}-${String(yesterdayDate.getMonth()+1).padStart(2,'0')}-${String(yesterdayDate.getDate()).padStart(2,'0')}`;
   let lastDateGroup = '';
-  const rows = entries.map(e => {
+  const rows = filtered.map(e => {
     const srcPill = e.source !== 'txn' ? `<span class="tx-badge" style="background:${sourceColors[e.source]}20;color:${sourceColors[e.source]}">${sourceLabels[e.source]}</span>` : '';
     const entryDate = e.date.slice(0, 10);
     let dateHdr = '';
@@ -1478,7 +1486,7 @@ function renderActivity() {
       ${e.delBtn}
     </li>`;
   }).join('');
-  return `<div class="card">${hdr}<ul class="tx-list">${rows}</ul></div>`;
+  return `<div class="card">${hdr}${filterChips}<ul class="tx-list">${rows}</ul></div>`;
 }
 
 // ── Portfolio ──────────────────────────────────────────────────────────────────
@@ -2092,6 +2100,7 @@ function handleClick(e) {
   if (action==='prev-month') { S.selectedMonth = shiftMonth(S.selectedMonth, -1); renderDashboard(); renderRecurring(); return; }
   if (action==='next-month') { const next = shiftMonth(S.selectedMonth, 1); if (next <= thisMonth()) S.selectedMonth = next; renderDashboard(); renderRecurring(); return; }
   if (action==='goto-current-month') { S.selectedMonth = thisMonth(); renderDashboard(); renderRecurring(); return; }
+  if (action==='filter-activity-cur') { S.activityCurFilter = btn.dataset.cur || null; renderDashboard(); return; }
   if (action==='toggle-add-entry') { S.addEntryType = S.addEntryType ? null : 'tx-expense'; renderDashboard(); return; }
   if (action==='set-entry-type') { S.addEntryType=btn.dataset.type; const bs=document.getElementById('bottom-sheet'); if(bs.style.display!=='none'){document.getElementById('bottom-sheet-content').innerHTML=renderQuickAdd();}else{renderDashboard();} return; }
   if (action==='cancel-entry') { S.addEntryType=null; document.getElementById('bottom-sheet').style.display='none'; renderDashboard(); return; }
