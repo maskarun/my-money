@@ -1135,18 +1135,8 @@ function renderCreditCards() {
 function updateHeaderMonthNav() {
   const el = document.getElementById('header-month-nav');
   if (!el) return;
-  if (S.tab === 'recurring') {
-    const label = fmtMonth(S.selectedMonth);
-    const isCurrent = S.selectedMonth === thisMonth();
-    el.innerHTML = `<button class="ibtn" data-action="prev-month" title="Previous month">${svgChevronLeft}</button>` +
-      `<span>${label}</span>` +
-      (isCurrent ? '' : ` <button class="link-btn" data-action="goto-current-month">Today</button>`) +
-      `<button class="ibtn" data-action="next-month" ${isCurrent?'disabled':''} title="Next month">${svgChevronRight}</button>`;
-    el.classList.add('visible');
-  } else {
-    el.classList.remove('visible');
-    el.innerHTML = '';
-  }
+  el.classList.remove('visible');
+  el.innerHTML = '';
 }
 
 function renderMonthNavCard() {
@@ -1167,7 +1157,7 @@ function renderDashboard() {
 
 function renderRecurring() {
   document.getElementById('tab-recurring').innerHTML =
-    renderRecurringIncome() + renderBills() + renderCreditCards();
+    renderRecurringIncome() + renderBills() + renderCreditCards() + renderMonthNavCard();
   updateHeaderMonthNav();
 }
 
