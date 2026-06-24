@@ -463,7 +463,7 @@ const S = {
   addingInvestment: false, addingInsurance: false,
   addEntryType: null, portfolioAddType: null, recurringAddType: null, activityCurFilter: null,
   editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, expandedSaving: null, showingPPForm: null, showingGoldPayForm: null, selectedMonth: null,
-  secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, projections: true, netWorth: false },
+  secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, investments: true, insurance: true, projections: true, netWorth: false },
 };
 
 function save() {
@@ -1608,12 +1608,13 @@ function renderInvestmentsCard() {
       </div>
     </div>`;
   }).join('');
+  const isOpen = S.secOpen.investments;
   return `<div class="card">
-    <div class="sec-hdr">
+    <div class="sec-hdr" data-action="toggle-section" data-sec="investments" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
       <div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Investments</span></div><div class="sec-sub">Stocks, mutual funds, FDs, and more</div></div>
       ${items.length?`<div class="sec-totals"><div class="sec-total-lbl">Current Value</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt grn">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
     </div>
-    ${rows}</div>`;
+    ${isOpen?rows:''}</div>`;
 }
 
 function insuranceForm(item) {
@@ -1659,12 +1660,13 @@ function renderInsuranceCard() {
       </div>
     </div>`;
   }).join('');
+  const isOpen = S.secOpen.insurance;
   return `<div class="card">
-    <div class="sec-hdr">
+    <div class="sec-hdr" data-action="toggle-section" data-sec="insurance" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
       <div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">Insurance</span></div><div class="sec-sub">Life, health & other policies</div></div>
       ${items.length?`<div class="sec-totals"><div class="sec-total-lbl">Sum Assured</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt grn">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
     </div>
-    ${rows}</div>`;
+    ${isOpen?rows:''}</div>`;
 }
 
 function renderSettings() {
@@ -2209,7 +2211,7 @@ function handleClick(e) {
   if (action==='toggle-gold-pay-form') { S.showingGoldPayForm=S.showingGoldPayForm===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
 
 
-  if (action==='toggle-section') { const k=btn.dataset.sec; S.secOpen[k]=!S.secOpen[k]; renderDashboard(); renderPortfolio(); return; }
+  if (action==='toggle-section') { const k=btn.dataset.sec; S.secOpen[k]=!S.secOpen[k]; renderDashboard(); renderPortfolio(); renderRecurring(); return; }
   if (action==='del-part-payment') {
     if (!confirm('Delete this payment?')) return;
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.loanId);
