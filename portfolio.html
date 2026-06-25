@@ -36,6 +36,19 @@
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
+body.dark {
+  --bg: #0f172a; --fg: #e2e8f0; --card: #1e293b; --border: #334155;
+  --muted: #1e293b; --muted-fg: #64748b;
+  --shadow: 0 1px 8px rgba(0,0,0,.2); --shadow-bold: 0 16px 48px -8px rgba(0,0,0,.4);
+}
+body.dark .p-row-icon.sav { background: rgba(2,132,199,.15); }
+body.dark .p-row-icon.loan { background: rgba(225,29,72,.15); }
+body.dark .p-row-icon.gold { background: rgba(217,119,6,.15); }
+body.dark .p-row-icon.inv { background: rgba(139,92,246,.15); }
+body.dark .tx-icon.income { background: rgba(5,150,105,.15); }
+body.dark .tx-icon.expense { background: rgba(225,29,72,.15); }
+body.dark .tx-icon.transfer { background: rgba(2,132,199,.15); }
+body.dark .input { background: var(--bg); color: var(--fg); border-color: var(--border); }
 *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { height: 100%; }
 body {
@@ -1989,7 +2002,17 @@ function renderSettings() {
     </div>
   </div>`;
 
-  document.getElementById('tab-settings').innerHTML = aboutCard + dataCard + aiCard;
+  const isDark = document.body.classList.contains('dark');
+  const themeCard = `<div class="card">
+    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#6366f1"></span><span class="sec-title">Appearance</span></div><div class="sec-sub">Customize the look and feel</div></div></div>
+    <div class="p-row" data-action="toggle-theme" style="cursor:pointer">
+      <div class="p-row-meta"><div class="p-row-name">Dark Mode</div><div class="p-row-sub">${isDark?'On':'Off'}</div></div>
+      <div style="width:44px;height:24px;border-radius:12px;background:${isDark?'var(--accent)':'var(--muted-fg)'};position:relative;transition:background .2s;flex-shrink:0">
+        <div style="width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:2px;${isDark?'right:2px':'left:2px'};transition:all .2s"></div>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('tab-settings').innerHTML = aboutCard + themeCard + dataCard + aiCard;
 }
 
 function investmentForm(item) {
@@ -2403,6 +2426,7 @@ function handleClick(e) {
   if (action==='goto-current-month') { S.selectedMonth = thisMonth(); renderDashboard(); renderRecurring(); return; }
   if (action==='filter-activity-cur') { S.activityCurFilter = btn.dataset.cur || null; renderDashboard(); return; }
   if (action==='filter-activity-cat') { S.activityCatFilter = btn.dataset.cat || null; renderDashboard(); return; }
+  if (action==='toggle-theme') { document.body.classList.toggle('dark'); localStorage.setItem('mmc.theme', document.body.classList.contains('dark')?'dark':'light'); renderSettings(); return; }
   if (action==='toggle-add-entry') { S.addEntryType = S.addEntryType ? null : 'tx-expense'; renderDashboard(); return; }
   if (action==='set-entry-type') { S.addEntryType=btn.dataset.type; const bs=document.getElementById('bottom-sheet'); if(bs.style.display!=='none'){document.getElementById('bottom-sheet-content').innerHTML=renderQuickAdd();}else{renderDashboard();} return; }
   if (action==='cancel-entry') { S.addEntryType=null; S.editingId=null; document.getElementById('bottom-sheet').style.display='none'; renderDashboard(); return; }
@@ -2677,6 +2701,8 @@ document.addEventListener('change', function(e) {
   }
 });
 
+const savedTheme = localStorage.getItem('mmc.theme');
+if (savedTheme==='dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) document.body.classList.add('dark');
 load(); renderDashboard(); renderPortfolio(); renderRecurring(); renderInsights(); renderSettings();
 document.getElementById('header-date').textContent = new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
 </script>
