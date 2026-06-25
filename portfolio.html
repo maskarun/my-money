@@ -1421,6 +1421,23 @@ function renderMonthNavCard() {
   </div>`;
 }
 
+function switchTab(tab) {
+  const tabMap = { transactions: 'dashboard', investments: 'portfolio' };
+  if (tabMap[tab]) tab = tabMap[tab];
+  if (!['dashboard','portfolio','recurring','settings','insights'].includes(tab)) tab = 'dashboard';
+  S.tab = tab;
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+S.tab).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===S.tab));
+  if (S.tab==='dashboard') renderDashboard();
+  else if (S.tab==='portfolio') renderPortfolio();
+  else if (S.tab==='recurring') renderRecurring();
+  else if (S.tab==='insights') renderInsights();
+  else if (S.tab==='settings') renderSettings();
+  updateHeaderMonthNav();
+  const fab = document.getElementById('fab'); if(fab) fab.classList.toggle('hidden', !['dashboard','portfolio','recurring'].includes(S.tab));
+}
+
 function renderDashboard() {
   document.getElementById('tab-dashboard').innerHTML =
     renderHeroCards() + renderBudgetAlerts() + renderTrendChart() + renderOverviewCards() + renderCategoryDonut() + renderActivity() + renderMonthNavCard();
@@ -2558,24 +2575,7 @@ function handleClick(e) {
   const btn = e.target.closest('[data-action]'); if (!btn) return;
   const action = btn.dataset.action;
 
-  if (action==='switch-tab') {
-    const tabMap = { transactions: 'dashboard', investments: 'portfolio' };
-    let tab = btn.dataset.tab;
-    if (tabMap[tab]) tab = tabMap[tab];
-    if (!['dashboard','portfolio','recurring','settings','insights'].includes(tab)) tab = 'dashboard';
-    S.tab = tab;
-    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
-    document.getElementById('tab-'+S.tab).classList.add('active');
-    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===S.tab));
-    if (S.tab==='dashboard') renderDashboard();
-    else if (S.tab==='portfolio') renderPortfolio();
-    else if (S.tab==='recurring') renderRecurring();
-    else if (S.tab==='insights') renderInsights();
-    else if (S.tab==='settings') renderSettings();
-    updateHeaderMonthNav();
-    const fab = document.getElementById('fab'); if(fab) fab.classList.toggle('hidden', !['dashboard','portfolio','recurring'].includes(S.tab));
-    return;
-  }
+  if (action==='switch-tab') { switchTab(btn.dataset.tab); return; }
   if (action==='prev-month') { S.selectedMonth = shiftMonth(S.selectedMonth, -1); renderDashboard(); renderRecurring(); return; }
   if (action==='next-month') { const next = shiftMonth(S.selectedMonth, 1); const limit = S.tab==='recurring' ? shiftMonth(thisMonth(),1) : thisMonth(); if (next <= limit) S.selectedMonth = next; renderDashboard(); renderRecurring(); return; }
   if (action==='goto-current-month') { S.selectedMonth = thisMonth(); renderDashboard(); renderRecurring(); return; }
@@ -2858,6 +2858,21 @@ document.addEventListener('change', function(e) {
     renderSettings();
   }
 });
+
+// Swipe gestures for tab navigation
+(function() {
+  const tabs = ['dashboard','portfolio','recurring','insights','settings'];
+  let startX = 0, startY = 0;
+  document.addEventListener('touchstart', e => { startX = e.touches[0].clientX; startY = e.touches[0].clientY; }, {passive:true});
+  document.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - startX, dy = e.changedTouches[0].clientY - startY;
+    if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx) * 0.7) return;
+    const i = tabs.indexOf(S.tab); if (i < 0) return;
+    const next = dx < 0 ? i + 1 : i - 1;
+    if (next < 0 || next >= tabs.length) return;
+    switchTab(tabs[next]);
+  }, {passive:true});
+})();
 
 const savedTheme = localStorage.getItem('mmc.theme');
 if (savedTheme==='dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) document.body.classList.add('dark');
