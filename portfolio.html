@@ -68,6 +68,10 @@ a { color: inherit; text-decoration: none; }
   border: 1px solid var(--border); background: var(--bg); color: var(--fg);
   display: flex; align-items: center; gap: 3px;
 }
+#header-month-nav {
+  display: none; align-items: center; gap: 8px; font-size: 13px; font-weight: 800;
+}
+#header-month-nav.visible { display: flex; }
 
 /* Scroll */
 #scroll {
@@ -230,6 +234,9 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .rec-badge { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 99px; white-space: nowrap; }
 .rec-badge.paid { background: #d1fae5; color: #065f46; }
 .rec-badge.pending { background: #fef9c3; color: #92400e; }
+.rec-badge.due-today { background: #dbeafe; color: #1d4ed8; }
+.rec-badge.overdue { background: #fee2e2; color: #dc2626; }
+.rec-badge.due-soon { background: #fef3c7; color: #d97706; }
 .rec-btn { font-size: 10.5px; padding: 4px 8px; height: auto; min-width: 54px; white-space: nowrap; }
 .rec-amt-input { width: 72px; height: 32px; font-size: 13px; padding: 0 8px; flex-shrink: 0; }
 .hist-note { font-size: 10px; color: var(--muted-fg); font-weight: 400; margin-top: 1px; }
@@ -304,6 +311,10 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .tx-del { width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #cbd5e1; flex-shrink: 0; transition: color .15s; }
 .tx-del:hover { color: var(--expense); }
 .tx-del svg { width: 13px; height: 13px; stroke-width: 1.8; }
+.tx-date-hdr {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--muted-fg); padding: 10px 16px 4px; list-style: none;
+}
 
 /* Category bars */
 .cat-wrap { padding: 0 16px 14px; }
@@ -345,6 +356,30 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .text-muted { color: var(--muted-fg); }
 .text-sm { font-size: 11px; }
 .hidden { display: none !important; }
+.fab {
+  position: fixed; bottom: calc(var(--nav-h) + var(--safe-bottom) + 16px); right: 20px;
+  width: 56px; height: 56px; border-radius: 50%; z-index: 90;
+  background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 16px rgba(2,132,199,.4); border: none; transition: transform .2s, opacity .2s;
+}
+.fab:active { transform: scale(.92); }
+.fab.hidden { display: none; }
+.bottom-sheet-overlay {
+  position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.4);
+  display: flex; align-items: flex-end; justify-content: center;
+  animation: fadeIn .2s ease;
+}
+.bottom-sheet {
+  background: var(--card); border-radius: 20px 20px 0 0; width: 100%; max-width: 500px;
+  max-height: 80vh; overflow-y: auto; padding: 8px 0 calc(var(--safe-bottom) + 16px);
+  animation: slideUp .3s ease;
+}
+.bottom-sheet-handle {
+  width: 36px; height: 4px; background: var(--border); border-radius: 2px;
+  margin: 0 auto 8px;
+}
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+@keyframes slideUp { from { transform: translateY(100%) } to { transform: translateY(0) } }
 </style>
 </head>
 <body>
@@ -370,22 +405,30 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
       <span class="header-title">My Money</span>
     </div>
   </div>
+  <div id="header-month-nav"></div>
   <div class="header-actions">
     <span id="header-date" style="font-size:12px;color:var(--text);font-weight:700;margin-right:8px"></span>
-    <button class="hbtn" data-action="switch-tab" data-tab="settings" title="Settings">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 005 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 005 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 5a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09A1.65 1.65 0 0015 5a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09A1.65 1.65 0 0019 15z"/></svg>
+    <button class="hbtn" data-action="switch-tab" data-tab="insights" title="AI Insights">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 017 7c0 3-2 5-3 6.5S15 18 15 19H9c0-1-1-2.5-2-3.5S5 12 5 9a7 7 0 017-7z"/><path d="M9 19v1a3 3 0 006 0v-1"/><path d="M10 2.5a4 4 0 013 0"/></svg>
     </button>
   </div>
 </div>
 
 <div id="scroll">
   <div id="tab-dashboard" class="tab-panel active"></div>
-  <div id="tab-transactions" class="tab-panel"></div>
   <div id="tab-portfolio" class="tab-panel"></div>
-  <div id="tab-investments" class="tab-panel"></div>
   <div id="tab-recurring" class="tab-panel"></div>
   <div id="tab-insights" class="tab-panel"></div>
   <div id="tab-settings" class="tab-panel"></div>
+</div>
+<button id="fab" class="fab" data-action="toggle-fab" title="Add Entry">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+</button>
+<div id="bottom-sheet" class="bottom-sheet-overlay" style="display:none" data-action="close-fab-backdrop">
+  <div class="bottom-sheet">
+    <div class="bottom-sheet-handle"></div>
+    <div id="bottom-sheet-content"></div>
+  </div>
 </div>
 
 <nav id="nav">
@@ -393,25 +436,17 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
     Dashboard
   </button>
-  <button class="nav-btn" data-action="switch-tab" data-tab="transactions">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7h18M3 12h18M3 17h18"/></svg>
-    Transactions
-  </button>
   <button class="nav-btn" data-action="switch-tab" data-tab="portfolio">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
     Portfolio
-  </button>
-  <button class="nav-btn" data-action="switch-tab" data-tab="investments">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 17l6-6 4 4 8-8M21 7v6m0-6h-6"/></svg>
-    Investments
   </button>
   <button class="nav-btn" data-action="switch-tab" data-tab="recurring">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
     Recurring
   </button>
-  <button class="nav-btn" data-action="switch-tab" data-tab="insights">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 017 7c0 3-2 5-3 6.5S15 18 15 19H9c0-1-1-2.5-2-3.5S5 12 5 9a7 7 0 017-7z"/><path d="M9 19v1a3 3 0 006 0v-1"/><path d="M10 2.5a4 4 0 013 0"/></svg>
-    Insights
+  <button class="nav-btn" data-action="switch-tab" data-tab="settings">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 005 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 005 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 5a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09A1.65 1.65 0 0015 5a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09A1.65 1.65 0 0019 15z"/></svg>
+    Settings
   </button>
 </nav>
 
@@ -428,10 +463,10 @@ const S = {
   portfolio: { savings: [], loans: [], goldLoans: [], investments: [], insurance: [] },
   recurring: { items: [], creditCards: [] },
   txCurrency: 'USD',
-  addingSaving: false, addingLoan: false, addingGoldLoan: false, addingInvestment: false, addingInsurance: false,
-  addEntryType: null, portfolioAddType: null, recurringAddType: null,
-  editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, expandedSaving: null, showingPPForm: null, showingSavingPayForm: null, showingGoldPayForm: null, expandedMonth: null, selectedMonth: null, showLedger: false, ledgerFilterCurrency: 'all', ledgerFilterSource: 'all',
-  secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, projections: true },
+  addingInvestment: false, addingInsurance: false,
+  addEntryType: null, portfolioAddType: null, recurringAddType: null, activityCurFilter: null,
+  editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, expandedSaving: null, showingPPForm: null, showingGoldPayForm: null, selectedMonth: null,
+  secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, investments: true, insurance: true, projections: true, netWorth: false, aiInsights: true, investSuggestions: true },
 };
 
 function save() {
@@ -474,7 +509,6 @@ function formatMoney(n, cur='USD') {
   return new Intl.NumberFormat(cur==='INR'?'en-IN':'en-US',{style:'currency',currency:cur,maximumFractionDigits:0}).format(n);
 }
 function fmtDate(iso) { if (!iso) return ''; return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric'}); }
-function fmtDateFull(iso) { return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 function computeEmi(principal, ratePct, years) {
@@ -576,108 +610,52 @@ const otherCur = c => CURRENCIES.find(x=>x!==c) || CURRENCIES[0];
 function catOptions(type, sel) { return (type==='income'?INCOME_CATS:EXPENSE_CATS).map(c=>`<option value="${c}"${c===sel?' selected':''}>${c}</option>`).join(''); }
 
 // ── Dashboard Overview ─────────────────────────────────────────────────────────
-function buildLedgerHtml() {
-  const entries = [];
-
-  for (const t of S.transactions) {
-    if (t.type === 'transfer') {
-      entries.push({ date: t.date, desc: 'Transfer' + (t.note ? ': ' + t.note : ''), currency: t.fromCurrency, debit: t.fromAmount, credit: 0, source: 'xfr' });
-      entries.push({ date: t.date, desc: 'Transfer' + (t.note ? ': ' + t.note : ''), currency: t.toCurrency, debit: 0, credit: t.toAmount, source: 'xfr' });
-    } else if (t.type === 'income') {
-      entries.push({ date: t.date, desc: t.category + (t.note ? ': ' + t.note : ''), currency: getCur(t), debit: 0, credit: t.amount, source: 'inc' });
-    } else {
-      entries.push({ date: t.date, desc: t.category + (t.note ? ': ' + t.note : ''), currency: getCur(t), debit: t.amount, credit: 0, source: 'exp' });
-    }
-  }
-
-  for (const loan of S.portfolio.loans) {
-    for (const p of (loan.partPayments || [])) {
-      entries.push({ date: p.date, desc: 'Part Payment: ' + loan.name + (p.note ? ' (' + p.note + ')' : ''), currency: getCur(loan), debit: p.amount, credit: 0, source: 'loan' });
-    }
-  }
-
-  const fc = S.ledgerFilterCurrency, fs = S.ledgerFilterSource;
-  const filtered = entries.filter(e => {
-    if (fc !== 'all' && e.currency !== fc) return false;
-    if (fs !== 'all' && e.source !== fs) return false;
-    return true;
-  });
-
-  filtered.sort((a, b) => b.date.localeCompare(a.date));
-
-  const allCurs = [...new Set(entries.map(e => e.currency))];
-  const sourceLabels = { inc: 'Income', exp: 'Expense', xfr: 'Transfer', loan: 'Loan' };
-
-  const filterHtml = `<div class="ledger-filters">
-    <select data-action="ledger-filter" data-filter="currency">
-      <option value="all"${fc==='all'?' selected':''}>All Currencies</option>
-      ${allCurs.map(c => `<option value="${c}"${fc===c?' selected':''}>${c}</option>`).join('')}
-    </select>
-    <select data-action="ledger-filter" data-filter="source">
-      <option value="all"${fs==='all'?' selected':''}>All Types</option>
-      <option value="inc"${fs==='inc'?' selected':''}>Income</option>
-      <option value="exp"${fs==='exp'?' selected':''}>Expenses</option>
-      <option value="xfr"${fs==='xfr'?' selected':''}>Transfers</option>
-      <option value="loan"${fs==='loan'?' selected':''}>Loan Payments</option>
-    </select>
-  </div>`;
-
-  if (!filtered.length) {
-    return `<div class="card"><div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#6366f1"></span><span class="sec-title">Ledger Book</span></div></div><button class="ibtn" data-action="toggle-ledger" title="Back to Dashboard">${svgChevronLeft}</button></div>${filterHtml}<div class="empty"><p>No entries</p></div></div>`;
-  }
-
-  const months = [...new Set(filtered.map(e => e.date.slice(0, 7)))].sort((a, b) => b.localeCompare(a));
-
-  const balByCur = {};
-  const entriesAsc = filtered.slice().sort((a, b) => a.date.localeCompare(b.date));
-  for (const e of entriesAsc) {
-    if (!balByCur[e.currency]) balByCur[e.currency] = 0;
-    balByCur[e.currency] += e.credit - e.debit;
-  }
-
-  const monthCards = months.map(mon => {
-    const monEntries = filtered.filter(e => e.date.slice(0, 7) === mon);
-    const rows = monEntries.map(e => {
-      const srcClass = e.source;
-      return `<tr>
-        <td>${fmtDate(e.date)}</td>
-        <td>${esc(e.desc)} <span class="ledger-src ${srcClass}">${sourceLabels[e.source]}</span></td>
-        <td><span class="cur-pill">${e.currency}</span></td>
-        <td class="red">${e.debit ? formatMoney(e.debit, e.currency) : ''}</td>
-        <td class="grn">${e.credit ? formatMoney(e.credit, e.currency) : ''}</td>
-      </tr>`;
-    }).join('');
-
-    return `<div class="card" style="padding-bottom:0">
-      <div class="ledger-month-hdr">${fmtMonth(mon)}</div>
-      <div class="ledger-tbl-wrap">
-        <table class="ledger-tbl">
-          <thead><tr><th>Date</th><th>Description</th><th>Cur</th><th>Debit</th><th>Credit</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    </div>`;
-  }).join('');
-
-  const balSummary = Object.entries(balByCur).map(([c, v]) =>
-    `<span style="margin-right:12px;font-weight:700;color:${v >= 0 ? 'var(--income)' : 'var(--expense)'}">${c} ${v >= 0 ? '+' : ''}${formatMoney(v, c)}</span>`
-  ).join('');
-
-  return `<div class="card">
-    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#6366f1"></span><span class="sec-title">Ledger Book</span></div><div class="sec-sub">All financial activity</div></div><button class="ibtn" data-action="toggle-ledger" title="Back to Dashboard">${svgChevronLeft}</button></div>
-    ${filterHtml}
-    <div style="padding:4px 16px 10px;font-size:12px">Net: ${balSummary}</div>
-  </div>${monthCards}`;
-}
-
-function renderOverview() {
+function renderOverviewCards() {
   const allCurs = new Set();
   for (const t of S.transactions) allCurs.add(getCur(t));
   for (const i of [...S.portfolio.savings,...S.portfolio.loans,...S.portfolio.goldLoans]) allCurs.add(getCur(i));
   if (!allCurs.size) allCurs.add('USD');
 
+  const isOpen = S.secOpen.netWorth;
+
+  if (!isOpen) {
+    // Compact collapsed view
+    const compactCards = [...allCurs].map(cur => {
+      const sav = S.portfolio.savings.filter(i=>getCur(i)===cur).reduce((a,i)=>a+i.amount,0);
+      const inv = S.portfolio.investments.filter(i=>getCur(i)===cur).reduce((a,i)=>a+(i.currentValue||0),0);
+      let txIncome=0, txExpense=0;
+      for (const t of S.transactions) { if (t.type==='transfer') continue; if (getCur(t)!==cur) continue; if (t.type==='income') txIncome+=t.amount; else txExpense+=t.amount; }
+      let transferNet = 0;
+      for (const t of S.transactions) {
+        if (t.type!=='transfer') continue;
+        if (t.fromCurrency===cur) transferNet -= t.fromAmount;
+        if (t.toCurrency===cur) transferNet += t.toAmount;
+      }
+      const txNet = txIncome - txExpense + transferNet;
+      const credit = sav + inv + Math.max(0, txNet);
+      const loans = S.portfolio.loans.filter(i=>getCur(i)===cur&&!i.closed).reduce((a,i)=>a+computeOutstanding(i),0);
+      const gold  = S.portfolio.goldLoans.filter(i=>getCur(i)===cur&&!i.closed).reduce((a,i)=>a+i.principal+computeGoldLoanInterest(i),0);
+      const debt  = loans + gold;
+      const net = credit - debt;
+      const netColor = net >= 0 ? 'var(--income)' : 'var(--expense)';
+      return `<div class="card nw-compact" data-action="toggle-section" data-sec="netWorth" style="cursor:pointer">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="sec-dot" style="background:${netColor}"></span>
+            <span style="font-size:13px;font-weight:800">Net Worth</span>
+            <span style="font-size:11px;color:var(--muted-fg)">${cur}</span>
+          </div>
+          <span style="font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;color:${netColor}">${formatMoney(net, cur)}</span>
+        </div>
+      </div>`;
+    }).join('');
+    return compactCards;
+  }
+
+  // Expanded view (original)
   const cards = [...allCurs].map(cur => {
     const sav = S.portfolio.savings.filter(i=>getCur(i)===cur).reduce((a,i)=>a+i.amount,0);
+    const inv = S.portfolio.investments.filter(i=>getCur(i)===cur).reduce((a,i)=>a+(i.currentValue||0),0);
     let txIncome=0, txExpense=0;
     for (const t of S.transactions) { if (t.type==='transfer') continue; if (getCur(t)!==cur) continue; if (t.type==='income') txIncome+=t.amount; else txExpense+=t.amount; }
     let transferNet = 0;
@@ -687,7 +665,7 @@ function renderOverview() {
       if (t.toCurrency===cur) transferNet += t.toAmount;
     }
     const txNet = txIncome - txExpense + transferNet;
-    const credit = sav + Math.max(0, txNet);
+    const credit = sav + inv + Math.max(0, txNet);
     const loans = S.portfolio.loans.filter(i=>getCur(i)===cur&&!i.closed).reduce((a,i)=>a+computeOutstanding(i),0);
     const gold  = S.portfolio.goldLoans.filter(i=>getCur(i)===cur&&!i.closed).reduce((a,i)=>a+i.principal+computeGoldLoanInterest(i),0);
     const debt  = loans + gold;
@@ -696,17 +674,18 @@ function renderOverview() {
 
     const creditSubs = [
       sav>0?`Savings ${formatMoney(sav,cur)}`:'',
+      inv>0?`Investments ${formatMoney(inv,cur)}`:'',
       txIncome>0?`Income ${formatMoney(txIncome,cur)}`:'',
       txExpense>0?`Expenses −${formatMoney(txExpense,cur)}`:'',
       txNet>0?`Surplus ${formatMoney(txNet,cur)}`:''
-    ].filter(Boolean).join(' · ') || 'No savings or income surplus';
+    ].filter(Boolean).join(' · ') || 'No savings, investments, or income surplus';
 
     const debtSubs = [
       loans>0?`Loans ${formatMoney(loans,cur)}`:'',
       gold>0?`Gold ${formatMoney(gold,cur)}`:''
     ].filter(Boolean).join(' · ') || 'No outstanding debt';
 
-    return `<div class="card">
+    return `<div class="card" data-action="toggle-section" data-sec="netWorth" style="cursor:pointer">
       <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:${netColor}"></span><span class="sec-title">${cur}</span></div><div class="sec-sub">Net Worth</div></div></div>
       <div style="padding:0 16px 12px;font-size:26px;font-weight:800;letter-spacing:-.5px;font-variant-numeric:tabular-nums;color:${netColor}">${formatMoney(net, cur)}</div>
       <div class="p-row">
@@ -720,19 +699,7 @@ function renderOverview() {
     </div>`;
   }).join('');
 
-  if (S.showLedger) {
-    document.getElementById('tab-dashboard').innerHTML = buildLedgerHtml();
-    return;
-  }
-
-  const ledgerBtn = `<div class="card month-nav" style="justify-content:center;gap:12px">
-    <button class="ibtn" data-action="toggle-ledger" title="Open Ledger Book" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--accent)">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/><path d="M8 7h8M8 11h6"/></svg>
-      Ledger Book
-    </button>
-  </div>`;
-
-  document.getElementById('tab-dashboard').innerHTML = cards + renderProjections() + ledgerBtn;
+  return cards + renderProjections();
 }
 
 let insightsResult = localStorage.getItem('mmc.insights') || '';
@@ -763,32 +730,39 @@ function formatInsights(txt) {
 }
 
 
-async function getInsights() {
+async function callAI(prompt, setResult, setLoading, cacheKey) {
   const apiKey = localStorage.getItem('mmc.apiKey');
   const provider = localStorage.getItem('mmc.aiProvider') || 'claude';
   if (!apiKey) { toast('Set your API key in Settings'); return; }
+  const defaultUrl = provider === 'gemini' ? 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent' : 'https://api.anthropic.com/v1/messages';
+  const apiUrl = localStorage.getItem('mmc.apiUrl') || defaultUrl;
 
-  const summary = buildPortfolioSummary();
-  const prompt = `You are a personal finance advisor. Analyze this portfolio and give 3-5 concise, actionable recommendations. Be specific to the numbers. Keep it brief.\n\n${summary}`;
-  insightsLoading = true; insightsResult = '';
+  setLoading(true); setResult('');
   renderInsights();
 
   try {
+    async function fetchWithRetry(url, opts) {
+      for (let i = 0; i < 3; i++) {
+        const resp = await fetch(url, opts);
+        if (resp.status === 503 && i < 2) { await new Promise(r => setTimeout(r, (i + 1) * 2000)); continue; }
+        return resp;
+      }
+    }
     let text;
     if (provider === 'gemini') {
-      const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
+      const resp = await fetchWithRetry(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-goog-api-key': apiKey },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
       });
       if (!resp.ok) {
         const err = await resp.text();
-        throw new Error(resp.status === 400 ? 'Invalid API key. Check your key in Settings.' : `API error: ${resp.status} - ${err}`);
+        throw new Error(resp.status === 400 ? 'Invalid API key. Check your key in Settings.' : resp.status === 503 ? 'Service unavailable after 3 retries. Try again later.' : `API error: ${resp.status} - ${err}`);
       }
       const data = await resp.json();
       text = data.candidates?.[0]?.content?.parts?.map(p => p.text).filter(Boolean).join('\n') || '';
     } else {
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      const resp = await fetchWithRetry(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -804,58 +778,31 @@ async function getInsights() {
       });
       if (!resp.ok) {
         const err = await resp.text();
-        throw new Error(resp.status === 401 ? 'Invalid API key. Check your key in Settings.' : `API error: ${resp.status} - ${err}`);
+        throw new Error(resp.status === 401 ? 'Invalid API key. Check your key in Settings.' : resp.status === 503 ? 'Service unavailable after 3 retries. Try again later.' : `API error: ${resp.status} - ${err}`);
       }
       const data = await resp.json();
       text = data.content?.[0]?.text;
     }
-    insightsResult = text || 'No response received';
-    localStorage.setItem('mmc.insights', insightsResult);
+    const result = text || 'No response received';
+    setResult(result);
+    localStorage.setItem(cacheKey, result);
   } catch(e) {
-    insightsResult = 'Error: ' + (e.message || String(e));
+    setResult('Error: ' + (e.message || String(e)));
   }
-  insightsLoading = false;
+  setLoading(false);
   renderInsights();
 }
 
-async function getInvestmentSuggestions() {
-  const apiKey = localStorage.getItem('mmc.apiKey');
-  const provider = localStorage.getItem('mmc.aiProvider') || 'claude';
-  if (!apiKey) { toast('Set your API key in Settings'); return; }
+async function getInsights() {
+  const summary = buildPortfolioSummary();
+  const prompt = `You are a personal finance advisor. Analyze this portfolio and give 3-5 concise, actionable recommendations. Be specific to the numbers. Keep it brief.\n\n${summary}`;
+  await callAI(prompt, v => { insightsResult = v; }, v => { insightsLoading = v; }, 'mmc.insights');
+}
 
+async function getInvestmentSuggestions() {
   const summary = buildPortfolioSummary();
   const prompt = `You are an investment advisor. Based on this portfolio, suggest 3-5 specific investment opportunities. Consider current allocations, risk diversification, and growth potential. Be specific with types, amounts, and reasoning. Keep it brief and actionable.\n\n${summary}`;
-  investLoading = true; investResult = '';
-  renderInsights();
-
-  try {
-    let text;
-    if (provider === 'gemini') {
-      const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-goog-api-key': apiKey },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-      });
-      if (!resp.ok) { const err = await resp.text(); throw new Error(resp.status === 400 ? 'Invalid API key.' : `API error: ${resp.status} - ${err}`); }
-      const data = await resp.json();
-      text = data.candidates?.[0]?.content?.parts?.map(p => p.text).filter(Boolean).join('\n') || '';
-    } else {
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1024, messages: [{ role: 'user', content: prompt }] })
-      });
-      if (!resp.ok) { const err = await resp.text(); throw new Error(resp.status === 401 ? 'Invalid API key.' : `API error: ${resp.status} - ${err}`); }
-      const data = await resp.json();
-      text = data.content?.[0]?.text;
-    }
-    investResult = text || 'No response received';
-    localStorage.setItem('mmc.investSuggestions', investResult);
-  } catch(e) {
-    investResult = 'Error: ' + (e.message || String(e));
-  }
-  investLoading = false;
-  renderInsights();
+  await callAI(prompt, v => { investResult = v; }, v => { investLoading = v; }, 'mmc.investSuggestions');
 }
 
 function buildPortfolioSummary() {
@@ -918,14 +865,14 @@ function dateInMonth(mon) {
   return new Date(y, m, 0, 12).toISOString();
 }
 
-function renderInsights() {
+function buildInsightsCards() {
   const hasKey = !!localStorage.getItem('mmc.apiKey');
   const provider = localStorage.getItem('mmc.aiProvider') || 'claude';
   const providerLabel = provider === 'gemini' ? 'Gemini' : 'Claude';
 
   let content;
   if (!hasKey) {
-    content = `<div class="card"><div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">AI Insights</span></div><div class="sec-sub">Set up your API key in Settings</div></div></div><div class="empty"><p>Go to Settings → AI Insights to add your API key</p></div></div>`;
+    content = `<div class="card"><div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">AI Insights</span></div><div class="sec-sub">Set up your API key in Settings</div></div></div><div class="empty"><p>Go to Settings to add your API key</p></div></div>`;
   } else {
     const body = insightsLoading
       ? `<div class="empty"><p>Analyzing your portfolio...</p></div>`
@@ -938,21 +885,23 @@ function renderInsights() {
         ? `<div style="padding:12px 16px;font-size:12px;line-height:1.6">${formatInsights(investResult)}</div>`
         : `<div class="empty"><p>Tap below to get investment suggestions</p></div>`;
     content = `<div class="card">
-      <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">AI Insights</span></div><div class="sec-sub">Powered by ${providerLabel}</div></div></div>
-      ${body}
-      <div class="add-form-btns" style="padding:12px 16px">
+      <div class="sec-hdr" data-action="toggle-section" data-sec="aiInsights" style="cursor:pointer${S.secOpen.aiInsights?'':';padding-bottom:14px'}"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">AI Insights</span></div><div class="sec-sub">Powered by ${providerLabel}</div></div></div>
+      ${S.secOpen.aiInsights?`${body}<div class="add-form-btns" style="padding:12px 16px">
         <button class="btn btn-accent" data-action="get-insights" ${insightsLoading?'disabled':''}>Get Insights</button>
-      </div>
+      </div>`:''}
     </div>
     <div class="card">
-      <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#10b981"></span><span class="sec-title">Investment Suggestions</span></div><div class="sec-sub">Powered by ${providerLabel}</div></div></div>
-      ${investBody}
-      <div class="add-form-btns" style="padding:12px 16px">
+      <div class="sec-hdr" data-action="toggle-section" data-sec="investSuggestions" style="cursor:pointer${S.secOpen.investSuggestions?'':';padding-bottom:14px'}"><div><div class="sec-title-row"><span class="sec-dot" style="background:#10b981"></span><span class="sec-title">Investment Suggestions</span></div><div class="sec-sub">Powered by ${providerLabel}</div></div></div>
+      ${S.secOpen.investSuggestions?`${investBody}<div class="add-form-btns" style="padding:12px 16px">
         <button class="btn btn-accent" data-action="get-invest-suggestions" ${investLoading?'disabled':''}>Get Suggestions</button>
-      </div>
+      </div>`:''}
     </div>`;
   }
-  document.getElementById('tab-insights').innerHTML = content;
+  return content;
+}
+
+function renderInsights() {
+  document.getElementById('tab-insights').innerHTML = buildInsightsCards();
 }
 
 function ordinal(n) { const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
@@ -1075,26 +1024,124 @@ function renderRecurringQuickAdd() {
     </form>`;
   }
 
-  const panel = S.recurringAddType !== null
-    ? `<div class="add-form"><div class="toggle-chip-row">${chips}</div>${form}</div>`
-    : `<button class="add-row-btn" data-action="toggle-recurring-add">${svgPlus} Add Entry</button>`;
+  if (S.recurringAddType === null) return '';
+  return `<div class="card"><div class="add-form"><div class="toggle-chip-row">${chips}</div>${form}</div></div>`;
+}
 
-  return `<div class="card">${panel}</div>`;
+function getDueBadge(dueDay, isPaid, mon) {
+  if (!dueDay || isPaid || mon !== thisMonth()) return '';
+  const today = new Date().getDate();
+  if (dueDay === today) return '<span class="rec-badge due-today">Due Today</span>';
+  if (dueDay < today) return '<span class="rec-badge overdue">Overdue</span>';
+  if (dueDay > today && dueDay <= today + 3) return '<span class="rec-badge due-soon">Due Soon</span>';
+  return '';
+}
+
+function renderRecurringSummary() {
+  const mon = S.selectedMonth;
+  const byCur = {};
+  const ensure = (cur) => { if (!byCur[cur]) byCur[cur] = {expectedIncome:0, expectedBills:0, expectedCC:0, totalCount:0, paidCount:0}; };
+
+  // Income items
+  for (const item of S.recurring.items) {
+    if (item.type !== 'income' || item.closed) continue;
+    if (item.startMonth && mon < item.startMonth) continue;
+    if (item.endMonth && mon > item.endMonth) continue;
+    const cur = item.currency || 'USD';
+    ensure(cur);
+    byCur[cur].expectedIncome += item.amount || 0;
+    byCur[cur].totalCount++;
+    if (item.months?.[mon]?.paid) byCur[cur].paidCount++;
+  }
+
+  // Bill items
+  for (const item of S.recurring.items) {
+    if (item.type !== 'expense' || item.closed) continue;
+    if (item.startMonth && mon < item.startMonth) continue;
+    if (item.endMonth && mon > item.endMonth) continue;
+    const cur = item.currency || 'USD';
+    ensure(cur);
+    if (item.isVariable) {
+      let sum = 0, cnt = 0;
+      for (let d = 1; d <= 3; d++) {
+        const pm = shiftMonth(mon, -d);
+        const a = item.months?.[pm]?.amount;
+        if (a) { sum += a; cnt++; }
+      }
+      byCur[cur].expectedBills += cnt ? sum / cnt : 0;
+    } else {
+      byCur[cur].expectedBills += item.amount || 0;
+    }
+    byCur[cur].totalCount++;
+    if (item.months?.[mon]?.paid) byCur[cur].paidCount++;
+  }
+
+  // Credit cards
+  for (const card of S.recurring.creditCards) {
+    if (card.closed) continue;
+    if (card.startMonth && mon < card.startMonth) continue;
+    if (card.endMonth && mon > card.endMonth) continue;
+    const cur = card.currency || 'INR';
+    ensure(cur);
+    let sum = 0, cnt = 0;
+    for (let d = 1; d <= 3; d++) {
+      const pm = shiftMonth(mon, -d);
+      const a = card.months?.[pm]?.amount;
+      if (a) { sum += a; cnt++; }
+    }
+    byCur[cur].expectedCC += cnt ? sum / cnt : 0;
+    byCur[cur].totalCount++;
+    if (card.months?.[mon]?.paid) byCur[cur].paidCount++;
+  }
+
+  const curs = Object.keys(byCur);
+  if (!curs.length) return '';
+
+  let totalPaid = 0, totalAll = 0;
+  for (const d of Object.values(byCur)) { totalPaid += d.paidCount; totalAll += d.totalCount; }
+
+  const rows = curs.map(cur => {
+    const d = byCur[cur];
+    const expectedBills = d.expectedBills + d.expectedCC;
+    const pct = d.totalCount ? Math.round(d.paidCount / d.totalCount * 100) : 0;
+    return `<div style="padding:4px 16px 10px">
+      ${curs.length > 1 ? `<div style="font-size:10px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">${cur}</div>` : ''}
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px">
+        <span style="color:var(--income);font-weight:700">Income ${formatMoney(d.expectedIncome,cur)}</span>
+        <span style="color:var(--expense);font-weight:700">Bills ${formatMoney(expectedBills,cur)}</span>
+      </div>
+      <div class="bar-bg" style="height:6px;border-radius:3px"><div class="bar-fill" style="width:${pct}%;border-radius:3px"></div></div>
+    </div>`;
+  }).join('');
+
+  return `<div class="card">
+    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">Monthly Overview</span></div><div class="sec-sub">${fmtMonth(mon)} · ${totalPaid} of ${totalAll} done</div></div></div>
+    ${rows}
+  </div>`;
 }
 
 function renderRecurringIncome() {
   const mon = S.selectedMonth;
   const incomeItems = S.recurring.items.filter(i=>i.type==='income'&&!i.closed&&(!i.startMonth||mon>=i.startMonth)&&(!i.endMonth||mon<=i.endMonth))
-    .sort((a,b)=>(a.currency||'USD').localeCompare(b.currency||'USD') || (a.dayOfMonth||1)-(b.dayOfMonth||1));
+    .sort((a,b)=>{
+      const ap = a.months?.[mon]?.paid ? 1 : 0, bp = b.months?.[mon]?.paid ? 1 : 0;
+      if (ap !== bp) return ap - bp;
+      return (a.currency||'USD').localeCompare(b.currency||'USD') || (a.dayOfMonth||1)-(b.dayOfMonth||1);
+    });
+
+  const paidCount = incomeItems.filter(i=>i.months?.[mon]?.paid).length;
+  const totalCount = incomeItems.length;
+  const monthLabel = fmtMonth(mon);
 
   const incomeRows = incomeItems.map(item => {
     const ms = item.months||{}, paid = ms[mon]?.paid;
     const c = item.currency||'USD';
-    return `<div class="p-row">
+    const badge = getDueBadge(item.dayOfMonth, paid, mon);
+    return `<div class="p-row"${paid?' style="opacity:.55"':''}>
       <div class="p-row-icon sav">${svgArrowUp.replace('stroke="currentColor"','stroke="#059669"')}</div>
       <div class="p-row-meta">
         <div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span></div>
-        <div class="p-row-sub">${item.category||'Salary'}${item.dayOfMonth?' · '+ordinal(item.dayOfMonth)+' of month':''}</div>
+        <div class="p-row-sub">${item.category||'Salary'}${item.dayOfMonth?' · '+ordinal(item.dayOfMonth)+' of month':''}${badge?' '+badge:''}</div>
       </div>
       <div class="p-row-right">
         <div class="p-row-btns">
@@ -1109,7 +1156,7 @@ function renderRecurringIncome() {
 
   const isOpen = S.secOpen.recIncome;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="recIncome" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
-      <div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Recurring Income</span></div><div class="sec-sub">Salary & other monthly income · ${fmtMonth(mon)}</div></div>
+      <div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Recurring Income</span></div><div class="sec-sub">${monthLabel} · ${paidCount} of ${totalCount} confirmed</div></div>
     </div>`;
 
   if (!isOpen) return `<div class="card">${hdr}</div>`;
@@ -1120,17 +1167,26 @@ function renderRecurringIncome() {
 function renderBills() {
   const mon = S.selectedMonth;
   const billItems = S.recurring.items.filter(i=>i.type==='expense'&&!i.closed&&(!i.startMonth||mon>=i.startMonth)&&(!i.endMonth||mon<=i.endMonth))
-    .sort((a,b)=>(a.currency||'USD').localeCompare(b.currency||'USD') || (a.dayOfMonth||1)-(b.dayOfMonth||1));
+    .sort((a,b)=>{
+      const ap = a.months?.[mon]?.paid ? 1 : 0, bp = b.months?.[mon]?.paid ? 1 : 0;
+      if (ap !== bp) return ap - bp;
+      return (a.currency||'USD').localeCompare(b.currency||'USD') || (a.dayOfMonth||1)-(b.dayOfMonth||1);
+    });
+
+  const paidCount = billItems.filter(i=>i.months?.[mon]?.paid).length;
+  const totalCount = billItems.length;
+  const monthLabel = fmtMonth(mon);
 
   const billRows = billItems.map(item => {
     const ms = item.months||{}, paid = ms[mon]?.paid;
     const c = item.currency||'USD';
     const lastAmt = ms[mon]?.amount || item.amount || 0;
-    return `<div class="p-row">
+    const badge = getDueBadge(item.dayOfMonth, paid, mon);
+    return `<div class="p-row"${paid?' style="opacity:.55"':''}>
       <div class="p-row-icon loan">${svgArrowDown.replace('stroke="currentColor"','stroke="#e11d48"')}</div>
       <div class="p-row-meta">
         <div class="p-row-name">${esc(item.name)}<span class="cur-pill red">${c}</span></div>
-        <div class="p-row-sub">${item.isVariable?'Variable':'Fixed · '+formatMoney(item.amount,c)}${item.dayOfMonth?' · Due '+ordinal(item.dayOfMonth):''}</div>
+        <div class="p-row-sub">${item.isVariable?'Variable':'Fixed · '+formatMoney(item.amount,c)}${item.dayOfMonth?' · Due '+ordinal(item.dayOfMonth):''}${badge?' '+badge:''}</div>
       </div>
       <div class="p-row-right">
         <div class="p-row-btns">
@@ -1150,7 +1206,7 @@ function renderBills() {
 
   const isOpen = S.secOpen.bills;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="bills" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
-      <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Bills</span></div><div class="sec-sub">Monthly recurring bills · ${fmtMonth(mon)}</div></div>
+      <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Bills</span></div><div class="sec-sub">${monthLabel} · ${paidCount} of ${totalCount} paid</div></div>
     </div>`;
 
   if (!isOpen) return `<div class="card">${hdr}</div>`;
@@ -1160,17 +1216,26 @@ function renderBills() {
 
 function renderCreditCards() {
   const mon = S.selectedMonth;
-  const cards = [...S.recurring.creditCards]
-    .sort((a,b)=>(a.currency||'INR').localeCompare(b.currency||'INR') || (a.dueDay||1)-(b.dueDay||1));
+  const cards = S.recurring.creditCards.filter(c=>!c.closed&&(!c.startMonth||mon>=c.startMonth)&&(!c.endMonth||mon<=c.endMonth))
+    .sort((a,b)=>{
+      const ap = a.months?.[mon]?.paid ? 1 : 0, bp = b.months?.[mon]?.paid ? 1 : 0;
+      if (ap !== bp) return ap - bp;
+      return (a.currency||'INR').localeCompare(b.currency||'INR') || (a.dueDay||1)-(b.dueDay||1);
+    });
+
+  const paidCount = cards.filter(c=>c.months?.[mon]?.paid).length;
+  const totalCount = cards.length;
+  const monthLabel = fmtMonth(mon);
 
   const cardRows = cards.map(card => {
     const ms = card.months||{}, paid = ms[mon]?.paid, billAmt = ms[mon]?.amount||0;
     const c = card.currency||'INR';
-    return `<div class="p-row">
+    const badge = getDueBadge(card.dueDay, paid, mon);
+    return `<div class="p-row"${paid?' style="opacity:.55"':''}>
       <div class="p-row-icon" style="background:#ede9fe">${svgCard.replace('stroke="currentColor"','stroke="#7c3aed"')}</div>
       <div class="p-row-meta">
         <div class="p-row-name">${esc(card.name)}<span class="cur-pill amb">${c}</span></div>
-        <div class="p-row-sub">Due ${ordinal(card.dueDay)} of month</div>
+        <div class="p-row-sub">Due ${ordinal(card.dueDay)} of month${badge?' '+badge:''}</div>
       </div>
       <div class="p-row-right">
         <div class="p-row-btns">
@@ -1188,7 +1253,7 @@ function renderCreditCards() {
 
   const isOpen = S.secOpen.cards;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="cards" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
-      <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Credit Cards</span></div><div class="sec-sub">Monthly credit card payments · ${fmtMonth(mon)}</div></div>
+      <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Credit Cards</span></div><div class="sec-sub">${monthLabel} · ${paidCount} of ${totalCount} paid</div></div>
     </div>`;
 
   if (!isOpen) return `<div class="card">${hdr}</div>`;
@@ -1196,14 +1261,35 @@ function renderCreditCards() {
   return `<div class="card">${hdr}${cardRows}</div>`;
 }
 
+function updateHeaderMonthNav() {
+  const el = document.getElementById('header-month-nav');
+  if (!el) return;
+  el.classList.remove('visible');
+  el.innerHTML = '';
+}
+
+function renderMonthNavCard() {
+  const label = fmtMonth(S.selectedMonth);
+  const maxMonth = S.tab==='recurring' ? shiftMonth(thisMonth(),1) : thisMonth();
+  const atMax = S.selectedMonth >= maxMonth;
+  const isCurrent = S.selectedMonth === thisMonth();
+  return `<div class="card month-nav">
+    <button class="ibtn" data-action="prev-month" title="Previous month">${svgChevronLeft}</button>
+    <div class="month-nav-label">${label}${isCurrent?'':` <button class="link-btn" data-action="goto-current-month">Today</button>`}</div>
+    <button class="ibtn" data-action="next-month" ${atMax?'disabled':''} title="Next month">${svgChevronRight}</button>
+  </div>`;
+}
+
 function renderDashboard() {
-  document.getElementById('tab-transactions').innerHTML =
-    renderMonthNav() + renderHeroCards() + renderQuickAdd() + renderCatBreakdown() + renderActivity();
+  document.getElementById('tab-dashboard').innerHTML =
+    renderHeroCards() + renderOverviewCards() + renderActivity() + renderMonthNavCard();
+  updateHeaderMonthNav();
 }
 
 function renderRecurring() {
   document.getElementById('tab-recurring').innerHTML =
-    renderMonthNav() + renderRecurringQuickAdd() + renderRecurringIncome() + renderBills() + renderCreditCards();
+    renderRecurringSummary() + renderRecurringIncome() + renderBills() + renderCreditCards() + renderMonthNavCard();
+  updateHeaderMonthNav();
 }
 
 function renderMonthNav() {
@@ -1277,6 +1363,19 @@ function renderHeroCards() {
   return Object.entries(byCur).map(([cur,{income,expense}]) => {
     const prev = prevBal[cur] || 0;
     const net = prev + income - expense;
+    // Top 3 expense categories for this currency this month
+    const catTotals = {};
+    for (const t of S.transactions) {
+      if (!t.date || localTxMonth(t.date) !== mon || t.type !== 'expense' || getCur(t) !== cur) continue;
+      const cat = t.category || 'Other';
+      catTotals[cat] = (catTotals[cat] || 0) + t.amount;
+    }
+    const totalExp = Object.values(catTotals).reduce((a, b) => a + b, 0);
+    const topCats = Object.entries(catTotals).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    const catChips = topCats.length ? `<div class="chips" style="margin-top:6px">${topCats.map(([cat, amt]) => {
+      const pct = totalExp ? Math.round(amt / totalExp * 100) : 0;
+      return `<div class="chip" style="flex:none"><span style="font-size:9px;font-weight:700">${esc(cat)} ${pct}%</span></div>`;
+    }).join('')}</div>` : '';
     return `<div class="card-hero">
     <div class="eyebrow">${cur} · ${monthLabel}</div>
     <div class="amount">${formatMoney(net,cur)}</div>
@@ -1285,6 +1384,7 @@ function renderHeroCards() {
       <div class="chip"><div class="chip-lbl">Income</div><div class="chip-val inc">${formatMoney(income,cur)}</div></div>
       <div class="chip"><div class="chip-lbl">Expenses</div><div class="chip-val exp">${formatMoney(expense,cur)}</div></div>
     </div>
+    ${catChips}
   </div>`;
   }).join('');
 }
@@ -1302,8 +1402,13 @@ function renderCatBreakdown() {
   };
   const addInc = (cur, cat, amt) => { if (!incByCur[cur]) incByCur[cur]={}; incByCur[cur][cat]=(incByCur[cur][cat]||0)+amt; };
 
+  const recurTxIds = new Set();
+  for (const item of (S.recurring?.items||[])) { const ms=item.months?.[mon]; if (ms?.txId) recurTxIds.add(ms.txId); }
+  for (const card of (S.recurring?.creditCards||[])) { const ms=card.months?.[mon]; if (ms?.txId) recurTxIds.add(ms.txId); }
+
   for (const t of S.transactions) {
     if (!t.date || localTxMonth(t.date)!==mon) continue;
+    if (recurTxIds.has(t.id)) continue;
     if (t.type==='transfer') { transfers.push(t); continue; }
     if (t.type==='income') { addInc(getCur(t), t.category, t.amount); continue; }
     if (t.category==='Bills' && t.note) {
@@ -1445,7 +1550,7 @@ function renderActivity() {
   for (const t of S.transactions) {
     if (!t.date || localTxMonth(t.date) !== mon) continue;
     if (t.type==='transfer') {
-      entries.push({ date: t.date, icon: 'transfer', iconSvg: svgTransfer, name: 'Transfer', meta: t.note ? esc(t.note) + ' · ' + fmtDate(t.date) : fmtDate(t.date), amtHtml: `<span class="tx-amount transfer">${formatMoney(t.fromAmount,t.fromCurrency)} → ${formatMoney(t.toAmount,t.toCurrency)}</span>`, delBtn: `<button class="tx-del" data-action="del-tx" data-id="${t.id}" title="Delete">${svgTrash}</button>`, badge: '', source: 'txn' });
+      entries.push({ date: t.date, icon: 'transfer', iconSvg: svgTransfer, name: 'Transfer', meta: t.note ? esc(t.note) + ' · ' + fmtDate(t.date) : fmtDate(t.date), amtHtml: `<span class="tx-amount transfer">${formatMoney(t.fromAmount,t.fromCurrency)} → ${formatMoney(t.toAmount,t.toCurrency)}</span>`, delBtn: `<button class="tx-del" data-action="del-tx" data-id="${t.id}" title="Delete">${svgTrash}</button>`, badge: '', currencies: [t.fromCurrency, t.toCurrency], source: 'txn' });
     } else {
       const isIncome = t.type==='income';
       const isBill = t.category==='Bills' && t.note;
@@ -1469,28 +1574,50 @@ function renderActivity() {
     }
   }
 
+  const allCurs = [...new Set(entries.flatMap(e => e.currencies || (e.badge ? [e.badge] : [])))];
+  const filter = S.activityCurFilter;
+  const filtered = filter ? entries.filter(e => e.currencies ? e.currencies.includes(filter) : e.badge === filter) : entries;
+
   const isOpen = S.secOpen.tx;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="tx" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
-      <div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">All Activity</span></div><div class="sec-sub">${entries.length?`${entries.length} this month`:'Recent activity'}</div></div>
+      <div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">All Activity</span></div><div class="sec-sub">${filtered.length?`${filtered.length} this month`:'Recent activity'}</div></div>
     </div>`;
+  const filterChips = allCurs.length > 1 ? `<div class="toggle-chip-row" style="padding:4px 16px 8px">
+    <button class="toggle-chip${!filter?' active':''}" data-action="filter-activity-cur" data-cur="">All</button>
+    ${allCurs.map(c=>`<button class="toggle-chip${filter===c?' active':''}" data-action="filter-activity-cur" data-cur="${c}">${c}</button>`).join('')}
+  </div>` : '';
   if (!isOpen) return `<div class="card">${hdr}</div>`;
-  if (!entries.length) return `<div class="card">${hdr}<div class="empty"><p>No activity this month</p></div></div>`;
+  if (!filtered.length) return `<div class="card">${hdr}${filterChips}<div class="empty"><p>No activity this month</p></div></div>`;
 
-  entries.sort((a, b) => b.date.localeCompare(a.date));
+  filtered.sort((a, b) => b.date.localeCompare(a.date));
 
   const sourceColors = { txn: '', loan: '#ef4444', saving: '#10b981', gold: '#f59e0b' };
   const sourceLabels = { txn: '', loan: 'Loan', saving: 'Savings', gold: 'Gold Loan' };
 
-  const rows = entries.map(e => {
+  const todayStr = todayISO();
+  const yesterdayDate = new Date(); yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterdayStr = `${yesterdayDate.getFullYear()}-${String(yesterdayDate.getMonth()+1).padStart(2,'0')}-${String(yesterdayDate.getDate()).padStart(2,'0')}`;
+  let lastDateGroup = '';
+  const rows = filtered.map(e => {
     const srcPill = e.source !== 'txn' ? `<span class="tx-badge" style="background:${sourceColors[e.source]}20;color:${sourceColors[e.source]}">${sourceLabels[e.source]}</span>` : '';
-    return `<li class="tx-row">
+    const entryDate = e.date.slice(0, 10);
+    let dateHdr = '';
+    if (entryDate !== lastDateGroup) {
+      lastDateGroup = entryDate;
+      let dateLabel;
+      if (entryDate === todayStr) dateLabel = 'Today';
+      else if (entryDate === yesterdayStr) dateLabel = 'Yesterday';
+      else dateLabel = new Date(entryDate + 'T12:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric'});
+      dateHdr = `<li class="tx-date-hdr">${dateLabel}</li>`;
+    }
+    return `${dateHdr}<li class="tx-row">
       <div class="tx-icon ${e.icon}">${e.iconSvg}</div>
       <div class="tx-body"><div class="tx-cat">${esc(e.name)}${e.badge?`<span class="tx-badge">${e.badge}</span>`:''}${srcPill}</div><div class="tx-meta">${e.meta}</div></div>
       <div class="tx-right">${e.amtHtml}</div>
       ${e.delBtn}
     </li>`;
   }).join('');
-  return `<div class="card">${hdr}<ul class="tx-list">${rows}</ul></div>`;
+  return `<div class="card">${hdr}${filterChips}<ul class="tx-list">${rows}</ul></div>`;
 }
 
 // ── Portfolio ──────────────────────────────────────────────────────────────────
@@ -1499,6 +1626,8 @@ function renderPortfolioQuickAdd() {
     {type:'saving', label:'Saving'},
     {type:'loan', label:'Loan'},
     {type:'gold-loan', label:'Gold Loan'},
+    {type:'investment', label:'Investment'},
+    {type:'insurance', label:'Insurance'},
   ];
   const chips = types.map(({type,label}) =>
     `<button class="toggle-chip${S.portfolioAddType===type?' active':''}" data-action="set-portfolio-add-type" data-type="${type}">${label}</button>`
@@ -1507,15 +1636,15 @@ function renderPortfolioQuickAdd() {
   if (S.portfolioAddType==='saving') form = savingForm(null);
   else if (S.portfolioAddType==='loan') form = loanForm(null);
   else if (S.portfolioAddType==='gold-loan') form = goldLoanForm(null);
-  const panel = S.portfolioAddType !== null
-    ? `<div class="add-form"><div class="toggle-chip-row">${chips}</div>${form}</div>`
-    : `<button class="add-row-btn" data-action="toggle-portfolio-add">${svgPlus} Add Entry</button>`;
-  return `<div class="card">${panel}</div>`;
+  else if (S.portfolioAddType==='investment') form = investmentForm(null);
+  else if (S.portfolioAddType==='insurance') form = insuranceForm(null);
+  if (S.portfolioAddType === null) return '';
+  return `<div class="card"><div class="add-form"><div class="toggle-chip-row">${chips}</div>${form}</div></div>`;
 }
 
 function renderPortfolio() {
   document.getElementById('tab-portfolio').innerHTML =
-    renderPortfolioQuickAdd() + renderPortfolioSummary() + renderSavings() + renderLoans() + renderGoldLoans();
+    renderPortfolioSummary() + renderSavings() + renderLoans() + renderGoldLoans() + renderInvestmentsCard() + renderInsuranceCard();
 }
 
 function getPortfolioCurrencies() {
@@ -1547,22 +1676,9 @@ function renderSavings() {
     if (S.editingId===item.id && S.editSection==='saving') return `<div class="add-form">${savingForm(item)}</div>`;
     const isExpanded = S.expandedSaving===item.id;
     const payments = item.payments||[];
-    const payFormOpen = S.showingSavingPayForm===item.id;
     const payHtml = isExpanded ? `<div class="schedule-wrap"><div class="pp-section">
       <div class="pp-hdr-row"><span class="pp-hdr-title">Payments${payments.length?` <span class="pp-count">${payments.length}</span>`:''}</span></div>
-      ${payments.length?`<div class="pp-tbl-wrap"><table class="pp-tbl"><thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Note</th><th></th></tr></thead><tbody>${payments.map(p=>`<tr><td>${p.date}</td><td>${p.type==='deposit'?'<span class="ledger-src inc">Deposit</span>':'<span class="ledger-src exp">Withdrawal</span>'}</td><td class="pp-tbl-amt ${p.type==='deposit'?'grn':'red'}">${p.type==='deposit'?'+':'−'}${formatMoney(p.amount,c)}</td><td>${p.note?esc(p.note):''}</td><td><button class="ibtn del" data-action="del-saving-payment" data-saving-id="${item.id}" data-payment-id="${p.id}" title="Delete">${svgTrash}</button></td></tr>`).join('')}</tbody></table></div>`:''}
-      ${payFormOpen?`<form class="pp-form add-form" data-action="add-saving-payment" data-id="${item.id}">
-        <div class="add-form-title">Record Payment</div>
-        <div class="form-row-2">
-          <div><label class="form-label">Date</label><input class="input" type="date" name="date" value="${todayISO()}"></div>
-          <div><label class="form-label">Type</label><div class="select-wrap"><select class="input" name="type"><option value="deposit">Deposit</option><option value="withdrawal">Withdrawal</option></select></div></div>
-        </div>
-        <div class="form-row-2">
-          <div><label class="form-label">Amount *</label><input class="input" type="number" name="amount" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required></div>
-          <div><label class="form-label">Note</label><input class="input" type="text" name="note" placeholder="Optional"></div>
-        </div>
-        <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="toggle-saving-pay-form" data-id="${item.id}">Cancel</button><button type="submit" class="btn btn-accent">Record</button></div>
-      </form>`:`<button class="add-row-btn" data-action="toggle-saving-pay-form" data-id="${item.id}">${svgPlus} Record Payment</button>`}
+      ${payments.length?`<div class="pp-tbl-wrap"><table class="pp-tbl"><thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Note</th><th></th></tr></thead><tbody>${payments.map(p=>`<tr><td>${p.date}</td><td>${p.type==='deposit'?'<span class="ledger-src inc">Deposit</span>':'<span class="ledger-src exp">Withdrawal</span>'}</td><td class="pp-tbl-amt ${p.type==='deposit'?'grn':'red'}">${p.type==='deposit'?'+':'−'}${formatMoney(p.amount,c)}</td><td>${p.note?esc(p.note):''}</td><td><button class="ibtn del" data-action="del-saving-payment" data-saving-id="${item.id}" data-payment-id="${p.id}" title="Delete">${svgTrash}</button></td></tr>`).join('')}</tbody></table></div>`:`<div class="text-sm text-muted" style="padding:4px 0">No payments yet. Use Dashboard → Add Entry → Savings.</div>`}
     </div></div>` : '';
     return `<div>
       <div class="p-row" data-action="toggle-saving" data-id="${item.id}" style="cursor:pointer">
@@ -1604,10 +1720,6 @@ function savingForm(item) {
   </form>`;
 }
 
-function renderInvestments() {
-  document.getElementById('tab-investments').innerHTML = renderInvestmentsCard() + renderInsuranceCard();
-}
-
 function renderInvestmentsCard() {
   const items = S.portfolio.investments;
   const totals = {};
@@ -1627,13 +1739,13 @@ function renderInvestmentsCard() {
       </div>
     </div>`;
   }).join('');
-  const addHtml = S.addingInvestment ? `<div class="add-form">${investmentForm(null)}</div>` : `<button class="add-row-btn" data-action="toggle-add-investment">${svgPlus} Add entry</button>`;
+  const isOpen = S.secOpen.investments;
   return `<div class="card">
-    <div class="sec-hdr">
+    <div class="sec-hdr" data-action="toggle-section" data-sec="investments" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
       <div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Investments</span></div><div class="sec-sub">Stocks, mutual funds, FDs, and more</div></div>
       ${items.length?`<div class="sec-totals"><div class="sec-total-lbl">Current Value</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt grn">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
     </div>
-    ${rows}${addHtml}</div>`;
+    ${isOpen?rows:''}</div>`;
 }
 
 function insuranceForm(item) {
@@ -1679,13 +1791,13 @@ function renderInsuranceCard() {
       </div>
     </div>`;
   }).join('');
-  const addHtml = S.addingInsurance ? `<div class="add-form">${insuranceForm(null)}</div>` : `<button class="add-row-btn" data-action="toggle-add-insurance">${svgPlus} Add entry</button>`;
+  const isOpen = S.secOpen.insurance;
   return `<div class="card">
-    <div class="sec-hdr">
+    <div class="sec-hdr" data-action="toggle-section" data-sec="insurance" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
       <div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">Insurance</span></div><div class="sec-sub">Life, health & other policies</div></div>
       ${items.length?`<div class="sec-totals"><div class="sec-total-lbl">Sum Assured</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt grn">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
     </div>
-    ${rows}${addHtml}</div>`;
+    ${isOpen?rows:''}</div>`;
 }
 
 function renderSettings() {
@@ -1710,6 +1822,8 @@ function renderSettings() {
 
   const apiKey = localStorage.getItem('mmc.apiKey') || '';
   const aiProvider = localStorage.getItem('mmc.aiProvider') || 'claude';
+  const apiUrl = localStorage.getItem('mmc.apiUrl') || '';
+  const defaultApiUrl = aiProvider === 'gemini' ? 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent' : 'https://api.anthropic.com/v1/messages';
   const maskedKey = apiKey ? '••••••••' + apiKey.slice(-4) : '';
   const keyPlaceholder = aiProvider === 'gemini' ? 'AIza...' : 'sk-ant-...';
   const aiCard = `<div class="card">
@@ -1721,20 +1835,19 @@ function renderSettings() {
         <option value="gemini" ${aiProvider==='gemini'?'selected':''}>Gemini (Google)</option>
       </select>
       <div class="p-row-name" style="margin-bottom:6px">API Key</div>
-      <form data-action="save-api-key" style="display:flex;gap:6px;align-items:center">
+      <form data-action="save-api-key" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
         <input class="input" type="password" name="apiKey" value="${esc(apiKey)}" style="font-size:12px;padding:6px 8px;flex:1;min-width:0;width:0" placeholder="${keyPlaceholder}">
-        <button type="submit" class="btn btn-accent" style="font-size:10px;padding:4px 10px;width:auto;flex:none">Save</button>
+        <div style="width:100%;margin-top:6px">
+          <div class="p-row-name" style="margin-bottom:6px">API URL <span style="color:var(--muted);font-weight:400">(optional)</span></div>
+          <input class="input" type="url" name="apiUrl" value="${esc(apiUrl)}" style="font-size:12px;padding:6px 8px;width:100%" placeholder="${defaultApiUrl}">
+        </div>
+        <button type="submit" class="btn btn-accent" style="font-size:10px;padding:4px 10px;width:auto;flex:none;margin-top:6px">Save</button>
       </form>
       ${maskedKey?`<div class="p-row-sub" style="margin-top:4px;max-width:none">Current: ${maskedKey}</div>`:''}
     </div>
   </div>`;
 
-  const moreCard = `<div class="card">
-    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">More Options</span></div><div class="sec-sub">Additional settings coming soon</div></div></div>
-    <div class="empty"><p>Nothing here yet</p></div>
-  </div>`;
-
-  document.getElementById('tab-settings').innerHTML = aboutCard + dataCard + aiCard + moreCard;
+  document.getElementById('tab-settings').innerHTML = aboutCard + dataCard + aiCard;
 }
 
 function investmentForm(item) {
@@ -1938,6 +2051,9 @@ function handleSubmit(e) {
     const key = (d.apiKey||'').trim();
     if (key) { localStorage.setItem('mmc.apiKey', key); toast('API key saved'); }
     else { localStorage.removeItem('mmc.apiKey'); toast('API key removed'); }
+    const url = (d.apiUrl||'').trim();
+    if (url) { localStorage.setItem('mmc.apiUrl', url); }
+    else { localStorage.removeItem('mmc.apiUrl'); }
     return;
   }
 
@@ -1947,14 +2063,14 @@ function handleSubmit(e) {
     const txDate = d.date ? new Date(d.date+'T12:00:00').toISOString() : new Date().toISOString();
     S.transactions.unshift({id:uid(),type,amount,category:d.category,note:d.note||undefined,date:txDate,currency:d.currency});
     if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
-    S.addEntryType=null; save(); renderOverview(); renderDashboard(); toast('Transaction added'); return;
+    S.addEntryType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderDashboard(); toast('Transaction added'); return;
   }
   if (action==='add-recurring-income') {
     if (!d.name.trim()) return toast('Name is required');
     const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
     S.recurring.items.push({id:uid(),name:d.name.trim(),type:'income',category:d.category||'Salary',amount,currency:d.currency,dayOfMonth:d.dayOfMonth?parseInt(d.dayOfMonth):undefined,months:{},createdAt:todayISO()});
     if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
-    S.recurringAddType=null; save(); renderDashboard(); renderRecurring(); toast('Recurring income added'); return;
+    S.recurringAddType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderDashboard(); renderRecurring(); toast('Recurring income added'); return;
   }
   if (action==='add-bill') {
     if (!d.name.trim()) return toast('Name is required');
@@ -1962,14 +2078,14 @@ function handleSubmit(e) {
     const amount = isVariable ? 0 : (parseFloat(d.amount)||0);
     S.recurring.items.push({id:uid(),name:d.name.trim(),type:'expense',isVariable,amount,currency:d.currency,dayOfMonth:d.dayOfMonth?parseInt(d.dayOfMonth):undefined,months:{},createdAt:todayISO()});
     if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
-    S.recurringAddType=null; save(); renderDashboard(); renderRecurring(); toast('Bill added'); return;
+    S.recurringAddType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderDashboard(); renderRecurring(); toast('Bill added'); return;
   }
   if (action==='add-credit-card') {
     if (!d.name.trim()) return toast('Card name is required');
     const dueDay = parseInt(d.dueDay); if (!dueDay||dueDay<1||dueDay>31) return toast('Enter a valid due day');
     S.recurring.creditCards.push({id:uid(),name:d.name.trim(),currency:d.currency,dueDay,months:{},createdAt:todayISO()});
     if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
-    S.recurringAddType=null; save(); renderDashboard(); renderRecurring(); toast('Card added'); return;
+    S.recurringAddType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderDashboard(); renderRecurring(); toast('Card added'); return;
   }
   if (action==='add-transfer') {
     const fromAmount = parseFloat(d.fromAmount), toAmount = parseFloat(d.toAmount);
@@ -1978,7 +2094,7 @@ function handleSubmit(e) {
     const txDate = d.date ? new Date(d.date+'T12:00:00').toISOString() : new Date().toISOString();
     S.transactions.unshift({id:uid(),type:'transfer',fromCurrency:d.fromCurrency,fromAmount,toCurrency:d.toCurrency,toAmount,currency:d.fromCurrency,note:d.note||undefined,date:txDate});
     S.txCurrency=d.fromCurrency; localStorage.setItem('mmc.lastCurrency.v1',d.fromCurrency);
-    S.addEntryType=null; save(); renderOverview(); renderDashboard(); toast('Transfer recorded'); return;
+    S.addEntryType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderDashboard(); toast('Transfer recorded'); return;
   }
   if (action==='add-savings-fund') {
     const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
@@ -1989,7 +2105,7 @@ function handleSubmit(e) {
     saving.payments.unshift({id:uid(), date:d.date||todayISO(), amount, type:d.type||'deposit', note:d.note||undefined});
     if (d.type==='deposit') { saving.amount += amount; S.transactions.unshift({id:uid(),type:'expense',amount,category:'Saving',note:saving.name+(d.note?' - '+d.note:''),date:txDate,currency:getCur(saving)}); }
     else { saving.amount = Math.max(0, saving.amount - amount); S.transactions.unshift({id:uid(),type:'income',amount,category:'Saving',note:saving.name+(d.note?' - '+d.note:''),date:txDate,currency:getCur(saving)}); }
-    S.addEntryType=null; save(); renderDashboard(); renderPortfolio(); renderOverview(); toast((d.type==='deposit'?'Deposit':'Withdrawal')+' recorded'); return;
+    S.addEntryType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderDashboard(); renderPortfolio(); toast((d.type==='deposit'?'Deposit':'Withdrawal')+' recorded'); return;
   }
   if (action==='save-card-bill') {
     const card = S.recurring.creditCards.find(c=>c.id===form.dataset.id); if (!card) return;
@@ -1999,7 +2115,7 @@ function handleSubmit(e) {
     const txId = uid();
     S.transactions.unshift({id:txId,type:'expense',amount,category:'Bills',note:card.name+' CC Bill',date:dateInMonth(mon),currency:card.currency||'INR'});
     card.months[mon].paid = true; card.months[mon].txId = txId;
-    save(); renderOverview(); renderDashboard(); renderRecurring(); toast(card.name+' bill recorded'); return;
+    save(); renderDashboard(); renderRecurring(); toast(card.name+' bill recorded'); return;
   }
   if (action==='mark-variable-bill') {
     const item = S.recurring.items.find(i=>i.id===form.dataset.id); if (!item) return;
@@ -2008,13 +2124,13 @@ function handleSubmit(e) {
     const txId = uid();
     S.transactions.unshift({id:txId,type:'expense',amount,category:'Bills',note:item.name,date:dateInMonth(mon),currency:item.currency||'INR'});
     item.months[mon] = {paid:true, amount, txId};
-    save(); renderOverview(); renderDashboard(); renderRecurring(); toast(item.name+' marked paid'); return;
+    save(); renderDashboard(); renderRecurring(); toast(item.name+' marked paid'); return;
   }
   if (action==='add-saving') {
     if (!d.name.trim()) return toast('Name is required');
     const amount = parseFloat(d.amount); if (!amount||amount<0) return toast('Enter a valid amount');
     S.portfolio.savings.unshift({id:uid(),name:d.name.trim(),institution:d.institution||undefined,amount,interestRate:d.interestRate?parseFloat(d.interestRate):undefined,note:d.note||undefined,currency:d.currency,createdAt:todayISO()});
-    S.addingSaving=false; S.portfolioAddType=null; save(); renderPortfolio(); toast('Saving added'); return;
+    S.portfolioAddType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderPortfolio(); toast('Saving added'); return;
   }
   if (action==='update-saving') {
     const amount = parseFloat(d.amount);
@@ -2026,12 +2142,12 @@ function handleSubmit(e) {
     const amountInvested = parseFloat(d.amountInvested); const currentValue = parseFloat(d.currentValue);
     if (!(amountInvested>=0) || !(currentValue>=0)) return toast('Enter valid amounts');
     S.portfolio.investments.unshift({id:uid(),name:d.name.trim(),type:d.type||undefined,amountInvested,currentValue,note:d.note||undefined,currency:d.currency,createdAt:todayISO()});
-    S.addingInvestment=false; save(); renderInvestments(); toast('Investment added'); return;
+    S.addingInvestment=false; S.portfolioAddType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderPortfolio(); toast('Investment added'); return;
   }
   if (action==='update-investment') {
     const amountInvested = parseFloat(d.amountInvested); const currentValue = parseFloat(d.currentValue);
     S.portfolio.investments = S.portfolio.investments.map(i=>i.id===form.dataset.id?{...i,name:d.name.trim(),type:d.type||undefined,amountInvested,currentValue,note:d.note||undefined,currency:d.currency}:i);
-    S.editingId=null; S.editSection=null; save(); renderInvestments(); toast('Investment updated'); return;
+    S.editingId=null; S.editSection=null; save(); renderPortfolio(); toast('Investment updated'); return;
   }
   if (action==='add-insurance') {
     if (!d.name.trim()) return toast('Name is required');
@@ -2040,20 +2156,23 @@ function handleSubmit(e) {
     if (!d.startDate) return toast('Start date is required');
     const premium = d.premium ? parseFloat(d.premium) : undefined;
     S.portfolio.insurance.unshift({id:uid(),name:d.name.trim(),type:d.type||undefined,sumAssured,premium,premiumFreq:d.premiumFreq||'Yearly',startDate:d.startDate,endDate:d.endDate||undefined,note:d.note||undefined,currency:d.currency,createdAt:todayISO()});
-    S.addingInsurance=false; save(); renderInvestments(); toast('Policy added'); return;
+    S.addingInsurance=false; S.portfolioAddType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderPortfolio(); toast('Policy added'); return;
   }
   if (action==='update-insurance') {
     const sumAssured = parseFloat(d.sumAssured);
     const premium = d.premium ? parseFloat(d.premium) : undefined;
     S.portfolio.insurance = S.portfolio.insurance.map(i=>i.id===form.dataset.id?{...i,name:d.name.trim(),type:d.type||undefined,sumAssured,premium,premiumFreq:d.premiumFreq||'Yearly',startDate:d.startDate,endDate:d.endDate||undefined,note:d.note||undefined,currency:d.currency}:i);
-    S.editingId=null; S.editSection=null; save(); renderInvestments(); toast('Policy updated'); return;
+    S.editingId=null; S.editSection=null; save(); renderPortfolio(); toast('Policy updated'); return;
   }
   if (action==='add-loan') {
     if (!d.name.trim()) return toast('Name is required');
     const emi = computeEmi(parseFloat(d.principal), parseFloat(d.interestRate), parseFloat(d.tenureYears));
-    S.portfolio.loans.unshift({id:uid(),name:d.name.trim(),lender:d.lender||undefined,principal:parseFloat(d.principal),startDate:d.startDate,tenureYears:parseFloat(d.tenureYears),interestRate:parseFloat(d.interestRate),note:d.note||undefined,currency:d.currency,partPayments:[],createdAt:todayISO()});
-    if (emi > 0) S.recurring.items.push({id:uid(),name:d.name.trim(),type:'expense',amount:Math.round(emi*100)/100,currency:d.currency,months:{},createdAt:todayISO()});
-    S.addingLoan=false; S.portfolioAddType=null; save(); renderPortfolio(); renderRecurring(); toast('Loan added'); return;
+    const loanId = uid();
+    const recurId = uid();
+    const loan = {id:loanId,name:d.name.trim(),lender:d.lender||undefined,principal:parseFloat(d.principal),startDate:d.startDate,tenureYears:parseFloat(d.tenureYears),interestRate:parseFloat(d.interestRate),note:d.note||undefined,currency:d.currency,partPayments:[],createdAt:todayISO()};
+    if (emi > 0) { loan.linkedRecurringId = recurId; S.recurring.items.push({id:recurId,name:d.name.trim(),type:'expense',amount:Math.round(emi*100)/100,currency:d.currency,months:{},createdAt:todayISO(),linkedLoanId:loanId}); }
+    S.portfolio.loans.unshift(loan);
+    S.portfolioAddType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderPortfolio(); renderRecurring(); toast('Loan added'); return;
   }
   if (action==='update-loan') {
     S.portfolio.loans = S.portfolio.loans.map(i=>i.id===form.dataset.id?{...i,name:d.name.trim(),lender:d.lender||undefined,principal:parseFloat(d.principal),startDate:d.startDate,tenureYears:parseFloat(d.tenureYears),interestRate:parseFloat(d.interestRate),note:d.note||undefined,currency:d.currency}:i);
@@ -2067,15 +2186,6 @@ function handleSubmit(e) {
     loan.partPayments.unshift({id:uid(), date:d.date||todayISO(), amount, note:d.note||undefined});
     S.showingPPForm=null; save(); renderPortfolio(); toast('Part payment recorded'); return;
   }
-  if (action==='add-saving-payment') {
-    const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
-    const saving = S.portfolio.savings.find(s=>s.id===form.dataset.id);
-    if (!saving) return;
-    if (!saving.payments) saving.payments = [];
-    saving.payments.unshift({id:uid(), date:d.date||todayISO(), amount, type:d.type||'deposit', note:d.note||undefined});
-    if (d.type==='deposit') saving.amount += amount; else saving.amount = Math.max(0, saving.amount - amount);
-    S.showingSavingPayForm=null; save(); renderPortfolio(); renderOverview(); toast((d.type==='deposit'?'Deposit':'Withdrawal')+' recorded'); return;
-  }
   if (action==='add-gold-payment') {
     const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
     const loan = S.portfolio.goldLoans.find(l=>l.id===form.dataset.id);
@@ -2083,19 +2193,23 @@ function handleSubmit(e) {
     if (!loan.payments) loan.payments = [];
     loan.payments.unshift({id:uid(), date:d.date||todayISO(), amount, note:d.note||undefined});
     loan.principal = Math.max(0, loan.principal - amount);
-    S.showingGoldPayForm=null; save(); renderPortfolio(); renderOverview(); toast('Payment recorded'); return;
+    S.showingGoldPayForm=null; save(); renderPortfolio(); renderDashboard(); toast('Payment recorded'); return;
   }
   if (action==='add-gold') {
     if (!d.name.trim()) return toast('Name is required');
     const principal = parseFloat(d.principal), rate = parseFloat(d.interestRate);
-    S.portfolio.goldLoans.unshift({id:uid(),name:d.name.trim(),lender:d.lender||undefined,principal,interestRate:rate,startDate:d.startDate||undefined,note:d.note||undefined,currency:d.currency,createdAt:todayISO()});
+    const loanId = uid();
+    const recurId = uid();
+    const loan = {id:loanId,name:d.name.trim(),lender:d.lender||undefined,principal,interestRate:rate,startDate:d.startDate||undefined,note:d.note||undefined,currency:d.currency,createdAt:todayISO()};
     const monthlyInterest = (principal && rate) ? Math.round(principal * rate / 100 / 12 * 100) / 100 : 0;
     if (monthlyInterest > 0) {
       const startMon = d.startDate ? d.startDate.slice(0,7) : thisMonth();
       const endMon = shiftMonth(startMon, 11);
-      S.recurring.items.push({id:uid(),name:d.name.trim(),type:'expense',amount:monthlyInterest,currency:d.currency,months:{},createdAt:todayISO(),startMonth:startMon,endMonth:endMon});
+      loan.linkedRecurringId = recurId;
+      S.recurring.items.push({id:recurId,name:d.name.trim(),type:'expense',amount:monthlyInterest,currency:d.currency,months:{},createdAt:todayISO(),startMonth:startMon,endMonth:endMon,linkedLoanId:loanId});
     }
-    S.addingGoldLoan=false; S.portfolioAddType=null; save(); renderPortfolio(); renderRecurring(); toast('Gold loan added'); return;
+    S.portfolio.goldLoans.unshift(loan);
+    S.portfolioAddType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderPortfolio(); renderRecurring(); toast('Gold loan added'); return;
   }
   if (action==='update-gold') {
     S.portfolio.goldLoans = S.portfolio.goldLoans.map(i=>i.id===form.dataset.id?{...i,name:d.name.trim(),lender:d.lender||undefined,principal:parseFloat(d.principal),interestRate:parseFloat(d.interestRate),startDate:d.startDate||undefined,note:d.note||undefined,currency:d.currency}:i);
@@ -2108,28 +2222,41 @@ function handleClick(e) {
   const action = btn.dataset.action;
 
   if (action==='switch-tab') {
-    S.tab = btn.dataset.tab;
+    const tabMap = { transactions: 'dashboard', investments: 'portfolio' };
+    let tab = btn.dataset.tab;
+    if (tabMap[tab]) tab = tabMap[tab];
+    if (!['dashboard','portfolio','recurring','settings','insights'].includes(tab)) tab = 'dashboard';
+    S.tab = tab;
     document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
     document.getElementById('tab-'+S.tab).classList.add('active');
     document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===S.tab));
-    if (S.tab==='dashboard') renderOverview();
-    else if (S.tab==='transactions') renderDashboard();
+    if (S.tab==='dashboard') renderDashboard();
     else if (S.tab==='portfolio') renderPortfolio();
-    else if (S.tab==='investments') renderInvestments();
     else if (S.tab==='recurring') renderRecurring();
     else if (S.tab==='insights') renderInsights();
     else if (S.tab==='settings') renderSettings();
+    updateHeaderMonthNav();
+    const fab = document.getElementById('fab'); if(fab) fab.classList.toggle('hidden', !['dashboard','portfolio','recurring'].includes(S.tab));
     return;
   }
   if (action==='prev-month') { S.selectedMonth = shiftMonth(S.selectedMonth, -1); renderDashboard(); renderRecurring(); return; }
-  if (action==='next-month') { const next = shiftMonth(S.selectedMonth, 1); if (next <= thisMonth()) S.selectedMonth = next; renderDashboard(); renderRecurring(); return; }
+  if (action==='next-month') { const next = shiftMonth(S.selectedMonth, 1); const limit = S.tab==='recurring' ? shiftMonth(thisMonth(),1) : thisMonth(); if (next <= limit) S.selectedMonth = next; renderDashboard(); renderRecurring(); return; }
   if (action==='goto-current-month') { S.selectedMonth = thisMonth(); renderDashboard(); renderRecurring(); return; }
+  if (action==='filter-activity-cur') { S.activityCurFilter = btn.dataset.cur || null; renderDashboard(); return; }
   if (action==='toggle-add-entry') { S.addEntryType = S.addEntryType ? null : 'tx-expense'; renderDashboard(); return; }
-  if (action==='set-entry-type') { S.addEntryType=btn.dataset.type; renderDashboard(); return; }
-  if (action==='cancel-entry') { S.addEntryType=null; renderDashboard(); return; }
+  if (action==='set-entry-type') { S.addEntryType=btn.dataset.type; const bs=document.getElementById('bottom-sheet'); if(bs.style.display!=='none'){document.getElementById('bottom-sheet-content').innerHTML=renderQuickAdd();}else{renderDashboard();} return; }
+  if (action==='cancel-entry') { S.addEntryType=null; document.getElementById('bottom-sheet').style.display='none'; renderDashboard(); return; }
+  if (action==='toggle-fab') {
+    const bs=document.getElementById('bottom-sheet'), bsc=document.getElementById('bottom-sheet-content');
+    if (S.tab==='portfolio') { if(!S.portfolioAddType) S.portfolioAddType='saving'; bsc.innerHTML=renderPortfolioQuickAdd(); }
+    else if (S.tab==='recurring') { if(!S.recurringAddType) S.recurringAddType='recurring-income'; bsc.innerHTML=renderRecurringQuickAdd(); }
+    else { if(!S.addEntryType) S.addEntryType='tx-expense'; bsc.innerHTML=renderQuickAdd(); }
+    bs.style.display=''; return;
+  }
+  if (action==='close-fab-backdrop') { if (btn.id==='bottom-sheet') { S.addEntryType=null; btn.style.display='none'; } return; }
   if (action==='toggle-recurring-add') { S.recurringAddType = S.recurringAddType ? null : 'recurring-income'; renderRecurring(); return; }
-  if (action==='set-recurring-add-type') { S.recurringAddType=btn.dataset.type; renderRecurring(); return; }
-  if (action==='cancel-recurring-add') { S.recurringAddType=null; renderRecurring(); return; }
+  if (action==='set-recurring-add-type') { S.recurringAddType=btn.dataset.type; const bs=document.getElementById('bottom-sheet'); if(bs.style.display!=='none'){document.getElementById('bottom-sheet-content').innerHTML=renderRecurringQuickAdd();}else{renderRecurring();} return; }
+  if (action==='cancel-recurring-add') { S.recurringAddType=null; document.getElementById('bottom-sheet').style.display='none'; renderRecurring(); return; }
   if (action==='confirm-recurring') {
     const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
     const mon = S.selectedMonth;
@@ -2137,25 +2264,34 @@ function handleClick(e) {
     const txId = uid();
     S.transactions.unshift({id:txId,type:'income',amount:item.amount,category:item.category||'Salary',note:item.name,date:dateInMonth(mon),currency:item.currency||'USD'});
     item.months[mon] = {paid:true, amount:item.amount, txId};
-    save(); renderOverview(); renderDashboard(); renderRecurring(); toast(item.name+' credited'); return;
+    save(); renderDashboard(); renderRecurring(); toast(item.name+' credited'); return;
   }
   if (action==='unmark-recurring-item') {
     const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
     const mon = S.selectedMonth; const ms = item.months?.[mon]; if (!ms) return;
     if (ms.txId) S.transactions = S.transactions.filter(t=>t.id!==ms.txId);
     ms.paid = false; ms.txId = undefined;
-    save(); renderOverview(); renderDashboard(); renderRecurring(); toast(item.name+' marked unpaid'); return;
+    save(); renderDashboard(); renderRecurring(); toast(item.name+' marked unpaid'); return;
   }
   if (action==='unmark-card') {
     const card = S.recurring.creditCards.find(c=>c.id===btn.dataset.id); if (!card) return;
     const mon = S.selectedMonth; const ms = card.months?.[mon]; if (!ms) return;
     if (ms.txId) S.transactions = S.transactions.filter(t=>t.id!==ms.txId);
     ms.paid = false; ms.txId = undefined;
-    save(); renderOverview(); renderDashboard(); renderRecurring(); toast(card.name+' marked unpaid'); return;
+    save(); renderDashboard(); renderRecurring(); toast(card.name+' marked unpaid'); return;
   }
   if (action==='del-recurring-item') {
-    if (!confirm('Remove this recurring entry?')) return;
-    S.recurring.items = S.recurring.items.filter(i=>i.id!==btn.dataset.id); save(); renderDashboard(); renderRecurring(); return;
+    const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
+    const mon = S.selectedMonth;
+    if (item.startMonth && mon <= item.startMonth) {
+      if (!confirm('Delete this recurring entry permanently?')) return;
+      S.recurring.items = S.recurring.items.filter(i=>i.id!==btn.dataset.id);
+    } else {
+      if (!confirm('Stop this recurring entry from ' + fmtMonth(mon) + '?')) return;
+      item.endMonth = shiftMonth(mon, -1);
+      item.closed = true;
+    }
+    save(); renderDashboard(); renderRecurring(); return;
   }
   // Bills
   if (action==='mark-bill-paid') {
@@ -2165,121 +2301,123 @@ function handleClick(e) {
     const txId = uid();
     S.transactions.unshift({id:txId,type:'expense',amount:item.amount,category:'Bills',note:item.name,date:dateInMonth(mon),currency:item.currency||'INR'});
     item.months[mon] = {paid:true, amount:item.amount, txId};
-    save(); renderOverview(); renderDashboard(); renderRecurring(); toast(item.name+' marked paid'); return;
+    save(); renderDashboard(); renderRecurring(); toast(item.name+' marked paid'); return;
   }
-  // Credit cards
-  if (action==='mark-card-paid') {
+
+  if (action==='del-credit-card') {
     const card = S.recurring.creditCards.find(c=>c.id===btn.dataset.id); if (!card) return;
     const mon = S.selectedMonth;
-    if (!card.months) card.months = {};
-    const amt = card.months[mon]?.amount||0;
-    const txId = uid();
-    if (amt>0) S.transactions.unshift({id:txId,type:'expense',amount:amt,category:'Bills',note:card.name+' CC Bill',date:dateInMonth(mon),currency:card.currency||'INR'});
-    card.months[mon] = {...(card.months[mon]||{}), paid:true, txId};
-    save(); renderOverview(); renderDashboard(); renderRecurring(); toast(card.name+' bill marked paid'); return;
-  }
-  if (action==='del-credit-card') {
-    if (!confirm('Remove this card?')) return;
-    S.recurring.creditCards = S.recurring.creditCards.filter(c=>c.id!==btn.dataset.id); save(); renderDashboard(); renderRecurring(); return;
+    const hasHistory = Object.keys(card.months||{}).some(m => m < mon && card.months[m]?.paid);
+    if (!hasHistory) {
+      if (!confirm('Delete this card permanently?')) return;
+      S.recurring.creditCards = S.recurring.creditCards.filter(c=>c.id!==btn.dataset.id);
+    } else {
+      if (!confirm('Stop this card from ' + fmtMonth(mon) + '?')) return;
+      card.endMonth = shiftMonth(mon, -1);
+      card.closed = true;
+    }
+    save(); renderDashboard(); renderRecurring(); return;
   }
   if (action==='del-tx') {
     if (!confirm('Delete this transaction?')) return;
-    S.transactions=S.transactions.filter(t=>t.id!==btn.dataset.id); save(); renderOverview(); renderDashboard(); return;
+    S.transactions=S.transactions.filter(t=>t.id!==btn.dataset.id); save(); renderDashboard(); return;
   }
-  if (action==='toggle-add-investment') { S.addingInvestment=!S.addingInvestment; S.editingId=null; renderInvestments(); return; }
-  if (action==='cancel-investment') { S.addingInvestment=false; S.editingId=null; S.editSection=null; renderInvestments(); return; }
-  if (action==='edit-investment') { S.editingId=btn.dataset.id; S.editSection='investment'; S.addingInvestment=false; renderInvestments(); return; }
+  if (action==='toggle-add-investment') { S.addingInvestment=!S.addingInvestment; S.editingId=null; renderPortfolio(); return; }
+  if (action==='cancel-investment') { S.addingInvestment=false; S.portfolioAddType=null; S.editingId=null; S.editSection=null; document.getElementById('bottom-sheet').style.display='none'; renderPortfolio(); return; }
+  if (action==='edit-investment') { S.editingId=btn.dataset.id; S.editSection='investment'; S.addingInvestment=false; renderPortfolio(); return; }
   if (action==='del-investment') {
     if (!confirm('Delete this investment?')) return;
-    S.portfolio.investments=S.portfolio.investments.filter(i=>i.id!==btn.dataset.id); save(); renderInvestments(); return;
+    S.portfolio.investments=S.portfolio.investments.filter(i=>i.id!==btn.dataset.id); save(); renderPortfolio(); return;
   }
-  if (action==='toggle-add-insurance') { S.addingInsurance=!S.addingInsurance; S.editingId=null; renderInvestments(); return; }
-  if (action==='cancel-insurance') { S.addingInsurance=false; S.editingId=null; S.editSection=null; renderInvestments(); return; }
-  if (action==='edit-insurance') { S.editingId=btn.dataset.id; S.editSection='insurance'; S.addingInsurance=false; renderInvestments(); return; }
+  if (action==='toggle-add-insurance') { S.addingInsurance=!S.addingInsurance; S.editingId=null; renderPortfolio(); return; }
+  if (action==='cancel-insurance') { S.addingInsurance=false; S.portfolioAddType=null; S.editingId=null; S.editSection=null; document.getElementById('bottom-sheet').style.display='none'; renderPortfolio(); return; }
+  if (action==='edit-insurance') { S.editingId=btn.dataset.id; S.editSection='insurance'; S.addingInsurance=false; renderPortfolio(); return; }
   if (action==='del-insurance') {
     if (!confirm('Delete this policy?')) return;
-    S.portfolio.insurance=S.portfolio.insurance.filter(i=>i.id!==btn.dataset.id); save(); renderInvestments(); return;
+    S.portfolio.insurance=S.portfolio.insurance.filter(i=>i.id!==btn.dataset.id); save(); renderPortfolio(); return;
   }
   if (action==='toggle-portfolio-add') { S.portfolioAddType=S.portfolioAddType?null:'saving'; renderPortfolio(); return; }
-  if (action==='set-portfolio-add-type') { S.portfolioAddType=btn.dataset.type; renderPortfolio(); return; }
-  if (action==='toggle-add-saving') { S.addingSaving=!S.addingSaving; S.editingId=null; renderPortfolio(); return; }
-  if (action==='cancel-saving') { S.addingSaving=false; S.portfolioAddType=null; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
-  if (action==='edit-saving') { S.editingId=btn.dataset.id; S.editSection='saving'; S.addingSaving=false; renderPortfolio(); return; }
+  if (action==='set-portfolio-add-type') { S.portfolioAddType=btn.dataset.type; const bs=document.getElementById('bottom-sheet'); if(bs.style.display!=='none'){document.getElementById('bottom-sheet-content').innerHTML=renderPortfolioQuickAdd();}else{renderPortfolio();} return; }
+  if (action==='cancel-saving') { S.portfolioAddType=null; S.editingId=null; S.editSection=null; document.getElementById('bottom-sheet').style.display='none'; renderPortfolio(); return; }
+  if (action==='edit-saving') { S.editingId=btn.dataset.id; S.editSection='saving'; renderPortfolio(); return; }
   if (action==='del-saving') {
     if (!confirm('Delete this saving?')) return;
     S.portfolio.savings=S.portfolio.savings.filter(i=>i.id!==btn.dataset.id); save(); renderPortfolio(); return;
   }
-  if (action==='toggle-add-loan') { S.addingLoan=!S.addingLoan; S.editingId=null; renderPortfolio(); return; }
-  if (action==='cancel-loan') { S.addingLoan=false; S.portfolioAddType=null; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
-  if (action==='edit-loan') { S.editingId=btn.dataset.id; S.editSection='loan'; S.addingLoan=false; renderPortfolio(); return; }
+  if (action==='cancel-loan') { S.portfolioAddType=null; S.editingId=null; S.editSection=null; document.getElementById('bottom-sheet').style.display='none'; renderPortfolio(); return; }
+  if (action==='edit-loan') { S.editingId=btn.dataset.id; S.editSection='loan'; renderPortfolio(); return; }
   if (action==='del-loan') {
     if (!confirm('Delete this loan?')) return;
-    S.portfolio.loans=S.portfolio.loans.filter(i=>i.id!==btn.dataset.id); save(); renderPortfolio(); return;
+    const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.id);
+    if (loan?.linkedRecurringId) S.recurring.items = S.recurring.items.filter(i=>i.id!==loan.linkedRecurringId);
+    S.portfolio.loans=S.portfolio.loans.filter(i=>i.id!==btn.dataset.id); save(); renderPortfolio(); renderRecurring(); return;
   }
   if (action==='close-loan') {
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.id); if (!loan) return;
     loan.closed = true; loan.closedDate = new Date().toISOString();
-    for (const item of (S.recurring?.items||[])) { if (item.name===loan.name && !item.closed) { item.closed=true; item.closedDate=loan.closedDate; } }
+    if (loan.linkedRecurringId) { const item = (S.recurring?.items||[]).find(i=>i.id===loan.linkedRecurringId); if (item && !item.closed) { item.closed=true; item.closedDate=loan.closedDate; } }
     save(); renderPortfolio(); renderRecurring(); toast(loan.name + ' closed'); return;
   }
   if (action==='reopen-loan') {
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.id); if (!loan) return;
     loan.closed = false; delete loan.closedDate;
-    for (const item of (S.recurring?.items||[])) { if (item.name===loan.name && item.closed) { item.closed=false; delete item.closedDate; } }
+    if (loan.linkedRecurringId) { const item = (S.recurring?.items||[]).find(i=>i.id===loan.linkedRecurringId); if (item && item.closed) { item.closed=false; delete item.closedDate; } }
     save(); renderPortfolio(); renderRecurring(); toast(loan.name + ' reopened'); return;
   }
   if (action==='toggle-loan') { S.expandedLoan=S.expandedLoan===btn.dataset.id?null:btn.dataset.id; S.showingPPForm=null; renderPortfolio(); return; }
   if (action==='toggle-pp-form') { S.showingPPForm=S.showingPPForm===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
-  if (action==='toggle-saving') { S.expandedSaving=S.expandedSaving===btn.dataset.id?null:btn.dataset.id; S.showingSavingPayForm=null; renderPortfolio(); return; }
-  if (action==='toggle-saving-pay-form') { S.showingSavingPayForm=S.showingSavingPayForm===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
+  if (action==='toggle-saving') { S.expandedSaving=S.expandedSaving===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
   if (action==='toggle-gold-pay-form') { S.showingGoldPayForm=S.showingGoldPayForm===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
 
 
-  if (action==='toggle-ledger') { S.showLedger=!S.showLedger; renderOverview(); return; }
-  if (action==='toggle-section') { const k=btn.dataset.sec; S.secOpen[k]=!S.secOpen[k]; renderOverview(); renderDashboard(); renderPortfolio(); return; }
+  if (action==='toggle-section') { const k=btn.dataset.sec; S.secOpen[k]=!S.secOpen[k]; renderDashboard(); renderPortfolio(); renderRecurring(); renderInsights(); return; }
   if (action==='del-part-payment') {
+    if (!confirm('Delete this payment?')) return;
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.loanId);
     if (loan) { loan.partPayments=(loan.partPayments||[]).filter(p=>p.id!==btn.dataset.paymentId); save(); renderPortfolio(); }
     return;
   }
   if (action==='del-saving-payment') {
+    if (!confirm('Delete this payment?')) return;
     const saving = S.portfolio.savings.find(s=>s.id===btn.dataset.savingId);
     if (saving) {
       const pay = (saving.payments||[]).find(p=>p.id===btn.dataset.paymentId);
       if (pay) { if (pay.type==='deposit') saving.amount = Math.max(0, saving.amount - pay.amount); else saving.amount += pay.amount; }
       saving.payments = (saving.payments||[]).filter(p=>p.id!==btn.dataset.paymentId);
-      save(); renderPortfolio(); renderOverview();
+      save(); renderPortfolio(); renderDashboard();
     }
     return;
   }
   if (action==='del-gold-payment') {
+    if (!confirm('Delete this payment?')) return;
     const loan = S.portfolio.goldLoans.find(l=>l.id===btn.dataset.goldId);
     if (loan) {
       const pay = (loan.payments||[]).find(p=>p.id===btn.dataset.paymentId);
       if (pay) loan.principal += pay.amount;
       loan.payments = (loan.payments||[]).filter(p=>p.id!==btn.dataset.paymentId);
-      save(); renderPortfolio(); renderOverview();
+      save(); renderPortfolio(); renderDashboard();
     }
     return;
   }
-  if (action==='toggle-add-gold') { S.addingGoldLoan=!S.addingGoldLoan; S.editingId=null; renderPortfolio(); return; }
-  if (action==='cancel-gold') { S.addingGoldLoan=false; S.portfolioAddType=null; S.editingId=null; S.editSection=null; renderPortfolio(); return; }
-  if (action==='edit-gold') { S.editingId=btn.dataset.id; S.editSection='goldLoan'; S.addingGoldLoan=false; renderPortfolio(); return; }
+  if (action==='cancel-gold') { S.portfolioAddType=null; S.editingId=null; S.editSection=null; document.getElementById('bottom-sheet').style.display='none'; renderPortfolio(); return; }
+  if (action==='edit-gold') { S.editingId=btn.dataset.id; S.editSection='goldLoan'; renderPortfolio(); return; }
   if (action==='close-gold') {
     const loan = S.portfolio.goldLoans.find(l=>l.id===btn.dataset.id); if (!loan) return;
     loan.closed = true; loan.closedDate = new Date().toISOString();
-    for (const item of (S.recurring?.items||[])) { if (item.name===loan.name && !item.closed) { item.closed=true; item.closedDate=loan.closedDate; } }
+    if (loan.linkedRecurringId) { const item = (S.recurring?.items||[]).find(i=>i.id===loan.linkedRecurringId); if (item && !item.closed) { item.closed=true; item.closedDate=loan.closedDate; } }
     save(); renderPortfolio(); renderRecurring(); toast(loan.name + ' closed'); return;
   }
   if (action==='reopen-gold') {
     const loan = S.portfolio.goldLoans.find(l=>l.id===btn.dataset.id); if (!loan) return;
     loan.closed = false; delete loan.closedDate;
-    for (const item of (S.recurring?.items||[])) { if (item.name===loan.name && item.closed) { item.closed=false; delete item.closedDate; } }
+    if (loan.linkedRecurringId) { const item = (S.recurring?.items||[]).find(i=>i.id===loan.linkedRecurringId); if (item && item.closed) { item.closed=false; delete item.closedDate; } }
     save(); renderPortfolio(); renderRecurring(); toast(loan.name + ' reopened'); return;
   }
   if (action==='del-gold') {
     if (!confirm('Delete this gold loan?')) return;
-    S.portfolio.goldLoans=S.portfolio.goldLoans.filter(i=>i.id!==btn.dataset.id); save(); renderPortfolio(); return;
+    const loan = S.portfolio.goldLoans.find(l=>l.id===btn.dataset.id);
+    if (loan?.linkedRecurringId) S.recurring.items = S.recurring.items.filter(i=>i.id!==loan.linkedRecurringId);
+    S.portfolio.goldLoans=S.portfolio.goldLoans.filter(i=>i.id!==btn.dataset.id); save(); renderPortfolio(); renderRecurring(); return;
   }
   if (action==='toggle-gold') { S.expandedGoldLoan=S.expandedGoldLoan===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
   if (action==='export') { exportJSON(); return; }
@@ -2295,7 +2433,7 @@ function handleClick(e) {
       S.transactions = data.transactions || [];
       S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[],insurance:[]}, data.portfolio||{});
       S.recurring = Object.assign({items:[],creditCards:[]}, data.recurring||{});
-      save(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderRecurring(); renderInsights(); renderSettings();
+      save(); renderDashboard(); renderPortfolio(); renderRecurring(); renderSettings();
       toast('Restored from backup');
     } catch(e) { toast('Backup corrupted'); }
     return;
@@ -2353,7 +2491,7 @@ document.getElementById('file-input').addEventListener('change', async function(
       recurring=Object.assign({items:[],creditCards:[]},data.recurring||{});
     }
     S.transactions=transactions; S.portfolio=portfolio; S.recurring=recurring;
-    save(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderRecurring(); renderInsights(); toast(`Imported ${transactions.length} transactions`);
+    save(); renderDashboard(); renderPortfolio(); renderRecurring(); renderSettings(); toast(`Imported ${transactions.length} transactions`);
   } catch(err) { toast('Import failed — invalid JSON'); }
   this.value='';
 });
@@ -2362,20 +2500,14 @@ document.addEventListener('submit', handleSubmit);
 document.addEventListener('click', handleClick);
 document.addEventListener('input', handleInput);
 document.addEventListener('change', function(e) {
-  if (e.target.dataset.action === 'ledger-filter') {
-    if (e.target.dataset.filter === 'currency') S.ledgerFilterCurrency = e.target.value;
-    if (e.target.dataset.filter === 'source') S.ledgerFilterSource = e.target.value;
-    renderOverview();
-  }
   if (e.target.dataset.action === 'change-ai-provider') {
     localStorage.setItem('mmc.aiProvider', e.target.value);
-    localStorage.removeItem('mmc.apiKey');
-    toast('Provider changed to ' + (e.target.value === 'gemini' ? 'Gemini' : 'Claude') + '. Enter your API key.');
+    toast('Provider changed to ' + (e.target.value === 'gemini' ? 'Gemini' : 'Claude') + '.');
     renderSettings();
   }
 });
 
-load(); renderOverview(); renderDashboard(); renderPortfolio(); renderInvestments(); renderRecurring(); renderInsights();
+load(); renderDashboard(); renderPortfolio(); renderRecurring(); renderInsights(); renderSettings();
 document.getElementById('header-date').textContent = new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
 </script>
 <script>
