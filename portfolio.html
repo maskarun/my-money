@@ -484,8 +484,9 @@ const S = {
   txCurrency: 'USD',
   addingInvestment: false, addingInsurance: false,
   addEntryType: null, portfolioAddType: null, recurringAddType: null, activityCurFilter: null, activityCatFilter: null, activitySearch: '',
+  reportRange: 'ytd', reportFrom: null, reportTo: null,
   editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, expandedSaving: null, showingPPForm: null, showingGoldPayForm: null, selectedMonth: null,
-  secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, investments: true, insurance: true, projections: true, netWorth: false, aiInsights: true, investSuggestions: true, trendChart: true, categoryDonut: true },
+  secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, investments: true, insurance: true, projections: true, netWorth: false, aiInsights: true, investSuggestions: true, trendChart: true, categoryDonut: true, reports: true },
 };
 
 function save() {
@@ -922,6 +923,76 @@ function dateInMonth(mon) {
   return new Date(y, m, 0, 12).toISOString();
 }
 
+function renderReports() {
+  const isOpen = S.secOpen.reports;
+  const now = todayISO();
+  const year = now.slice(0,4);
+  const ranges = { ytd: 'Year to Date', '3m': 'Last 3 Months', '6m': 'Last 6 Months', '12m': 'Last 12 Months', custom: 'Custom Range' };
+  let fromDate, toDate;
+  if (S.reportRange === 'custom') {
+    fromDate = S.reportFrom || `${year}-01-01`;
+    toDate = S.reportTo || now;
+  } else if (S.reportRange === 'ytd') {
+    fromDate = `${year}-01-01`; toDate = now;
+  } else {
+    const months = parseInt(S.reportRange);
+    const d = new Date(); d.setMonth(d.getMonth() - months);
+    fromDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    toDate = now;
+  }
+  const rangeChips = Object.entries(ranges).map(([k,v]) =>
+    `<button class="toggle-chip${S.reportRange===k?' active':''}" data-action="set-report-range" data-range="${k}">${v}</button>`).join('');
+  const customInputs = S.reportRange==='custom' ? `<div class="form-row-2" style="padding:6px 16px 0"><div><label class="form-label">From</label><input class="input" type="date" value="${fromDate}" data-action="report-from" style="font-size:12px;padding:5px 8px"></div><div><label class="form-label">To</label><input class="input" type="date" value="${toDate}" data-action="report-to" style="font-size:12px;padding:5px 8px"></div></div>` : '';
+  const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="reports" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
+    <div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">Reports</span></div><div class="sec-sub">${fmtDate(fromDate)} — ${fmtDate(toDate)}</div></div><span class="sec-arrow">${isOpen?'▾':'▸'}</span></div>`;
+  if (!isOpen) return `<div class="card">${hdr}</div>`;
+
+  const byCur = {};
+  const addCur = (cur, type, amt, cat) => {
+    if (!byCur[cur]) byCur[cur] = { income: 0, expense: 0, cats: {} };
+    byCur[cur][type] += amt;
+    if (cat && type === 'expense') byCur[cur].cats[cat] = (byCur[cur].cats[cat]||0) + amt;
+  };
+  for (const t of S.transactions) {
+    if (!t.date) continue;
+    const d = t.date.slice(0,10);
+    if (d < fromDate || d > toDate) continue;
+    if (t.type === 'transfer') { addCur(t.fromCurrency, 'expense', t.fromAmount); addCur(t.toCurrency, 'income', t.toAmount); continue; }
+    addCur(getCur(t), t.type === 'income' ? 'income' : 'expense', t.amount, t.category || 'Other');
+  }
+  const fromMon = fromDate.slice(0,7), toMon = toDate.slice(0,7);
+  for (let mon = fromMon; mon <= toMon; mon = shiftMonth(mon, 1)) {
+    for (const item of (S.recurring?.items||[])) {
+      const ms = item.months?.[mon]; if (!ms?.paid || !ms.amount) continue;
+      const c = item.currency||'USD';
+      if (item.type==='income') addCur(c,'income',ms.amount);
+      else addCur(c,'expense',ms.amount, item.category||'Bills');
+    }
+    for (const card of (S.recurring?.creditCards||[])) {
+      const ms = card.months?.[mon]; if (!ms?.paid || !ms.amount) continue;
+      addCur(card.currency||'USD','expense',ms.amount,'Bills');
+    }
+  }
+  if (!Object.keys(byCur).length) return `<div class="card">${hdr}<div class="toggle-chip-row" style="padding:4px 16px 8px;flex-wrap:wrap">${rangeChips}</div>${customInputs}<div class="empty"><p>No data in this range</p></div></div>`;
+
+  let body = '';
+  for (const [cur, data] of Object.entries(byCur)) {
+    const net = data.income - data.expense;
+    const topCats = Object.entries(data.cats).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    const totalExp = data.expense || 1;
+    body += `<div style="padding:8px 16px 12px;${Object.keys(byCur).length>1?'border-top:1px solid var(--border)':''}">
+      <div style="font-weight:700;font-size:13px;margin-bottom:8px">${cur}</div>
+      <div style="display:flex;gap:16px;margin-bottom:10px">
+        <div><div style="font-size:10px;color:var(--muted-fg)">Income</div><div style="font-size:14px;font-weight:700;color:var(--income)">${formatMoney(data.income,cur)}</div></div>
+        <div><div style="font-size:10px;color:var(--muted-fg)">Expenses</div><div style="font-size:14px;font-weight:700;color:var(--expense)">${formatMoney(data.expense,cur)}</div></div>
+        <div><div style="font-size:10px;color:var(--muted-fg)">Net</div><div style="font-size:14px;font-weight:700;color:${net>=0?'var(--income)':'var(--expense)'}">${formatMoney(net,cur)}</div></div>
+      </div>
+      ${topCats.length?`<div style="font-size:10px;color:var(--muted-fg);margin-bottom:4px">Top Expenses</div>${topCats.map(([cat,amt])=>`<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span>${esc(cat)}</span><span style="font-weight:600">${formatMoney(amt,cur)} <span style="color:var(--muted-fg)">(${Math.round(amt/totalExp*100)}%)</span></span></div>`).join('')}`:''}
+    </div>`;
+  }
+  return `<div class="card">${hdr}<div class="toggle-chip-row" style="padding:4px 16px 8px;flex-wrap:wrap">${rangeChips}</div>${customInputs}${body}</div>`;
+}
+
 function buildInsightsCards() {
   const hasKey = !!localStorage.getItem('mmc.apiKey');
   const provider = localStorage.getItem('mmc.aiProvider') || 'claude';
@@ -958,7 +1029,7 @@ function buildInsightsCards() {
 }
 
 function renderInsights() {
-  document.getElementById('tab-insights').innerHTML = buildInsightsCards();
+  document.getElementById('tab-insights').innerHTML = renderReports() + buildInsightsCards();
 }
 
 function ordinal(n) { const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
@@ -2511,6 +2582,7 @@ function handleClick(e) {
   if (action==='filter-activity-cur') { S.activityCurFilter = btn.dataset.cur || null; renderDashboard(); return; }
   if (action==='filter-activity-cat') { S.activityCatFilter = btn.dataset.cat || null; renderDashboard(); return; }
   if (action==='toggle-theme') { document.body.classList.toggle('dark'); localStorage.setItem('mmc.theme', document.body.classList.contains('dark')?'dark':'light'); renderSettings(); return; }
+  if (action==='set-report-range') { S.reportRange = btn.dataset.range; renderInsights(); return; }
   if (action==='toggle-add-entry') { S.addEntryType = S.addEntryType ? null : 'tx-expense'; renderDashboard(); return; }
   if (action==='set-entry-type') { S.addEntryType=btn.dataset.type; const bs=document.getElementById('bottom-sheet'); if(bs.style.display!=='none'){document.getElementById('bottom-sheet-content').innerHTML=renderQuickAdd();}else{renderDashboard();} return; }
   if (action==='cancel-entry') { S.addEntryType=null; S.editingId=null; document.getElementById('bottom-sheet').style.display='none'; renderDashboard(); return; }
@@ -2720,6 +2792,8 @@ function handleClick(e) {
 function handleInput(e) {
   const inp = e.target;
   if (inp.dataset.action==='search-activity') { S.activitySearch = inp.value; renderDashboard(); const el=document.querySelector('[data-action="search-activity"]'); if(el){el.focus();el.selectionStart=el.selectionEnd=el.value.length;} return; }
+  if (inp.dataset.action==='report-from') { S.reportFrom = inp.value; renderInsights(); return; }
+  if (inp.dataset.action==='report-to') { S.reportTo = inp.value; renderInsights(); return; }
   if (inp.hasAttribute('data-loan-preview')) {
     const form = inp.closest('form'); if (!form) return;
     const p=parseFloat(form.querySelector('[name=principal]')?.value)||0;
