@@ -293,7 +293,7 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 
 /* Transaction list */
 .tx-list { list-style: none; }
-.tx-row { display: flex; align-items: center; gap: 10px; padding: 9px 16px; border-top: 1px solid var(--muted); }
+.tx-row { display: flex; align-items: center; gap: 10px; padding: 9px 16px; border-top: 1px solid var(--muted); cursor: pointer; }
 .tx-icon { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .tx-icon.income { background: rgba(5,150,105,.1); color: var(--income); }
 .tx-icon.expense { background: rgba(225,29,72,.08); color: var(--expense); }
@@ -961,34 +961,47 @@ function renderQuickAdd() {
     `<button class="toggle-chip${S.addEntryType===type?' active':''}" data-action="set-entry-type" data-type="${type}">${label}</button>`
   ).join('');
 
+  const editTx = S.editingId ? S.transactions.find(t=>t.id===S.editingId) : null;
+  const isEdit = !!editTx;
   let entryForm = '';
   if (S.addEntryType==='tx-expense'||S.addEntryType==='tx-income') {
     const cats = S.addEntryType==='tx-income' ? INCOME_CATS : EXPENSE_CATS;
-    entryForm = `<form data-action="add-tx">
+    const eCur = isEdit ? getCur(editTx) : S.txCurrency;
+    const eAmt = isEdit ? editTx.amount : '';
+    const eDate = isEdit ? editTx.date.slice(0,10) : todayISO();
+    const eCat = isEdit ? (editTx.category||'Other') : '';
+    const eNote = isEdit ? (editTx.note||'') : '';
+    entryForm = `<form data-action="${isEdit?'update-tx':'add-tx'}" data-id="${isEdit?editTx.id:''}">
       <div class="form-row-2">
-        <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(S.txCurrency)}</select></div></div>
-        <div><label class="form-label">Amount *</label><input class="input" type="number" name="amount" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required></div>
+        <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(eCur)}</select></div></div>
+        <div><label class="form-label">Amount *</label><input class="input" type="number" name="amount" value="${eAmt}" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required></div>
       </div>
       <div class="form-row-2">
-        <div><label class="form-label">Date</label><input class="input" type="date" name="date" value="${todayISO()}"></div>
-        <div><label class="form-label">Category</label><div class="select-wrap"><select class="input" name="category">${cats.map(c=>`<option>${c}</option>`).join('')}</select></div></div>
+        <div><label class="form-label">Date</label><input class="input" type="date" name="date" value="${eDate}"></div>
+        <div><label class="form-label">Category</label><div class="select-wrap"><select class="input" name="category">${cats.map(c=>`<option${c===eCat?' selected':''}>${c}</option>`).join('')}</select></div></div>
       </div>
-      <div class="form-row"><label class="form-label">Note <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label><input class="input" type="text" name="note" placeholder="e.g. Lunch with team" maxlength="120"></div>
-      <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-entry">Cancel</button><button type="submit" class="btn btn-accent">${svgPlus} Add ${S.addEntryType==='tx-income'?'Income':'Expense'}</button></div>
+      <div class="form-row"><label class="form-label">Note <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label><input class="input" type="text" name="note" value="${esc(eNote)}" placeholder="e.g. Lunch with team" maxlength="120"></div>
+      <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-entry">Cancel</button><button type="submit" class="btn btn-accent">${isEdit?'Save Changes':svgPlus+' Add '+(S.addEntryType==='tx-income'?'Income':'Expense')}</button></div>
     </form>`;
   } else if (S.addEntryType==='transfer') {
-    entryForm = `<form data-action="add-transfer">
+    const eFCur = isEdit ? editTx.fromCurrency : S.txCurrency;
+    const eFAmt = isEdit ? editTx.fromAmount : '';
+    const eTCur = isEdit ? editTx.toCurrency : otherCur(S.txCurrency);
+    const eTAmt = isEdit ? editTx.toAmount : '';
+    const eDate = isEdit ? editTx.date.slice(0,10) : todayISO();
+    const eNote = isEdit ? (editTx.note||'') : '';
+    entryForm = `<form data-action="${isEdit?'update-transfer':'add-transfer'}" data-id="${isEdit?editTx.id:''}">
       <div class="form-row-2">
-        <div><label class="form-label">From Currency</label><div class="select-wrap"><select class="input" name="fromCurrency">${curOptions(S.txCurrency)}</select></div></div>
-        <div><label class="form-label">Amount Sent *</label><input class="input" type="number" name="fromAmount" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required></div>
+        <div><label class="form-label">From Currency</label><div class="select-wrap"><select class="input" name="fromCurrency">${curOptions(eFCur)}</select></div></div>
+        <div><label class="form-label">Amount Sent *</label><input class="input" type="number" name="fromAmount" value="${eFAmt}" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required></div>
       </div>
       <div class="form-row-2">
-        <div><label class="form-label">To Currency</label><div class="select-wrap"><select class="input" name="toCurrency">${curOptions(otherCur(S.txCurrency))}</select></div></div>
-        <div><label class="form-label">Amount Received *</label><input class="input" type="number" name="toAmount" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required></div>
+        <div><label class="form-label">To Currency</label><div class="select-wrap"><select class="input" name="toCurrency">${curOptions(eTCur)}</select></div></div>
+        <div><label class="form-label">Amount Received *</label><input class="input" type="number" name="toAmount" value="${eTAmt}" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required></div>
       </div>
-      <div class="form-row"><label class="form-label">Date</label><input class="input" type="date" name="date" value="${todayISO()}"></div>
-      <div class="form-row"><label class="form-label">Note <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label><input class="input" type="text" name="note" placeholder="e.g. Wise transfer" maxlength="120"></div>
-      <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-entry">Cancel</button><button type="submit" class="btn btn-accent">${svgPlus} Add Transfer</button></div>
+      <div class="form-row"><label class="form-label">Date</label><input class="input" type="date" name="date" value="${eDate}"></div>
+      <div class="form-row"><label class="form-label">Note <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label><input class="input" type="text" name="note" value="${esc(eNote)}" placeholder="e.g. Wise transfer" maxlength="120"></div>
+      <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-entry">Cancel</button><button type="submit" class="btn btn-accent">${isEdit?'Save Changes':svgPlus+' Add Transfer'}</button></div>
     </form>`;
   } else if (S.addEntryType==='savings-fund') {
     if (!S.portfolio.savings.length) {
@@ -1667,13 +1680,13 @@ function renderActivity() {
   for (const t of S.transactions) {
     if (!t.date || localTxMonth(t.date) !== mon) continue;
     if (t.type==='transfer') {
-      entries.push({ date: t.date, icon: 'transfer', iconSvg: svgTransfer, name: 'Transfer', meta: t.note ? esc(t.note) + ' · ' + fmtDate(t.date) : fmtDate(t.date), amtHtml: `<span class="tx-amount transfer">${formatMoney(t.fromAmount,t.fromCurrency)} → ${formatMoney(t.toAmount,t.toCurrency)}</span>`, delBtn: `<button class="tx-del" data-action="del-tx" data-id="${t.id}" title="Delete">${svgTrash}</button>`, badge: '', currencies: [t.fromCurrency, t.toCurrency], source: 'txn' });
+      entries.push({ date: t.date, icon: 'transfer', iconSvg: svgTransfer, name: 'Transfer', meta: t.note ? esc(t.note) + ' · ' + fmtDate(t.date) : fmtDate(t.date), amtHtml: `<span class="tx-amount transfer">${formatMoney(t.fromAmount,t.fromCurrency)} → ${formatMoney(t.toAmount,t.toCurrency)}</span>`, delBtn: `<button class="tx-del" data-action="del-tx" data-id="${t.id}" title="Delete">${svgTrash}</button>`, badge: '', currencies: [t.fromCurrency, t.toCurrency], source: 'txn', txId: t.id });
     } else {
       const isIncome = t.type==='income';
       const isBill = t.category==='Bills' && t.note;
       const dispName = isBill ? t.note : t.category;
       const dispMeta = isBill ? fmtDate(t.date) : (t.note ? esc(t.note) + ' · ' + fmtDate(t.date) : fmtDate(t.date));
-      entries.push({ date: t.date, icon: t.type, iconSvg: isIncome ? svgArrowUp : svgArrowDown, name: dispName, meta: dispMeta, amtHtml: `<span class="tx-amount ${t.type}">${isIncome?'+':'−'}${formatMoney(t.amount,getCur(t))}</span>`, delBtn: `<button class="tx-del" data-action="del-tx" data-id="${t.id}" title="Delete">${svgTrash}</button>`, badge: getCur(t), source: 'txn' });
+      entries.push({ date: t.date, icon: t.type, iconSvg: isIncome ? svgArrowUp : svgArrowDown, name: dispName, meta: dispMeta, amtHtml: `<span class="tx-amount ${t.type}">${isIncome?'+':'−'}${formatMoney(t.amount,getCur(t))}</span>`, delBtn: `<button class="tx-del" data-action="del-tx" data-id="${t.id}" title="Delete">${svgTrash}</button>`, badge: getCur(t), source: 'txn', txId: t.id });
     }
   }
 
@@ -1727,7 +1740,7 @@ function renderActivity() {
       else dateLabel = new Date(entryDate + 'T12:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric'});
       dateHdr = `<li class="tx-date-hdr">${dateLabel}</li>`;
     }
-    return `${dateHdr}<li class="tx-row">
+    return `${dateHdr}<li class="tx-row" ${e.txId?`data-action="edit-tx" data-id="${e.txId}"`:''}>
       <div class="tx-icon ${e.icon}">${e.iconSvg}</div>
       <div class="tx-body"><div class="tx-cat">${esc(e.name)}${e.badge?`<span class="tx-badge">${e.badge}</span>`:''}${srcPill}</div><div class="tx-meta">${e.meta}</div></div>
       <div class="tx-right">${e.amtHtml}</div>
@@ -2182,6 +2195,23 @@ function handleSubmit(e) {
     if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
     S.addEntryType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderDashboard(); toast('Transaction added'); return;
   }
+  if (action==='update-tx') {
+    const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
+    const t = S.transactions.find(x=>x.id===form.dataset.id); if (!t) return;
+    t.amount = amount; t.category = d.category; t.note = d.note||undefined; t.currency = d.currency;
+    t.date = d.date ? new Date(d.date+'T12:00:00').toISOString() : t.date;
+    S.editingId=null; S.addEntryType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderDashboard(); toast('Transaction updated'); return;
+  }
+  if (action==='update-transfer') {
+    const fromAmount = parseFloat(d.fromAmount), toAmount = parseFloat(d.toAmount);
+    if (!fromAmount||fromAmount<=0||!toAmount||toAmount<=0) return toast('Enter valid amounts');
+    if (d.fromCurrency===d.toCurrency) return toast('Choose two different currencies');
+    const t = S.transactions.find(x=>x.id===form.dataset.id); if (!t) return;
+    t.fromCurrency=d.fromCurrency; t.fromAmount=fromAmount; t.toCurrency=d.toCurrency; t.toAmount=toAmount;
+    t.currency=d.fromCurrency; t.note=d.note||undefined;
+    t.date = d.date ? new Date(d.date+'T12:00:00').toISOString() : t.date;
+    S.editingId=null; S.addEntryType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderDashboard(); toast('Transfer updated'); return;
+  }
   if (action==='add-recurring-income') {
     if (!d.name.trim()) return toast('Name is required');
     const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
@@ -2362,15 +2392,24 @@ function handleClick(e) {
   if (action==='filter-activity-cur') { S.activityCurFilter = btn.dataset.cur || null; renderDashboard(); return; }
   if (action==='toggle-add-entry') { S.addEntryType = S.addEntryType ? null : 'tx-expense'; renderDashboard(); return; }
   if (action==='set-entry-type') { S.addEntryType=btn.dataset.type; const bs=document.getElementById('bottom-sheet'); if(bs.style.display!=='none'){document.getElementById('bottom-sheet-content').innerHTML=renderQuickAdd();}else{renderDashboard();} return; }
-  if (action==='cancel-entry') { S.addEntryType=null; document.getElementById('bottom-sheet').style.display='none'; renderDashboard(); return; }
+  if (action==='cancel-entry') { S.addEntryType=null; S.editingId=null; document.getElementById('bottom-sheet').style.display='none'; renderDashboard(); return; }
+  if (action==='edit-tx') {
+    if (btn.closest('.tx-del') || btn.classList.contains('tx-del')) return;
+    const t = S.transactions.find(x=>x.id===btn.dataset.id); if (!t) return;
+    S.editingId = t.id;
+    S.addEntryType = t.type==='transfer' ? 'transfer' : t.type==='income' ? 'tx-income' : 'tx-expense';
+    const bs=document.getElementById('bottom-sheet'), bsc=document.getElementById('bottom-sheet-content');
+    bsc.innerHTML = renderQuickAdd(); bs.style.display=''; return;
+  }
   if (action==='toggle-fab') {
+    S.editingId=null;
     const bs=document.getElementById('bottom-sheet'), bsc=document.getElementById('bottom-sheet-content');
     if (S.tab==='portfolio') { if(!S.portfolioAddType) S.portfolioAddType='saving'; bsc.innerHTML=renderPortfolioQuickAdd(); }
     else if (S.tab==='recurring') { if(!S.recurringAddType) S.recurringAddType='recurring-income'; bsc.innerHTML=renderRecurringQuickAdd(); }
     else { if(!S.addEntryType) S.addEntryType='tx-expense'; bsc.innerHTML=renderQuickAdd(); }
     bs.style.display=''; return;
   }
-  if (action==='close-fab-backdrop') { if (btn.id==='bottom-sheet') { S.addEntryType=null; btn.style.display='none'; } return; }
+  if (action==='close-fab-backdrop') { if (btn.id==='bottom-sheet') { S.addEntryType=null; S.editingId=null; btn.style.display='none'; } return; }
   if (action==='toggle-recurring-add') { S.recurringAddType = S.recurringAddType ? null : 'recurring-income'; renderRecurring(); return; }
   if (action==='set-recurring-add-type') { S.recurringAddType=btn.dataset.type; const bs=document.getElementById('bottom-sheet'); if(bs.style.display!=='none'){document.getElementById('bottom-sheet-content').innerHTML=renderRecurringQuickAdd();}else{renderRecurring();} return; }
   if (action==='cancel-recurring-add') { S.recurringAddType=null; document.getElementById('bottom-sheet').style.display='none'; renderRecurring(); return; }
