@@ -1352,7 +1352,7 @@ function renderMonthNavCard() {
 
 function renderDashboard() {
   document.getElementById('tab-dashboard').innerHTML =
-    renderHeroCards() + renderTrendChart() + renderOverviewCards() + renderCategoryDonut() + renderActivity() + renderMonthNavCard();
+    renderHeroCards() + renderBudgetAlerts() + renderTrendChart() + renderOverviewCards() + renderCategoryDonut() + renderActivity() + renderMonthNavCard();
   updateHeaderMonthNav();
 }
 
@@ -1443,6 +1443,60 @@ function renderCategoryDonut() {
     <div class="sec-hdr" data-action="toggle-section" data-key="categoryDonut"><div><div class="sec-title-row"><span class="sec-dot" style="background:#7c3aed"></span><span class="sec-title">Spending Breakdown</span></div><div class="sec-sub">${cur} · ${fmtMonth(mon)}</div></div><span class="sec-arrow">${isOpen?'▾':'▸'}</span></div>
     ${isOpen ? `<div style="padding:12px 8px 4px">${svg}</div><div class="chart-legend">${legend}</div>` : ''}
   </div>`;
+}
+
+function getMonthlySpending() {
+  const mon = S.selectedMonth;
+  const totals = {}; // { USD: { _total: 500, Food: 200, Transport: 100, ... } }
+  const recurTxIds = new Set();
+  for (const item of (S.recurring?.items||[])) { const ms=item.months?.[mon]; if (ms?.txId) recurTxIds.add(ms.txId); }
+  for (const card of (S.recurring?.creditCards||[])) { const ms=card.months?.[mon]; if (ms?.txId) recurTxIds.add(ms.txId); }
+  for (const t of S.transactions) {
+    if (!t.date || localTxMonth(t.date)!==mon || recurTxIds.has(t.id)) continue;
+    if (t.type==='expense') { const c=getCur(t), cat=t.category||'Other'; if(!totals[c]) totals[c]={_total:0}; totals[c]._total+=t.amount; totals[c][cat]=(totals[c][cat]||0)+t.amount; }
+    if (t.type==='transfer') { const c=t.fromCurrency; if(!totals[c]) totals[c]={_total:0}; totals[c]._total+=t.fromAmount; }
+  }
+  for (const item of (S.recurring?.items||[])) {
+    if (item.type==='income') continue; const c=item.currency||'USD', cat=item.category||'Bills';
+    const ms=item.months?.[mon]; if (ms?.paid&&ms.amount>0) { if(!totals[c]) totals[c]={_total:0}; totals[c]._total+=ms.amount; totals[c][cat]=(totals[c][cat]||0)+ms.amount; }
+  }
+  for (const card of (S.recurring?.creditCards||[])) {
+    const c=card.currency||'USD'; const ms=card.months?.[mon];
+    if (ms?.paid&&ms.amount>0) { if(!totals[c]) totals[c]={_total:0}; totals[c]._total+=ms.amount; totals[c]['Bills']=(totals[c]['Bills']||0)+ms.amount; }
+  }
+  return totals;
+}
+
+function renderBudgetAlerts() {
+  const budgets = JSON.parse(localStorage.getItem('mmc.budgets')||'{}');
+  if (!budgets.overall && !budgets.categories) return '';
+  const spending = getMonthlySpending();
+  const alerts = [];
+  const bar = (pct, label, spent, limit, cur) => {
+    const color = pct > 100 ? 'var(--expense)' : pct >= 90 ? '#f59e0b' : pct >= 75 ? '#eab308' : 'var(--income)';
+    const status = pct > 100 ? 'Over budget!' : pct >= 90 ? 'Almost there' : '';
+    return `<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="font-weight:600">${esc(label)}</span><span style="color:var(--muted-fg)">${formatMoney(spent,cur)} / ${formatMoney(limit,cur)}</span></div>
+      <div class="bar-bg" style="height:6px"><div class="bar-fill" style="width:${Math.min(pct,100)}%;background:${color};border-radius:3px"></div></div>
+      ${status?`<div style="font-size:10px;color:${color};margin-top:2px;font-weight:600">${status} (${Math.round(pct)}%)</div>`:''}
+    </div>`;
+  };
+  for (const [cur, limit] of Object.entries(budgets.overall||{})) {
+    if (!limit) continue;
+    const spent = spending[cur]?._total || 0;
+    const pct = (spent/limit)*100;
+    if (pct >= 50) alerts.push(bar(pct, `Overall ${cur}`, spent, limit, cur));
+  }
+  for (const [cat, curLimits] of Object.entries(budgets.categories||{})) {
+    for (const [cur, limit] of Object.entries(curLimits)) {
+      if (!limit) continue;
+      const spent = spending[cur]?.[cat] || 0;
+      const pct = (spent/limit)*100;
+      if (pct >= 75) alerts.push(bar(pct, cat, spent, limit, cur));
+    }
+  }
+  if (!alerts.length) return '';
+  return `<div class="card"><div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot red"></span><span class="sec-title">Budget Alerts</span></div><div class="sec-sub">${fmtMonth(S.selectedMonth)}</div></div></div><div style="padding:6px 16px 10px">${alerts.join('')}</div></div>`;
 }
 
 function renderHeroCards() {
@@ -2012,7 +2066,22 @@ function renderSettings() {
       </div>
     </div>
   </div>`;
-  document.getElementById('tab-settings').innerHTML = aboutCard + themeCard + dataCard + aiCard;
+  const budgets = JSON.parse(localStorage.getItem('mmc.budgets')||'{}');
+  const usedCurs = [...new Set(S.transactions.map(t=>t.type==='transfer'?t.fromCurrency:getCur(t)))];
+  if (!usedCurs.length) usedCurs.push('USD');
+  const overallInputs = usedCurs.map(c => `<div class="form-row-2" style="margin-bottom:6px"><div><label class="form-label">${c}</label><input class="input" type="number" name="overall_${c}" value="${budgets.overall?.[c]||''}" placeholder="No limit" min="0" step="1" style="font-size:12px;padding:6px 8px"></div></div>`).join('');
+  const catInputs = EXPENSE_CATS.map(cat => `<div style="margin-bottom:8px"><div class="p-row-name" style="margin-bottom:4px;font-size:11px">${cat}</div><div style="display:flex;gap:6px">${usedCurs.map(c => `<div style="flex:1"><label class="form-label" style="font-size:9px">${c}</label><input class="input" type="number" name="cat_${cat}_${c}" value="${budgets.categories?.[cat]?.[c]||''}" placeholder="—" min="0" step="1" style="font-size:11px;padding:4px 6px"></div>`).join('')}</div></div>`).join('');
+  const budgetCard = `<div class="card">
+    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot red"></span><span class="sec-title">Budgets</span></div><div class="sec-sub">Set monthly spending limits</div></div></div>
+    <form data-action="save-budgets" style="padding:10px 16px">
+      <div class="p-row-name" style="margin-bottom:6px">Overall Monthly Limit</div>
+      ${overallInputs}
+      <div class="p-row-name" style="margin:12px 0 6px">Per-Category Limits <span style="font-weight:400;color:var(--muted-fg)">(optional)</span></div>
+      ${catInputs}
+      <div class="add-form-btns" style="padding:8px 0 0"><button type="submit" class="btn btn-accent" style="font-size:11px">Save Budgets</button></div>
+    </form>
+  </div>`;
+  document.getElementById('tab-settings').innerHTML = aboutCard + themeCard + budgetCard + dataCard + aiCard;
 }
 
 function investmentForm(item) {
@@ -2212,6 +2281,16 @@ function handleSubmit(e) {
   if (!action) return; e.preventDefault();
   const d = formData(form);
 
+  if (action==='save-budgets') {
+    const budgets = { overall: {}, categories: {} };
+    for (const [k,v] of Object.entries(d)) {
+      const val = parseFloat(v); if (!val || val <= 0) continue;
+      if (k.startsWith('overall_')) { budgets.overall[k.slice(8)] = val; }
+      else if (k.startsWith('cat_')) { const parts = k.slice(4).split('_'); const cur = parts.pop(); const cat = parts.join('_'); if (!budgets.categories[cat]) budgets.categories[cat] = {}; budgets.categories[cat][cur] = val; }
+    }
+    localStorage.setItem('mmc.budgets', JSON.stringify(budgets));
+    toast('Budgets saved'); renderDashboard(); return;
+  }
   if (action==='save-api-key') {
     const key = (d.apiKey||'').trim();
     if (key) { localStorage.setItem('mmc.apiKey', key); toast('API key saved'); }
@@ -2228,7 +2307,12 @@ function handleSubmit(e) {
     const txDate = d.date ? new Date(d.date+'T12:00:00').toISOString() : new Date().toISOString();
     S.transactions.unshift({id:uid(),type,amount,category:d.category,note:d.note||undefined,date:txDate,currency:d.currency});
     if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
-    S.addEntryType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderDashboard(); toast('Transaction added'); return;
+    S.addEntryType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderDashboard(); toast('Transaction added');
+    const budgets = JSON.parse(localStorage.getItem('mmc.budgets')||'{}'); const spending = getMonthlySpending();
+    const bc = d.currency, bcat = d.category;
+    if (budgets.overall?.[bc]) { const pct=Math.round((spending[bc]?._total||0)/budgets.overall[bc]*100); if(pct>=90) toast(`⚠ Overall ${bc} budget: ${pct}% used`); }
+    if (budgets.categories?.[bcat]?.[bc]) { const pct=Math.round((spending[bc]?.[bcat]||0)/budgets.categories[bcat][bc]*100); if(pct>=90) toast(`⚠ ${bcat} budget: ${pct}% used`); }
+    return;
   }
   if (action==='update-tx') {
     const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
