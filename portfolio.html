@@ -741,21 +741,28 @@ async function callAI(prompt, setResult, setLoading, cacheKey) {
   renderInsights();
 
   try {
+    async function fetchWithRetry(url, opts) {
+      for (let i = 0; i < 3; i++) {
+        const resp = await fetch(url, opts);
+        if (resp.status === 503 && i < 2) { await new Promise(r => setTimeout(r, (i + 1) * 2000)); continue; }
+        return resp;
+      }
+    }
     let text;
     if (provider === 'gemini') {
-      const resp = await fetch(apiUrl, {
+      const resp = await fetchWithRetry(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-goog-api-key': apiKey },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
       });
       if (!resp.ok) {
         const err = await resp.text();
-        throw new Error(resp.status === 400 ? 'Invalid API key. Check your key in Settings.' : `API error: ${resp.status} - ${err}`);
+        throw new Error(resp.status === 400 ? 'Invalid API key. Check your key in Settings.' : resp.status === 503 ? 'Service unavailable after 3 retries. Try again later.' : `API error: ${resp.status} - ${err}`);
       }
       const data = await resp.json();
       text = data.candidates?.[0]?.content?.parts?.map(p => p.text).filter(Boolean).join('\n') || '';
     } else {
-      const resp = await fetch(apiUrl, {
+      const resp = await fetchWithRetry(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -771,7 +778,7 @@ async function callAI(prompt, setResult, setLoading, cacheKey) {
       });
       if (!resp.ok) {
         const err = await resp.text();
-        throw new Error(resp.status === 401 ? 'Invalid API key. Check your key in Settings.' : `API error: ${resp.status} - ${err}`);
+        throw new Error(resp.status === 401 ? 'Invalid API key. Check your key in Settings.' : resp.status === 503 ? 'Service unavailable after 3 retries. Try again later.' : `API error: ${resp.status} - ${err}`);
       }
       const data = await resp.json();
       text = data.content?.[0]?.text;
