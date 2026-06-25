@@ -470,7 +470,7 @@ const S = {
   recurring: { items: [], creditCards: [] },
   txCurrency: 'USD',
   addingInvestment: false, addingInsurance: false,
-  addEntryType: null, portfolioAddType: null, recurringAddType: null, activityCurFilter: null,
+  addEntryType: null, portfolioAddType: null, recurringAddType: null, activityCurFilter: null, activityCatFilter: null, activitySearch: '',
   editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, expandedSaving: null, showingPPForm: null, showingGoldPayForm: null, selectedMonth: null,
   secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, investments: true, insurance: true, projections: true, netWorth: false, aiInsights: true, investSuggestions: true, trendChart: true, categoryDonut: true },
 };
@@ -1680,13 +1680,13 @@ function renderActivity() {
   for (const t of S.transactions) {
     if (!t.date || localTxMonth(t.date) !== mon) continue;
     if (t.type==='transfer') {
-      entries.push({ date: t.date, icon: 'transfer', iconSvg: svgTransfer, name: 'Transfer', meta: t.note ? esc(t.note) + ' · ' + fmtDate(t.date) : fmtDate(t.date), amtHtml: `<span class="tx-amount transfer">${formatMoney(t.fromAmount,t.fromCurrency)} → ${formatMoney(t.toAmount,t.toCurrency)}</span>`, delBtn: `<button class="tx-del" data-action="del-tx" data-id="${t.id}" title="Delete">${svgTrash}</button>`, badge: '', currencies: [t.fromCurrency, t.toCurrency], source: 'txn', txId: t.id });
+      entries.push({ date: t.date, icon: 'transfer', iconSvg: svgTransfer, name: 'Transfer', meta: t.note ? esc(t.note) + ' · ' + fmtDate(t.date) : fmtDate(t.date), amtHtml: `<span class="tx-amount transfer">${formatMoney(t.fromAmount,t.fromCurrency)} → ${formatMoney(t.toAmount,t.toCurrency)}</span>`, delBtn: `<button class="tx-del" data-action="del-tx" data-id="${t.id}" title="Delete">${svgTrash}</button>`, badge: '', currencies: [t.fromCurrency, t.toCurrency], source: 'txn', txId: t.id, category: 'Transfer', rawNote: t.note||'' });
     } else {
       const isIncome = t.type==='income';
       const isBill = t.category==='Bills' && t.note;
       const dispName = isBill ? t.note : t.category;
       const dispMeta = isBill ? fmtDate(t.date) : (t.note ? esc(t.note) + ' · ' + fmtDate(t.date) : fmtDate(t.date));
-      entries.push({ date: t.date, icon: t.type, iconSvg: isIncome ? svgArrowUp : svgArrowDown, name: dispName, meta: dispMeta, amtHtml: `<span class="tx-amount ${t.type}">${isIncome?'+':'−'}${formatMoney(t.amount,getCur(t))}</span>`, delBtn: `<button class="tx-del" data-action="del-tx" data-id="${t.id}" title="Delete">${svgTrash}</button>`, badge: getCur(t), source: 'txn', txId: t.id });
+      entries.push({ date: t.date, icon: t.type, iconSvg: isIncome ? svgArrowUp : svgArrowDown, name: dispName, meta: dispMeta, amtHtml: `<span class="tx-amount ${t.type}">${isIncome?'+':'−'}${formatMoney(t.amount,getCur(t))}</span>`, delBtn: `<button class="tx-del" data-action="del-tx" data-id="${t.id}" title="Delete">${svgTrash}</button>`, badge: getCur(t), source: 'txn', txId: t.id, category: t.category||'Other', rawNote: t.note||'' });
     }
   }
 
@@ -1705,19 +1705,31 @@ function renderActivity() {
   }
 
   const allCurs = [...new Set(entries.flatMap(e => e.currencies || (e.badge ? [e.badge] : [])))];
-  const filter = S.activityCurFilter;
-  const filtered = filter ? entries.filter(e => e.currencies ? e.currencies.includes(filter) : e.badge === filter) : entries;
+  const allCats = [...new Set(entries.map(e => e.category).filter(Boolean))];
+  const curFilter = S.activityCurFilter;
+  const catFilter = S.activityCatFilter;
+  const search = (S.activitySearch||'').toLowerCase();
+  let filtered = entries;
+  if (curFilter) filtered = filtered.filter(e => e.currencies ? e.currencies.includes(curFilter) : e.badge === curFilter);
+  if (catFilter) filtered = filtered.filter(e => e.category === catFilter);
+  if (search) filtered = filtered.filter(e => (e.name||'').toLowerCase().includes(search) || (e.rawNote||'').toLowerCase().includes(search));
 
   const isOpen = S.secOpen.tx;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="tx" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
       <div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">All Activity</span></div><div class="sec-sub">${filtered.length?`${filtered.length} this month`:'Recent activity'}</div></div>
     </div>`;
-  const filterChips = allCurs.length > 1 ? `<div class="toggle-chip-row" style="padding:4px 16px 8px">
-    <button class="toggle-chip${!filter?' active':''}" data-action="filter-activity-cur" data-cur="">All</button>
-    ${allCurs.map(c=>`<button class="toggle-chip${filter===c?' active':''}" data-action="filter-activity-cur" data-cur="${c}">${c}</button>`).join('')}
+  const searchBar = `<div style="padding:4px 16px 6px"><input class="input" type="search" placeholder="Search transactions..." value="${esc(S.activitySearch||'')}" data-action="search-activity" style="font-size:12px;padding:6px 10px"></div>`;
+  const curChips = allCurs.length > 1 ? `<div class="toggle-chip-row" style="padding:2px 16px 4px">
+    <button class="toggle-chip${!curFilter?' active':''}" data-action="filter-activity-cur" data-cur="">All</button>
+    ${allCurs.map(c=>`<button class="toggle-chip${curFilter===c?' active':''}" data-action="filter-activity-cur" data-cur="${c}">${c}</button>`).join('')}
   </div>` : '';
+  const catChips = allCats.length > 1 ? `<div class="toggle-chip-row" style="padding:2px 16px 8px;flex-wrap:wrap">
+    <button class="toggle-chip${!catFilter?' active':''}" data-action="filter-activity-cat" data-cat="">All</button>
+    ${allCats.map(c=>`<button class="toggle-chip${catFilter===c?' active':''}" data-action="filter-activity-cat" data-cat="${c}">${c}</button>`).join('')}
+  </div>` : '';
+  const filterUI = searchBar + curChips + catChips;
   if (!isOpen) return `<div class="card">${hdr}</div>`;
-  if (!filtered.length) return `<div class="card">${hdr}${filterChips}<div class="empty"><p>No activity this month</p></div></div>`;
+  if (!filtered.length) return `<div class="card">${hdr}${filterUI}<div class="empty"><p>No matching activity</p></div></div>`;
 
   filtered.sort((a, b) => b.date.localeCompare(a.date));
 
@@ -1747,7 +1759,7 @@ function renderActivity() {
       ${e.delBtn}
     </li>`;
   }).join('');
-  return `<div class="card">${hdr}${filterChips}<ul class="tx-list">${rows}</ul></div>`;
+  return `<div class="card">${hdr}${filterUI}<ul class="tx-list">${rows}</ul></div>`;
 }
 
 // ── Portfolio ──────────────────────────────────────────────────────────────────
@@ -2390,6 +2402,7 @@ function handleClick(e) {
   if (action==='next-month') { const next = shiftMonth(S.selectedMonth, 1); const limit = S.tab==='recurring' ? shiftMonth(thisMonth(),1) : thisMonth(); if (next <= limit) S.selectedMonth = next; renderDashboard(); renderRecurring(); return; }
   if (action==='goto-current-month') { S.selectedMonth = thisMonth(); renderDashboard(); renderRecurring(); return; }
   if (action==='filter-activity-cur') { S.activityCurFilter = btn.dataset.cur || null; renderDashboard(); return; }
+  if (action==='filter-activity-cat') { S.activityCatFilter = btn.dataset.cat || null; renderDashboard(); return; }
   if (action==='toggle-add-entry') { S.addEntryType = S.addEntryType ? null : 'tx-expense'; renderDashboard(); return; }
   if (action==='set-entry-type') { S.addEntryType=btn.dataset.type; const bs=document.getElementById('bottom-sheet'); if(bs.style.display!=='none'){document.getElementById('bottom-sheet-content').innerHTML=renderQuickAdd();}else{renderDashboard();} return; }
   if (action==='cancel-entry') { S.addEntryType=null; S.editingId=null; document.getElementById('bottom-sheet').style.display='none'; renderDashboard(); return; }
@@ -2598,6 +2611,7 @@ function handleClick(e) {
 
 function handleInput(e) {
   const inp = e.target;
+  if (inp.dataset.action==='search-activity') { S.activitySearch = inp.value; renderDashboard(); const el=document.querySelector('[data-action="search-activity"]'); if(el){el.focus();el.selectionStart=el.selectionEnd=el.value.length;} return; }
   if (inp.hasAttribute('data-loan-preview')) {
     const form = inp.closest('form'); if (!form) return;
     const p=parseFloat(form.querySelector('[name=principal]')?.value)||0;
