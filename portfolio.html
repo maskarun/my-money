@@ -329,6 +329,12 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .cat-amt.grn { color: var(--income); }
 .cat-subrow { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--muted-fg); padding: 4px 0 0 10px; }
 
+/* Charts */
+.chart-card svg { display: block; margin: 0 auto; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 8px 12px; margin-top: 12px; justify-content: center; padding: 0 16px 14px; }
+.chart-legend-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--fg); }
+.chart-legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
 /* Empty state */
 .empty { text-align: center; padding: 28px 16px; color: var(--muted-fg); }
 .empty svg { width: 36px; height: 36px; margin: 0 auto 8px; display: block; opacity: .3; }
@@ -466,7 +472,7 @@ const S = {
   addingInvestment: false, addingInsurance: false,
   addEntryType: null, portfolioAddType: null, recurringAddType: null, activityCurFilter: null,
   editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, expandedSaving: null, showingPPForm: null, showingGoldPayForm: null, selectedMonth: null,
-  secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, investments: true, insurance: true, projections: true, netWorth: false, aiInsights: true, investSuggestions: true },
+  secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, investments: true, insurance: true, projections: true, netWorth: false, aiInsights: true, investSuggestions: true, trendChart: true, categoryDonut: true },
 };
 
 function save() {
@@ -504,9 +510,11 @@ const uid = () => { try { return crypto.randomUUID(); } catch(e) { return Math.r
 const todayISO = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const getCur = t => t.currency || 'USD';
 
-function formatMoney(n, cur='USD') {
+function formatMoney(n, cur='USD', compact=false) {
   if (isNaN(n)) n = 0;
-  return new Intl.NumberFormat(cur==='INR'?'en-IN':'en-US',{style:'currency',currency:cur,maximumFractionDigits:0}).format(n);
+  const opts = {style:'currency',currency:cur,maximumFractionDigits:0};
+  if (compact) opts.notation = 'compact';
+  return new Intl.NumberFormat(cur==='INR'?'en-IN':'en-US',opts).format(n);
 }
 function fmtDate(iso) { if (!iso) return ''; return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric'}); }
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -604,6 +612,42 @@ const svgCard      = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none
 const svgUndo      = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 7"/></svg>`;
 const svgTransfer  = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>`;
 const svgShield    = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`;
+
+function getPrimaryCurrency() {
+  const counts = {};
+  for (const t of S.transactions) { const c = t.type==='transfer' ? t.fromCurrency : getCur(t); counts[c] = (counts[c]||0)+1; }
+  return Object.entries(counts).sort((a,b)=>b[1]-a[1])[0]?.[0] || 'USD';
+}
+
+function getMonthlyTotals(cur, numMonths) {
+  const result = [];
+  for (let i = numMonths - 1; i >= 0; i--) {
+    const mon = shiftMonth(S.selectedMonth, -i);
+    const label = new Date(mon+'-15').toLocaleDateString('en',{month:'short'});
+    let income = 0, expense = 0;
+    const recurTxIds = new Set();
+    for (const item of (S.recurring?.items||[])) { const ms=item.months?.[mon]; if (ms?.txId) recurTxIds.add(ms.txId); }
+    for (const card of (S.recurring?.creditCards||[])) { const ms=card.months?.[mon]; if (ms?.txId) recurTxIds.add(ms.txId); }
+    for (const t of S.transactions) {
+      if (!t.date || localTxMonth(t.date)!==mon || recurTxIds.has(t.id)) continue;
+      if (t.type==='transfer') { if (t.fromCurrency===cur) expense+=t.fromAmount; if (t.toCurrency===cur) income+=t.toAmount; continue; }
+      if (getCur(t)!==cur) continue;
+      if (t.type==='income') income+=t.amount; else expense+=t.amount;
+    }
+    for (const item of (S.recurring?.items||[])) {
+      if ((item.currency||'USD')!==cur) continue;
+      const ms=item.months?.[mon]; if (ms?.paid&&ms.amount>0) { if (item.type==='income') income+=ms.amount; else expense+=ms.amount; }
+    }
+    for (const card of (S.recurring?.creditCards||[])) {
+      if ((card.currency||'USD')!==cur) continue;
+      const ms=card.months?.[mon]; if (ms?.paid&&ms.amount>0) expense+=ms.amount;
+    }
+    for (const loan of S.portfolio.loans) { if (getCur(loan)!==cur) continue; for (const p of (loan.partPayments||[])) { if (p.date&&localTxMonth(p.date)===mon) expense+=p.amount; } }
+    for (const loan of S.portfolio.goldLoans) { if (getCur(loan)!==cur) continue; for (const p of (loan.payments||[])) { if (p.date&&localTxMonth(p.date)===mon) expense+=p.amount; } }
+    result.push({month:mon, label, income, expense});
+  }
+  return result;
+}
 
 function curOptions(sel) { return CURRENCIES.map(c=>`<option value="${c}"${c===sel?' selected':''}>${c}</option>`).join(''); }
 const otherCur = c => CURRENCIES.find(x=>x!==c) || CURRENCIES[0];
@@ -1282,7 +1326,7 @@ function renderMonthNavCard() {
 
 function renderDashboard() {
   document.getElementById('tab-dashboard').innerHTML =
-    renderHeroCards() + renderOverviewCards() + renderActivity() + renderMonthNavCard();
+    renderHeroCards() + renderTrendChart() + renderOverviewCards() + renderCategoryDonut() + renderActivity() + renderMonthNavCard();
   updateHeaderMonthNav();
 }
 
@@ -1299,6 +1343,79 @@ function renderMonthNav() {
     <button class="ibtn" data-action="prev-month" title="Previous month">${svgChevronLeft}</button>
     <div class="month-nav-label">${label}${isCurrent?'':` <button class="link-btn" data-action="goto-current-month">Today</button>`}</div>
     <button class="ibtn" data-action="next-month" ${isCurrent?'disabled':''} title="Next month">${svgChevronRight}</button>
+  </div>`;
+}
+
+function renderTrendChart() {
+  const cur = getPrimaryCurrency();
+  const data = getMonthlyTotals(cur, 6);
+  const maxVal = Math.max(...data.flatMap(d=>[d.income,d.expense]), 1);
+  const isOpen = S.secOpen.trendChart;
+  const chartH = 140, padTop = 25, padBot = 20, barW = 16, gap = 4;
+  const groupW = 360 / data.length;
+  let bars = '', labels = '';
+  for (let i = 0; i < data.length; i++) {
+    const d = data[i];
+    const cx = groupW * i + groupW / 2;
+    const ih = d.income ? (d.income / maxVal) * (chartH - padTop - padBot) : 0;
+    const eh = d.expense ? (d.expense / maxVal) * (chartH - padTop - padBot) : 0;
+    const iy = chartH - padBot - ih, ey = chartH - padBot - eh;
+    bars += `<rect x="${cx-barW-gap/2}" y="${iy}" width="${barW}" height="${ih}" rx="3" fill="var(--income)" opacity=".85"/>`;
+    bars += `<rect x="${cx+gap/2}" y="${ey}" width="${barW}" height="${eh}" rx="3" fill="var(--expense)" opacity=".85"/>`;
+    if (ih > 0) bars += `<text x="${cx-barW/2-gap/2}" y="${iy-4}" text-anchor="middle" font-size="8" fill="var(--income)" font-weight="600">${formatMoney(d.income,cur,true)}</text>`;
+    if (eh > 0) bars += `<text x="${cx+barW/2+gap/2}" y="${ey-4}" text-anchor="middle" font-size="8" fill="var(--expense)" font-weight="600">${formatMoney(d.expense,cur,true)}</text>`;
+    labels += `<text x="${cx}" y="${chartH}" text-anchor="middle" font-size="10" fill="var(--muted-fg)">${d.label}</text>`;
+  }
+  const svg = `<svg viewBox="0 0 360 ${chartH}" width="100%" preserveAspectRatio="xMidYMid meet" style="padding:0 8px">${bars}${labels}</svg>`;
+  return `<div class="card chart-card">
+    <div class="sec-hdr" data-action="toggle-section" data-key="trendChart"><div><div class="sec-title-row"><span class="sec-dot" style="background:var(--accent)"></span><span class="sec-title">Monthly Trend</span></div><div class="sec-sub">${cur} · Last 6 months</div></div><span class="sec-arrow">${isOpen?'▾':'▸'}</span></div>
+    ${isOpen ? `<div style="padding:8px 8px 0">${svg}</div>
+    <div class="chart-legend"><div class="chart-legend-item"><div class="chart-legend-dot" style="background:var(--income)"></div>Income</div><div class="chart-legend-item"><div class="chart-legend-dot" style="background:var(--expense)"></div>Expenses</div></div>` : ''}
+  </div>`;
+}
+
+function renderCategoryDonut() {
+  const cur = getPrimaryCurrency();
+  const mon = S.selectedMonth;
+  const isOpen = S.secOpen.categoryDonut;
+  const colors = ['#e11d48','#0284c7','#d97706','#059669','#7c3aed','#db2777','#64748b','#0d9488'];
+  const catTotals = {};
+  for (const t of S.transactions) {
+    if (!t.date || localTxMonth(t.date)!==mon || t.type!=='expense' || getCur(t)!==cur) continue;
+    const cat = t.category || 'Other';
+    catTotals[cat] = (catTotals[cat]||0) + t.amount;
+  }
+  for (const item of (S.recurring?.items||[])) {
+    if (item.type==='income' || (item.currency||'USD')!==cur) continue;
+    const ms = item.months?.[mon]; if (ms?.paid && ms.amount>0) { catTotals[item.category||'Bills'] = (catTotals[item.category||'Bills']||0) + ms.amount; }
+  }
+  for (const card of (S.recurring?.creditCards||[])) {
+    if ((card.currency||'USD')!==cur) continue;
+    const ms = card.months?.[mon]; if (ms?.paid && ms.amount>0) { catTotals['Bills'] = (catTotals['Bills']||0) + ms.amount; }
+  }
+  const total = Object.values(catTotals).reduce((a,b)=>a+b, 0);
+  const sorted = Object.entries(catTotals).sort((a,b)=>b[1]-a[1]);
+  if (!sorted.length) return `<div class="card chart-card">
+    <div class="sec-hdr" data-action="toggle-section" data-key="categoryDonut"><div><div class="sec-title-row"><span class="sec-dot" style="background:#7c3aed"></span><span class="sec-title">Spending Breakdown</span></div><div class="sec-sub">${cur} · ${fmtMonth(mon)}</div></div><span class="sec-arrow">${isOpen?'▾':'▸'}</span></div>
+    ${isOpen ? '<div class="empty"><p>No expenses this month</p></div>' : ''}
+  </div>`;
+  const r = 70, sw = 28, circ = 2 * Math.PI * r;
+  let offset = 0, circles = '';
+  sorted.forEach(([cat, amt], i) => {
+    const seg = (amt / total) * circ;
+    circles += `<circle cx="100" cy="100" r="${r}" fill="none" stroke="${colors[i%colors.length]}" stroke-width="${sw}" stroke-dasharray="${seg} ${circ-seg}" stroke-dashoffset="${-offset}" transform="rotate(-90 100 100)"/>`;
+    offset += seg;
+  });
+  const svg = `<svg viewBox="0 0 200 200" width="180" height="180" style="display:block;margin:0 auto">
+    <circle cx="100" cy="100" r="${r}" fill="none" stroke="var(--muted)" stroke-width="${sw}" opacity=".15"/>
+    ${circles}
+    <text x="100" y="96" text-anchor="middle" font-size="14" font-weight="700" fill="var(--fg)">${formatMoney(total,cur,true)}</text>
+    <text x="100" y="112" text-anchor="middle" font-size="9" fill="var(--muted-fg)">Total Expenses</text>
+  </svg>`;
+  const legend = sorted.map(([cat,amt],i)=> `<div class="chart-legend-item"><div class="chart-legend-dot" style="background:${colors[i%colors.length]}"></div>${esc(cat)} <span style="color:var(--muted-fg)">${Math.round(amt/total*100)}%</span></div>`).join('');
+  return `<div class="card chart-card">
+    <div class="sec-hdr" data-action="toggle-section" data-key="categoryDonut"><div><div class="sec-title-row"><span class="sec-dot" style="background:#7c3aed"></span><span class="sec-title">Spending Breakdown</span></div><div class="sec-sub">${cur} · ${fmtMonth(mon)}</div></div><span class="sec-arrow">${isOpen?'▾':'▸'}</span></div>
+    ${isOpen ? `<div style="padding:12px 8px 4px">${svg}</div><div class="chart-legend">${legend}</div>` : ''}
   </div>`;
 }
 
