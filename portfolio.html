@@ -215,6 +215,8 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .cur-pill { font-size: 8px; font-weight: 800; background: #e0f2fe; color: var(--accent); padding: 1px 5px; border-radius: 4px; letter-spacing: .3px; }
 .cur-pill.red { background: #fff1f2; color: var(--expense); }
 .cur-pill.amb { background: #fef9c3; color: var(--gold); }
+.cur-pill.purple { background: #f3e8ff; color: #9333ea; }
+.cur-pill.green { background: #dcfce7; color: #16a34a; }
 .p-row-sub { font-size: 10px; color: var(--muted-fg); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
 .p-row-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
 .p-row-amt-lbl { font-size: 8px; font-weight: 600; letter-spacing: .7px; color: var(--muted-fg); text-transform: uppercase; }
@@ -625,6 +627,7 @@ const svgCard      = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none
 const svgUndo      = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 7"/></svg>`;
 const svgTransfer  = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>`;
 const svgShield    = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`;
+const svgTag       = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>`;
 
 function getPrimaryCurrency() {
   const counts = {};
@@ -1150,6 +1153,7 @@ function renderRecurringQuickAdd() {
         <div><label class="form-label">Type</label><div class="select-wrap"><select class="input" name="isVariable"><option value="0">Fixed</option><option value="1">Variable</option></select></div></div>
         <div><label class="form-label">Due day</label><input class="input" type="number" name="dayOfMonth" min="1" max="31" placeholder="1"></div>
       </div>
+      <div class="form-row"><label class="form-label">Portfolio Tag</label><div class="select-wrap"><select class="input" name="portfolioTag"><option value="">None</option><option value="investment">Investment (SIP, MF)</option><option value="savings">Savings (PPF, RD)</option></select></div></div>
       <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-recurring-add">Cancel</button><button type="submit" class="btn btn-accent">Add</button></div>
     </form>`;
   } else if (S.recurringAddType==='card') {
@@ -1324,7 +1328,7 @@ function renderBills() {
     return `<div class="p-row"${paid?' style="opacity:.55"':''}>
       <div class="p-row-icon loan">${svgArrowDown.replace('stroke="currentColor"','stroke="#e11d48"')}</div>
       <div class="p-row-meta">
-        <div class="p-row-name">${esc(item.name)}<span class="cur-pill red">${c}</span></div>
+        <div class="p-row-name">${esc(item.name)}<span class="cur-pill red">${c}</span>${item.portfolioTag==='investment'?'<span class="cur-pill purple">Investment</span>':item.portfolioTag==='savings'?'<span class="cur-pill green">Savings</span>':''}</div>
         <div class="p-row-sub">${item.isVariable?'Variable':'Fixed · '+formatMoney(item.amount,c)}${item.dayOfMonth?' · Due '+ordinal(item.dayOfMonth):''}${badge?' '+badge:''}</div>
       </div>
       <div class="p-row-right">
@@ -1337,6 +1341,7 @@ function renderBills() {
                   <button type="submit" class="btn btn-accent rec-btn">Paid</button>
                  </form>`
               : `<button class="btn btn-accent rec-btn" data-action="mark-bill-paid" data-id="${item.id}">Mark Paid</button>`}
+          <button class="ibtn" data-action="cycle-portfolio-tag" data-id="${item.id}" title="Tag: ${item.portfolioTag||'none'}">${svgTag}</button>
           <button class="ibtn del" data-action="del-recurring-item" data-id="${item.id}" title="Delete">${svgTrash}</button>
         </div>
       </div>
@@ -1918,14 +1923,17 @@ function renderPortfolio() {
 function getPortfolioCurrencies() {
   const curs = new Set();
   for (const i of [...S.portfolio.savings,...S.portfolio.loans,...S.portfolio.goldLoans]) curs.add(getCur(i));
+  for (const i of S.recurring.items.filter(r=>r.portfolioTag&&!r.closed)) curs.add(getCur(i));
   if (!curs.size) curs.add('USD');
   return [...curs];
 }
 
 function renderPortfolioSummary() {
-  if (!S.portfolio.savings.length && !S.portfolio.loans.length && !S.portfolio.goldLoans.length) return '';
+  const hasRecTagged = S.recurring.items.some(i=>i.portfolioTag&&!i.closed);
+  if (!S.portfolio.savings.length && !S.portfolio.loans.length && !S.portfolio.goldLoans.length && !hasRecTagged) return '';
   return getPortfolioCurrencies().map(cur => {
-    const sav = S.portfolio.savings.filter(i=>getCur(i)===cur).reduce((a,i)=>a+i.amount,0);
+    const sav = S.portfolio.savings.filter(i=>getCur(i)===cur).reduce((a,i)=>a+i.amount,0)
+      + getTaggedRecurring('savings').filter(i=>getCur(i)===cur).reduce((a,i)=>a+getRecurringPaidTotal(i),0);
     const loans = S.portfolio.loans.filter(i=>getCur(i)===cur&&!i.closed).reduce((a,i)=>a+computeOutstanding(i),0);
     const gold = S.portfolio.goldLoans.filter(i=>getCur(i)===cur&&!i.closed).reduce((a,i)=>a+i.principal+computeGoldLoanInterest(i),0);
     return `<div class="cards-row">
@@ -1937,8 +1945,10 @@ function renderPortfolioSummary() {
 
 function renderSavings() {
   const items = S.portfolio.savings;
+  const recItems = getTaggedRecurring('savings');
   const totals = {};
   for (const i of items) { const c=getCur(i); totals[c]=(totals[c]||0)+(i.amount||0); }
+  for (const i of recItems) { const c=getCur(i); totals[c]=(totals[c]||0)+getRecurringPaidTotal(i); }
   const rows = items.map(item => {
     const c = getCur(item);
     if (S.editingId===item.id && S.editSection==='saving') return `<div class="add-form">${savingForm(item)}</div>`;
@@ -1963,13 +1973,25 @@ function renderSavings() {
       ${payHtml}
     </div>`;
   }).join('');
+  const recRows = recItems.map(item => {
+    const c = getCur(item), total = getRecurringPaidTotal(item), paidMonths = Object.values(item.months||{}).filter(m=>m.paid).length;
+    return `<div class="p-row">
+      <div class="p-row-icon sav">${svgTag.replace('stroke="currentColor"','stroke="#0284c7"')}</div>
+      <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill green">Recurring</span><span class="cur-pill">${c}</span></div><div class="p-row-sub">PPF/RD · ${formatMoney(item.amount||0,c)}/mo · ${paidMonths} months paid</div></div>
+      <div class="p-row-right">
+        <div><div class="p-row-amt-lbl">Total Saved</div><div class="p-row-amt grn">${formatMoney(total,c)}</div></div>
+      </div>
+    </div>`;
+  }).join('');
+  const allRows = rows + recRows;
+  const hasItems = items.length || recItems.length;
   const isOpen = S.secOpen.savings;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="savings" style="cursor:pointer">
       <div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Savings</span></div><div class="sec-sub">Bank accounts, deposits, cash</div></div>
-      ${items.length?`<div class="sec-totals"><div class="sec-total-lbl">Total Balance</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt grn">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
+      ${hasItems?`<div class="sec-totals"><div class="sec-total-lbl">Total Balance</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt grn">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
     </div>`;
   if (!isOpen) return `<div class="card">${hdr}</div>`;
-  return `<div class="card">${hdr}${rows}</div>`;
+  return `<div class="card">${hdr}${allRows}</div>`;
 }
 
 function savingForm(item) {
@@ -1988,10 +2010,21 @@ function savingForm(item) {
   </form>`;
 }
 
+function getRecurringPaidTotal(item) {
+  const ms = item.months||{};
+  return Object.values(ms).filter(m=>m.paid).reduce((s,m)=>s+(m.amount||item.amount||0),0);
+}
+
+function getTaggedRecurring(tag) {
+  return S.recurring.items.filter(i=>i.portfolioTag===tag&&!i.closed);
+}
+
 function renderInvestmentsCard() {
   const items = S.portfolio.investments;
+  const recItems = getTaggedRecurring('investment');
   const totals = {};
   for (const i of items) { const c=getCur(i); totals[c]=(totals[c]||0)+(i.currentValue||0); }
+  for (const i of recItems) { const c=getCur(i); totals[c]=(totals[c]||0)+getRecurringPaidTotal(i); }
   const rows = items.map(item => {
     const c = getCur(item);
     if (S.editingId===item.id && S.editSection==='investment') return `<div class="add-form">${investmentForm(item)}</div>`;
@@ -2007,13 +2040,25 @@ function renderInvestmentsCard() {
       </div>
     </div>`;
   }).join('');
+  const recRows = recItems.map(item => {
+    const c = getCur(item), total = getRecurringPaidTotal(item), paidMonths = Object.values(item.months||{}).filter(m=>m.paid).length;
+    return `<div class="p-row">
+      <div class="p-row-icon inv">${svgTag.replace('stroke="currentColor"','stroke="#9333ea"')}</div>
+      <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill purple">Recurring</span><span class="cur-pill">${c}</span></div><div class="p-row-sub">SIP · ${formatMoney(item.amount||0,c)}/mo · ${paidMonths} months paid</div></div>
+      <div class="p-row-right">
+        <div><div class="p-row-amt-lbl">Total Invested</div><div class="p-row-amt grn">${formatMoney(total,c)}</div></div>
+      </div>
+    </div>`;
+  }).join('');
+  const allRows = rows + recRows;
+  const hasItems = items.length || recItems.length;
   const isOpen = S.secOpen.investments;
   return `<div class="card">
     <div class="sec-hdr" data-action="toggle-section" data-sec="investments" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
       <div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Investments</span></div><div class="sec-sub">Stocks, mutual funds, FDs, and more</div></div>
-      ${items.length?`<div class="sec-totals"><div class="sec-total-lbl">Current Value</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt grn">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
+      ${hasItems?`<div class="sec-totals"><div class="sec-total-lbl">Total Value</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt grn">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
     </div>
-    ${isOpen?rows:''}</div>`;
+    ${isOpen?allRows:''}</div>`;
 }
 
 function insuranceForm(item) {
@@ -2396,7 +2441,7 @@ function handleSubmit(e) {
     if (!d.name.trim()) return toast('Name is required');
     const isVariable = d.isVariable==='1';
     const amount = isVariable ? 0 : (parseFloat(d.amount)||0);
-    S.recurring.items.push({id:uid(),name:d.name.trim(),type:'expense',isVariable,amount,currency:d.currency,dayOfMonth:d.dayOfMonth?parseInt(d.dayOfMonth):undefined,months:{},createdAt:todayISO()});
+    S.recurring.items.push({id:uid(),name:d.name.trim(),type:'expense',isVariable,amount,currency:d.currency,dayOfMonth:d.dayOfMonth?parseInt(d.dayOfMonth):undefined,portfolioTag:d.portfolioTag||null,months:{},createdAt:todayISO()});
     if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
     S.recurringAddType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderDashboard(); renderRecurring(); toast('Bill added'); return;
   }
@@ -2592,6 +2637,14 @@ function handleClick(e) {
     if (ms.txId) S.transactions = S.transactions.filter(t=>t.id!==ms.txId);
     ms.paid = false; ms.txId = undefined;
     save(); renderDashboard(); renderRecurring(); toast(card.name+' marked unpaid'); return;
+  }
+  if (action==='cycle-portfolio-tag') {
+    const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
+    const cycle = [null,'investment','savings'];
+    item.portfolioTag = cycle[(cycle.indexOf(item.portfolioTag)+1)%3];
+    save(); renderRecurring(); renderPortfolio();
+    toast(item.portfolioTag ? `Tagged as ${item.portfolioTag}` : 'Tag removed');
+    return;
   }
   if (action==='del-recurring-item') {
     const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
