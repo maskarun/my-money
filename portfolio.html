@@ -517,6 +517,7 @@ function load() {
   if (!S.portfolio.savings.length && !S.portfolio.loans.length) { try { const p = localStorage.getItem('budget.portfolio.v1'); if (p) S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[],insurance:[]}, JSON.parse(p)); } catch(e) {} }
   S.txCurrency = localStorage.getItem('mmc.lastCurrency.v1') || localStorage.getItem('budget.lastCurrency.v1') || 'USD';
   S.selectedMonth = thisMonth();
+  try { const so = localStorage.getItem('mmc.secOpen'); if (so) Object.assign(S.secOpen, JSON.parse(so)); } catch(e) {}
 }
 
 
@@ -2699,7 +2700,7 @@ function handleClick(e) {
   if (action==='toggle-gold-pay-form') { S.showingGoldPayForm=S.showingGoldPayForm===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
 
 
-  if (action==='toggle-section') { const k=btn.dataset.sec; S.secOpen[k]=!S.secOpen[k]; renderDashboard(); renderPortfolio(); renderRecurring(); renderInsights(); return; }
+  if (action==='toggle-section') { const k=btn.dataset.sec; S.secOpen[k]=!S.secOpen[k]; localStorage.setItem('mmc.secOpen',JSON.stringify(S.secOpen)); renderDashboard(); renderPortfolio(); renderRecurring(); renderInsights(); return; }
   if (action==='del-part-payment') {
     if (!confirm('Delete this payment?')) return;
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.loanId);
