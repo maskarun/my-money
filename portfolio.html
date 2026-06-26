@@ -480,12 +480,15 @@ const S = {
   tab: 'dashboard', transactions: [],
   portfolio: { savings: [], loans: [], goldLoans: [], investments: [], insurance: [] },
   recurring: { items: [], creditCards: [] },
+  goals: [],
   txCurrency: 'USD',
   addingInvestment: false, addingInsurance: false,
   addEntryType: null, portfolioAddType: null, recurringAddType: null, activityCurFilter: null, activityCatFilter: null,
   reportRange: 'ytd', reportFrom: null, reportTo: null,
   editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, expandedSaving: null, showingPPForm: null, showingGoldPayForm: null, selectedMonth: null, parsedEntry: null, smartAddLoading: false,
-  secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, investments: true, insurance: true, projections: true, netWorth: false, aiInsights: true, smartAlerts: true, trendChart: true, categoryDonut: true, reports: true, anomalies: true },
+  secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, investments: true, insurance: true, projections: true, netWorth: false, aiInsights: true, smartAlerts: true, trendChart: true, categoryDonut: true, reports: true, anomalies: true, goals: true },
+  addingGoal: false,
+  updatingGoalId: null,
 };
 
 function save() {
@@ -494,6 +497,7 @@ function save() {
     localStorage.setItem('mmc.portfolio.v1', JSON.stringify(S.portfolio));
     localStorage.setItem('mmc.recurring.v1', JSON.stringify(S.recurring));
     localStorage.setItem('mmc.lastCurrency.v1', S.txCurrency);
+    localStorage.setItem('mmc.goals.v1', JSON.stringify(S.goals));
     const backup = JSON.stringify({version:3, transactions:S.transactions, portfolio:S.portfolio, recurring:S.recurring});
     localStorage.setItem('mmc.backup', backup);
     localStorage.setItem('mmc.backup.time', new Date().toISOString());
@@ -515,6 +519,7 @@ function load() {
   if (!S.transactions.length) { try { const tx = localStorage.getItem('budget.tx.v1'); if (tx) S.transactions = JSON.parse(tx); } catch(e) {} }
   if (!S.portfolio.savings.length && !S.portfolio.loans.length) { try { const p = localStorage.getItem('budget.portfolio.v1'); if (p) S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[],insurance:[]}, JSON.parse(p)); } catch(e) {} }
   S.txCurrency = localStorage.getItem('mmc.lastCurrency.v1') || localStorage.getItem('budget.lastCurrency.v1') || 'USD';
+  try { const g = localStorage.getItem('mmc.goals.v1'); if (g) S.goals = JSON.parse(g); } catch(e) { S.goals = []; }
   S.selectedMonth = thisMonth();
   try { const so = localStorage.getItem('mmc.secOpen'); if (so) Object.assign(S.secOpen, JSON.parse(so)); } catch(e) {}
 }
@@ -1087,8 +1092,87 @@ function buildInsightsCards() {
   return content;
 }
 
+function renderGoals() {
+  const hasKey = !!localStorage.getItem('mmc.apiKey');
+  const goals = S.goals || [];
+  let rows = '';
+  if (!goals.length && !S.addingGoal) {
+    rows = `<div class="empty"><p>No goals yet. Add one to start tracking!</p></div>`;
+  }
+  for (const g of goals) {
+    const pct = g.targetAmount > 0 ? Math.min(100, Math.round((g.savedSoFar / g.targetAmount) * 100)) : 0;
+    const deadlineDate = new Date(g.deadline);
+    const now = new Date();
+    const monthsLeft = Math.max(0, (deadlineDate.getFullYear()-now.getFullYear())*12 + deadlineDate.getMonth()-now.getMonth());
+    const remaining = Math.max(0, g.targetAmount - g.savedSoFar);
+    const perMonth = monthsLeft > 0 ? remaining / monthsLeft : remaining;
+    const updateForm = S.updatingGoalId === g.id
+      ? `<form data-action="submit-goal-progress" data-id="${g.id}" style="display:inline-flex;gap:4px;align-items:center;margin-top:4px">
+          <input class="input" type="number" name="amount" placeholder="Amount" style="width:100px;height:28px;font-size:12px" min="0" step="any" required>
+          <button type="submit" class="ibtn" style="width:28px;height:28px;background:var(--accent);color:#fff;border-radius:6px;font-size:11px">+</button>
+          <button type="button" class="ibtn" data-action="cancel-goal-progress" style="width:28px;height:28px;border-radius:6px;font-size:11px">✕</button>
+        </form>`
+      : '';
+    const aiPlanHtml = g.aiPlan
+      ? `<div style="margin-top:8px;padding:8px 10px;background:var(--muted);border-radius:8px;font-size:11px;line-height:1.6">${formatInsights(g.aiPlan)}</div>`
+      : '';
+    rows += `<div style="padding:10px 16px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:13px;font-weight:600">${g.name}</span>
+            <span class="cur-pill">${g.currency}</span>
+          </div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:2px">
+            ${formatMoney(g.savedSoFar, g.currency)} / ${formatMoney(g.targetAmount, g.currency)} · ${monthsLeft}mo left · ${formatMoney(perMonth, g.currency)}/mo needed
+          </div>
+        </div>
+        <div style="display:flex;gap:4px">
+          <button class="ibtn" data-action="update-goal-progress" data-id="${g.id}" title="Add savings" style="width:28px;height:28px">+</button>
+          ${hasKey?`<button class="ibtn" data-action="get-goal-plan" data-id="${g.id}" title="Get AI plan" style="width:28px;height:28px">✨</button>`:''}
+          <button class="ibtn del" data-action="del-goal" data-id="${g.id}" title="Delete" style="width:28px;height:28px">${svgTrash}</button>
+        </div>
+      </div>
+      <div class="bar-bg" style="margin-top:6px"><div class="bar-fill${pct>=100?' inc':''}" style="width:${pct}%"></div></div>
+      <div style="text-align:right;font-size:10px;color:var(--text-dim);margin-top:2px">${pct}%</div>
+      ${updateForm}${aiPlanHtml}
+    </div>`;
+  }
+  const addForm = S.addingGoal ? `<div style="padding:12px 16px">
+    <form data-action="add-goal">
+      <div class="form-row"><label class="form-label">Goal Name</label><input class="input" name="name" placeholder="e.g. Vacation Fund" required></div>
+      <div class="form-row" style="display:flex;gap:8px">
+        <div style="flex:1"><label class="form-label">Target Amount</label><input class="input" name="targetAmount" type="number" min="1" step="any" required></div>
+        <div style="width:80px"><label class="form-label">Currency</label><input class="input" name="currency" value="${S.txCurrency}" required></div>
+      </div>
+      <div class="form-row" style="display:flex;gap:8px">
+        <div style="flex:1"><label class="form-label">Deadline</label><input class="input" name="deadline" type="date" required></div>
+        <div style="flex:1"><label class="form-label">Already Saved</label><input class="input" name="savedSoFar" type="number" min="0" step="any" value="0"></div>
+      </div>
+      <div class="add-form-btns"><button type="submit" class="btn btn-accent">Add Goal</button><button type="button" class="btn" data-action="cancel-add-goal">Cancel</button></div>
+    </form>
+  </div>` : `<div style="padding:12px 16px"><button class="btn btn-accent" data-action="show-add-goal">+ Add Goal</button></div>`;
+
+  return `<div class="card">
+    <div class="sec-hdr" data-action="toggle-section" data-sec="goals" style="cursor:pointer${S.secOpen.goals?'':';padding-bottom:14px'}"><div><div class="sec-title-row"><span class="sec-dot" style="background:#16a34a"></span><span class="sec-title">Goals</span></div><div class="sec-sub">Track your financial targets</div></div></div>
+    ${S.secOpen.goals ? rows + addForm : ''}
+  </div>`;
+}
+
+async function getGoalPlan(goalId) {
+  const goal = S.goals.find(g => g.id === goalId);
+  if (!goal) return;
+  const deadlineDate = new Date(goal.deadline);
+  const now = new Date();
+  const monthsLeft = Math.max(0, (deadlineDate.getFullYear()-now.getFullYear())*12 + deadlineDate.getMonth()-now.getMonth());
+  const remaining = Math.max(0, goal.targetAmount - goal.savedSoFar);
+  const summary = buildPortfolioSummary();
+  const prompt = `You are a personal finance advisor. Create a monthly savings plan to reach this goal. Include: monthly amount needed, where to cut spending, and which savings/investment vehicle to use. Be specific to the numbers. Keep it to 5-6 bullet points.\n\nGoal: ${goal.name}\nTarget: ${formatMoney(goal.targetAmount, goal.currency)}\nSaved so far: ${formatMoney(goal.savedSoFar, goal.currency)}\nRemaining: ${formatMoney(remaining, goal.currency)}\nDeadline: ${goal.deadline} (${monthsLeft} months left)\n\nPortfolio context:\n${summary}`;
+  await callAI(prompt, v => { goal.aiPlan = v; save(); }, v => { goal.aiPlanLoading = v; }, `mmc.goalPlan.${goalId}`);
+}
+
 function renderInsights() {
-  document.getElementById('tab-insights').innerHTML = renderReports() + buildInsightsCards();
+  document.getElementById('tab-insights').innerHTML = renderReports() + renderGoals() + buildInsightsCards();
 }
 
 function ordinal(n) { const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
@@ -2584,6 +2668,15 @@ function handleSubmit(e) {
     return;
   }
 
+  if (action==='add-goal') {
+    S.goals.push({ id: uid(), name: d.name, targetAmount: parseFloat(d.targetAmount), currency: (d.currency||'USD').toUpperCase(), deadline: d.deadline, savedSoFar: parseFloat(d.savedSoFar)||0, aiPlan: '', createdAt: todayISO() });
+    S.addingGoal = false; save(); renderInsights(); toast('Goal added'); return;
+  }
+  if (action==='submit-goal-progress') {
+    const goal = S.goals.find(g=>g.id===form.dataset.id);
+    if (goal) { goal.savedSoFar += parseFloat(d.amount)||0; S.updatingGoalId = null; save(); renderInsights(); toast('Progress updated'); }
+    return;
+  }
   if (action==='smart-add') {
     const text = (d.smartText||'').trim();
     if (!text) return toast('Type something to parse');
@@ -2979,6 +3072,12 @@ function handleClick(e) {
   if (action==='export') { exportJSON(); return; }
   if (action==='get-insights') { getInsights(); return; }
   if (action==='get-smart-alerts') { getSmartAlerts(); return; }
+  if (action==='show-add-goal') { S.addingGoal = true; renderInsights(); return; }
+  if (action==='cancel-add-goal') { S.addingGoal = false; renderInsights(); return; }
+  if (action==='update-goal-progress') { S.updatingGoalId = btn.dataset.id; renderInsights(); return; }
+  if (action==='cancel-goal-progress') { S.updatingGoalId = null; renderInsights(); return; }
+  if (action==='del-goal') { if (confirm('Delete this goal?')) { S.goals = S.goals.filter(g=>g.id!==btn.dataset.id); save(); renderInsights(); } return; }
+  if (action==='get-goal-plan') { getGoalPlan(btn.dataset.id); return; }
   if (action==='import-trigger') { document.getElementById('file-input').click(); return; }
   if (action==='restore-backup') {
     if (!confirm('Restore from last auto-backup? This will overwrite current data.')) return;
