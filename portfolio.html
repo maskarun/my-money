@@ -228,8 +228,6 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .ibtn.del:hover { background: #fff1f2; color: var(--expense); }
 .ibtn:disabled { opacity: .35; cursor: default; }
 .ibtn:disabled:hover { background: transparent; color: #cbd5e1; }
-.month-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; }
-.month-nav-label { font-size: 13px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
 .link-btn { font-size: 11px; font-weight: 700; color: var(--accent); background: none; border: none; padding: 0; cursor: pointer; text-decoration: underline; }
 .p-chev { width: 20px; height: 20px; border-radius: 6px; background: var(--muted); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; }
 .p-chev svg { transition: transform .2s; }
@@ -1405,21 +1403,17 @@ function renderCreditCards() {
 function updateHeaderMonthNav() {
   const el = document.getElementById('header-month-nav');
   if (!el) return;
-  el.classList.remove('visible');
-  el.innerHTML = '';
+  if (['dashboard','recurring'].includes(S.tab)) {
+    const label = fmtMonth(S.selectedMonth);
+    const isCurrent = S.selectedMonth === thisMonth();
+    el.innerHTML = label + (isCurrent ? '' : ' <button class="link-btn" data-action="goto-current-month">Today</button>');
+    el.classList.add('visible');
+  } else {
+    el.classList.remove('visible');
+    el.innerHTML = '';
+  }
 }
 
-function renderMonthNavCard() {
-  const label = fmtMonth(S.selectedMonth);
-  const maxMonth = S.tab==='recurring' ? shiftMonth(thisMonth(),1) : thisMonth();
-  const atMax = S.selectedMonth >= maxMonth;
-  const isCurrent = S.selectedMonth === thisMonth();
-  return `<div class="card month-nav">
-    <button class="ibtn" data-action="prev-month" title="Previous month">${svgChevronLeft}</button>
-    <div class="month-nav-label">${label}${isCurrent?'':` <button class="link-btn" data-action="goto-current-month">Today</button>`}</div>
-    <button class="ibtn" data-action="next-month" ${atMax?'disabled':''} title="Next month">${svgChevronRight}</button>
-  </div>`;
-}
 
 function switchTab(tab) {
   const tabMap = { transactions: 'dashboard', investments: 'portfolio' };
@@ -1440,25 +1434,16 @@ function switchTab(tab) {
 
 function renderDashboard() {
   document.getElementById('tab-dashboard').innerHTML =
-    renderHeroCards() + renderBudgetAlerts() + renderTrendChart() + renderOverviewCards() + renderCategoryDonut() + renderActivity() + renderMonthNavCard();
+    renderHeroCards() + renderBudgetAlerts() + renderTrendChart() + renderOverviewCards() + renderCategoryDonut() + renderActivity();
   updateHeaderMonthNav();
 }
 
 function renderRecurring() {
   document.getElementById('tab-recurring').innerHTML =
-    renderRecurringSummary() + renderRecurringIncome() + renderBills() + renderCreditCards() + renderMonthNavCard();
+    renderRecurringSummary() + renderRecurringIncome() + renderBills() + renderCreditCards();
   updateHeaderMonthNav();
 }
 
-function renderMonthNav() {
-  const label = fmtMonth(S.selectedMonth);
-  const isCurrent = S.selectedMonth === thisMonth();
-  return `<div class="card month-nav">
-    <button class="ibtn" data-action="prev-month" title="Previous month">${svgChevronLeft}</button>
-    <div class="month-nav-label">${label}${isCurrent?'':` <button class="link-btn" data-action="goto-current-month">Today</button>`}</div>
-    <button class="ibtn" data-action="next-month" ${isCurrent?'disabled':''} title="Next month">${svgChevronRight}</button>
-  </div>`;
-}
 
 function renderTrendChart() {
   const cur = getPrimaryCurrency();
@@ -2557,8 +2542,6 @@ function handleClick(e) {
   const action = btn.dataset.action;
 
   if (action==='switch-tab') { switchTab(btn.dataset.tab); return; }
-  if (action==='prev-month') { S.selectedMonth = shiftMonth(S.selectedMonth, -1); renderDashboard(); renderRecurring(); return; }
-  if (action==='next-month') { const next = shiftMonth(S.selectedMonth, 1); const limit = S.tab==='recurring' ? shiftMonth(thisMonth(),1) : thisMonth(); if (next <= limit) S.selectedMonth = next; renderDashboard(); renderRecurring(); return; }
   if (action==='goto-current-month') { S.selectedMonth = thisMonth(); renderDashboard(); renderRecurring(); return; }
   if (action==='filter-activity-cur') { S.activityCurFilter = btn.dataset.cur || null; renderDashboard(); return; }
   if (action==='filter-activity-cat') { S.activityCatFilter = btn.dataset.cat || null; renderDashboard(); return; }
@@ -2839,18 +2822,20 @@ document.addEventListener('change', function(e) {
   }
 });
 
-// Swipe gestures for tab navigation
+// Swipe gestures for month navigation on dashboard/recurring
 (function() {
-  const tabs = ['dashboard','portfolio','recurring','insights','settings'];
   let startX = 0, startY = 0;
   document.addEventListener('touchstart', e => { startX = e.touches[0].clientX; startY = e.touches[0].clientY; }, {passive:true});
   document.addEventListener('touchend', e => {
+    if (!['dashboard','recurring'].includes(S.tab)) return;
     const dx = e.changedTouches[0].clientX - startX, dy = e.changedTouches[0].clientY - startY;
     if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx) * 0.7) return;
-    const i = tabs.indexOf(S.tab); if (i < 0) return;
-    const next = dx < 0 ? i + 1 : i - 1;
-    if (next < 0 || next >= tabs.length) return;
-    switchTab(tabs[next]);
+    const delta = dx < 0 ? 1 : -1;
+    const maxMonth = S.tab==='recurring' ? shiftMonth(thisMonth(),1) : thisMonth();
+    const next = shiftMonth(S.selectedMonth, delta);
+    if (next > maxMonth) return;
+    S.selectedMonth = next;
+    renderDashboard(); renderRecurring();
   }, {passive:true});
 })();
 
