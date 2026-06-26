@@ -486,7 +486,7 @@ const S = {
   addEntryType: null, portfolioAddType: null, recurringAddType: null, activityCurFilter: null, activityCatFilter: null,
   reportRange: 'ytd', reportFrom: null, reportTo: null,
   editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, expandedSaving: null, showingPPForm: null, showingGoldPayForm: null, selectedMonth: null, parsedEntry: null, smartAddLoading: false,
-  secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, investments: true, insurance: true, projections: true, netWorth: false, aiInsights: true, investSuggestions: true, trendChart: true, categoryDonut: true, reports: true },
+  secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, investments: true, insurance: true, projections: true, netWorth: false, aiInsights: true, investSuggestions: true, smartAlerts: true, trendChart: true, categoryDonut: true, reports: true, anomalies: true },
 };
 
 function save() {
@@ -766,6 +766,8 @@ let insightsResult = localStorage.getItem('mmc.insights') || '';
 let insightsLoading = false;
 let investResult = localStorage.getItem('mmc.investSuggestions') || '';
 let investLoading = false;
+let smartAlertsResult = localStorage.getItem('mmc.smartAlerts') || '';
+let smartAlertsLoading = false;
 
 function formatInsights(txt) {
   const lines = txt.split('\n');
@@ -916,6 +918,17 @@ async function getInvestmentSuggestions() {
   const summary = buildPortfolioSummary();
   const prompt = `You are an investment advisor. Based on this portfolio, suggest 3-5 specific investment opportunities. Consider current allocations, risk diversification, and growth potential. Be specific with types, amounts, and reasoning. Keep it brief and actionable.\n\n${summary}`;
   await callAI(prompt, v => { investResult = v; }, v => { investLoading = v; }, 'mmc.investSuggestions');
+}
+
+async function getSmartAlerts() {
+  const summary = buildPortfolioSummary();
+  const spending = getMonthlySpending();
+  const spendingText = Object.entries(spending).map(([cur, cats]) => {
+    const catLines = Object.entries(cats).filter(([k])=>k!=='_total').map(([k,v])=>`  ${k}: ${formatMoney(v,cur)}`).join('\n');
+    return `${cur} total: ${formatMoney(cats._total,cur)}\n${catLines}`;
+  }).join('\n');
+  const prompt = `You are a personal finance analyst. Analyze this spending data for anomalies, unusual patterns, and risks. Compare against the portfolio context. Give 3-5 specific, actionable alerts. Flag anything unusual. Be concise.\n\nCurrent month (${fmtMonth(thisMonth())}) spending:\n${spendingText}\n\nPortfolio context:\n${summary}`;
+  await callAI(prompt, v => { smartAlertsResult = v; }, v => { smartAlertsLoading = v; }, 'mmc.smartAlerts');
 }
 
 function buildPortfolioSummary() {
@@ -1077,6 +1090,17 @@ function buildInsightsCards() {
       <div class="sec-hdr" data-action="toggle-section" data-sec="investSuggestions" style="cursor:pointer${S.secOpen.investSuggestions?'':';padding-bottom:14px'}"><div><div class="sec-title-row"><span class="sec-dot" style="background:#10b981"></span><span class="sec-title">Investment Suggestions</span></div><div class="sec-sub">Powered by ${providerLabel}</div></div></div>
       ${S.secOpen.investSuggestions?`${investBody}<div class="add-form-btns" style="padding:12px 16px">
         <button class="btn btn-accent" data-action="get-invest-suggestions" ${investLoading?'disabled':''}>Get Suggestions</button>
+      </div>`:''}
+    </div>`;
+    const smartBody = smartAlertsLoading
+      ? `<div class="empty"><p>Analyzing spending patterns...</p></div>`
+      : smartAlertsResult
+        ? `<div style="padding:12px 16px;font-size:12px;line-height:1.6">${formatInsights(smartAlertsResult)}</div>`
+        : `<div class="empty"><p>Tap below to detect anomalies in your spending</p></div>`;
+    content += `<div class="card">
+      <div class="sec-hdr" data-action="toggle-section" data-sec="smartAlerts" style="cursor:pointer${S.secOpen.smartAlerts?'':';padding-bottom:14px'}"><div><div class="sec-title-row"><span class="sec-dot red"></span><span class="sec-title">Smart Alerts</span></div><div class="sec-sub">AI-powered anomaly detection</div></div></div>
+      ${S.secOpen.smartAlerts?`${smartBody}<div class="add-form-btns" style="padding:12px 16px">
+        <button class="btn btn-accent" data-action="get-smart-alerts" ${smartAlertsLoading?'disabled':''}>Analyze Spending</button>
       </div>`:''}
     </div>`;
   }
@@ -1518,7 +1542,7 @@ function switchTab(tab) {
 
 function renderDashboard() {
   document.getElementById('tab-dashboard').innerHTML =
-    renderHeroCards() + renderBudgetAlerts() + renderTrendChart() + renderOverviewCards() + renderCategoryDonut() + renderActivity();
+    renderHeroCards() + renderAnomalyAlerts() + renderBudgetAlerts() + renderTrendChart() + renderOverviewCards() + renderCategoryDonut() + renderActivity();
   updateHeaderMonthNav();
 }
 
@@ -1622,6 +1646,106 @@ function getMonthlySpending() {
     if (ms?.paid&&ms.amount>0) { if(!totals[c]) totals[c]={_total:0}; totals[c]._total+=ms.amount; totals[c]['Bills']=(totals[c]['Bills']||0)+ms.amount; }
   }
   return totals;
+}
+
+function detectAnomalies() {
+  const mon = S.selectedMonth, alerts = [];
+  const today = new Date().getDate();
+  const daysInMonth = new Date(parseInt(mon.slice(0,4)), parseInt(mon.slice(5,7)), 0).getDate();
+  const spending = getMonthlySpending();
+
+  // Category spike: compare each category vs 3-month average
+  for (const cur of Object.keys(spending)) {
+    const curSpending = spending[cur];
+    for (const cat of Object.keys(curSpending)) {
+      if (cat === '_total') continue;
+      const catAmt = curSpending[cat];
+      if (catAmt < 10) continue;
+      const prevAmts = [];
+      for (let i = 1; i <= 3; i++) {
+        const prevMon = shiftMonth(mon, -i);
+        const saved = S.selectedMonth; S.selectedMonth = prevMon;
+        const prev = getMonthlySpending(); S.selectedMonth = saved;
+        if (prev[cur]?.[cat]) prevAmts.push(prev[cur][cat]);
+      }
+      if (prevAmts.length >= 2) {
+        const avg = prevAmts.reduce((a,b)=>a+b,0) / prevAmts.length;
+        if (avg > 0 && catAmt >= avg * 1.5) {
+          alerts.push({type:'category-spike', severity:'warning', message:`${cat} spending is ${Math.round(catAmt/avg*100)}% of average`, detail:`${formatMoney(catAmt,cur)} vs avg ${formatMoney(avg,cur)} (${cur})`});
+        }
+      }
+    }
+  }
+
+  // Overdue bills
+  if (mon === thisMonth()) {
+    for (const item of (S.recurring?.items||[])) {
+      if (item.type !== 'expense' || item.closed) continue;
+      if (item.startMonth && mon < item.startMonth) continue;
+      if (item.endMonth && mon > item.endMonth) continue;
+      const paid = item.months?.[mon]?.paid;
+      if (!paid && item.dayOfMonth && item.dayOfMonth < today) {
+        alerts.push({type:'overdue', severity:'alert', message:`${item.name} is overdue`, detail:`Due on ${ordinal(item.dayOfMonth)}, not yet paid`});
+      }
+    }
+  }
+
+  // Bill spike: paid amount vs historical average
+  for (const item of (S.recurring?.items||[])) {
+    if (item.type !== 'expense' || item.closed) continue;
+    const ms = item.months || {};
+    const curPaid = ms[mon];
+    if (!curPaid?.paid || !curPaid.amount) continue;
+    const prevAmts = Object.entries(ms).filter(([m,v]) => m !== mon && v.paid && v.amount > 0).map(([,v]) => v.amount);
+    if (prevAmts.length >= 2) {
+      const avg = prevAmts.reduce((a,b)=>a+b,0) / prevAmts.length;
+      if (curPaid.amount >= avg * 1.5) {
+        const c = item.currency || 'USD';
+        alerts.push({type:'bill-spike', severity:'warning', message:`${item.name} bill is unusually high`, detail:`${formatMoney(curPaid.amount,c)} vs avg ${formatMoney(avg,c)}`});
+      }
+    }
+  }
+
+  // Spending velocity
+  if (mon === thisMonth() && today >= 5) {
+    for (const cur of Object.keys(spending)) {
+      const pace = (spending[cur]._total / today) * daysInMonth;
+      const prevMon = shiftMonth(mon, -1);
+      const saved = S.selectedMonth; S.selectedMonth = prevMon;
+      const prev = getMonthlySpending(); S.selectedMonth = saved;
+      const lastTotal = prev[cur]?._total || 0;
+      if (lastTotal > 0 && pace > lastTotal * 1.2) {
+        alerts.push({type:'velocity', severity:'warning', message:`${cur} spending on pace to exceed last month`, detail:`Projected ${formatMoney(Math.round(pace),cur)} vs last month ${formatMoney(lastTotal,cur)}`});
+      }
+    }
+  }
+
+  return alerts;
+}
+
+function renderAnomalyAlerts() {
+  const alerts = detectAnomalies();
+  if (!alerts.length) return '';
+  const isOpen = S.secOpen.anomalies;
+  const icons = {
+    'category-spike': '📊', 'bill-spike': '📈', 'overdue': '⏰', 'velocity': '🏃'
+  };
+  const rows = alerts.map(a => {
+    const color = a.severity === 'alert' ? 'var(--expense)' : '#f59e0b';
+    return `<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 16px;border-bottom:1px solid var(--border)">
+      <span style="font-size:14px;flex-shrink:0">${icons[a.type]||'⚠'}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:600;color:${color}">${esc(a.message)}</div>
+        <div style="font-size:11px;color:var(--muted-fg);margin-top:1px">${esc(a.detail)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  return `<div class="card">
+    <div class="sec-hdr" data-action="toggle-section" data-sec="anomalies" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
+      <div><div class="sec-title-row"><span class="sec-dot red"></span><span class="sec-title">Alerts</span></div><div class="sec-sub">${alerts.length} issue${alerts.length>1?'s':''} detected</div></div>
+    </div>
+    ${isOpen?rows:''}
+  </div>`;
 }
 
 function renderBudgetAlerts() {
@@ -2496,6 +2620,7 @@ function handleSubmit(e) {
     const budgets = JSON.parse(localStorage.getItem('mmc.budgets')||'{}'); const spending = getMonthlySpending();
     const bc = d.currency, bcat = d.category;
     if (budgets.overall?.[bc]) { const pct=Math.round((spending[bc]?._total||0)/budgets.overall[bc]*100); if(pct>=90) toast(`⚠ Overall ${bc} budget: ${pct}% used`); }
+    const anomalies = detectAnomalies(); if (anomalies.some(a=>a.severity==='alert'||a.type==='category-spike')) toast('⚠ Unusual spending detected');
     return;
   }
   if (action==='update-tx') {
@@ -2874,6 +2999,7 @@ function handleClick(e) {
   if (action==='export') { exportJSON(); return; }
   if (action==='get-insights') { getInsights(); return; }
   if (action==='get-invest-suggestions') { getInvestmentSuggestions(); return; }
+  if (action==='get-smart-alerts') { getSmartAlerts(); return; }
   if (action==='import-trigger') { document.getElementById('file-input').click(); return; }
   if (action==='restore-backup') {
     if (!confirm('Restore from last auto-backup? This will overwrite current data.')) return;
