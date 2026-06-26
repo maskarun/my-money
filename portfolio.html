@@ -483,7 +483,7 @@ const S = {
   recurring: { items: [], creditCards: [] },
   txCurrency: 'USD',
   addingInvestment: false, addingInsurance: false,
-  addEntryType: null, portfolioAddType: null, recurringAddType: null, activityCurFilter: null, activityCatFilter: null, activitySearch: '',
+  addEntryType: null, portfolioAddType: null, recurringAddType: null, activityCurFilter: null, activityCatFilter: null,
   reportRange: 'ytd', reportFrom: null, reportTo: null,
   editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, expandedSaving: null, showingPPForm: null, showingGoldPayForm: null, selectedMonth: null,
   secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, investments: true, insurance: true, projections: true, netWorth: false, aiInsights: true, investSuggestions: true, trendChart: true, categoryDonut: true, reports: true },
@@ -787,26 +787,6 @@ function formatInsights(txt) {
   return html;
 }
 
-function buildActionButtons(text) {
-  if (!text) return '';
-  const t = text.toLowerCase();
-  const actions = [];
-  if (/invest|sip|mutual fund|stock|bond|fixed deposit/i.test(t))
-    actions.push({ label: 'Add Investment', action: 'ai-action', tab: 'portfolio', type: 'investment' });
-  if (/sav|emergency fund|deposit/i.test(t))
-    actions.push({ label: 'Add Savings', action: 'ai-action', tab: 'portfolio', type: 'saving' });
-  if (/insurance|policy|term plan|life cover/i.test(t))
-    actions.push({ label: 'Add Insurance', action: 'ai-action', tab: 'portfolio', type: 'insurance' });
-  if (/budget|spending limit|cut.*expense|reduce.*spend/i.test(t))
-    actions.push({ label: 'Set Budget', action: 'ai-action', tab: 'settings', type: 'budget' });
-  if (/recurring|automat|monthly.*transfer/i.test(t))
-    actions.push({ label: 'Add Recurring', action: 'ai-action', tab: 'recurring', type: 'recurring-income' });
-  if (!actions.length) return '';
-  return `<div style="padding:8px 16px 12px;display:flex;gap:6px;flex-wrap:wrap">${actions.map(a =>
-    `<button class="btn btn-outline" style="font-size:10px;padding:4px 10px" data-action="${a.action}" data-tab="${a.tab}" data-type="${a.type}">${a.label}</button>`
-  ).join('')}</div>`;
-}
-
 async function callAI(prompt, setResult, setLoading, cacheKey) {
   const apiKey = localStorage.getItem('mmc.apiKey');
   const provider = localStorage.getItem('mmc.aiProvider') || 'claude';
@@ -963,7 +943,7 @@ function renderReports() {
     `<button class="toggle-chip${S.reportRange===k?' active':''}" data-action="set-report-range" data-range="${k}">${v}</button>`).join('');
   const customInputs = S.reportRange==='custom' ? `<div class="form-row-2" style="padding:6px 16px 0"><div><label class="form-label">From</label><input class="input" type="date" value="${fromDate}" data-action="report-from" style="font-size:12px;padding:5px 8px"></div><div><label class="form-label">To</label><input class="input" type="date" value="${toDate}" data-action="report-to" style="font-size:12px;padding:5px 8px"></div></div>` : '';
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="reports" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
-    <div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">Reports</span></div><div class="sec-sub">${fmtDate(fromDate)} — ${fmtDate(toDate)}</div></div><span class="sec-arrow">${isOpen?'▾':'▸'}</span></div>`;
+    <div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">Reports</span></div><div class="sec-sub">${fmtDate(fromDate)} — ${fmtDate(toDate)}</div></div></div>`;
   if (!isOpen) return `<div class="card">${hdr}</div>`;
 
   const byCur = {};
@@ -1024,12 +1004,12 @@ function buildInsightsCards() {
     const body = insightsLoading
       ? `<div class="empty"><p>Analyzing your portfolio...</p></div>`
       : insightsResult
-        ? `<div style="padding:12px 16px;font-size:12px;line-height:1.6">${formatInsights(insightsResult)}</div>${buildActionButtons(insightsResult)}`
+        ? `<div style="padding:12px 16px;font-size:12px;line-height:1.6">${formatInsights(insightsResult)}</div>`
         : `<div class="empty"><p>Tap below to get AI-powered insights</p></div>`;
     const investBody = investLoading
       ? `<div class="empty"><p>Generating investment suggestions...</p></div>`
       : investResult
-        ? `<div style="padding:12px 16px;font-size:12px;line-height:1.6">${formatInsights(investResult)}</div>${buildActionButtons(investResult)}`
+        ? `<div style="padding:12px 16px;font-size:12px;line-height:1.6">${formatInsights(investResult)}</div>`
         : `<div class="empty"><p>Tap below to get investment suggestions</p></div>`;
     content = `<div class="card">
       <div class="sec-hdr" data-action="toggle-section" data-sec="aiInsights" style="cursor:pointer${S.secOpen.aiInsights?'':';padding-bottom:14px'}"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">AI Insights</span></div><div class="sec-sub">Powered by ${providerLabel}</div></div></div>
@@ -1501,7 +1481,7 @@ function renderTrendChart() {
   }
   const svg = `<svg viewBox="0 0 360 ${chartH}" width="100%" preserveAspectRatio="xMidYMid meet" style="padding:0 8px">${bars}${labels}</svg>`;
   return `<div class="card chart-card">
-    <div class="sec-hdr" data-action="toggle-section" data-key="trendChart"><div><div class="sec-title-row"><span class="sec-dot" style="background:var(--accent)"></span><span class="sec-title">Monthly Trend</span></div><div class="sec-sub">${cur} · Last 6 months</div></div><span class="sec-arrow">${isOpen?'▾':'▸'}</span></div>
+    <div class="sec-hdr" data-action="toggle-section" data-sec="trendChart" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}"><div><div class="sec-title-row"><span class="sec-dot" style="background:var(--accent)"></span><span class="sec-title">Monthly Trend</span></div><div class="sec-sub">${cur} · Last 6 months</div></div></div>
     ${isOpen ? `<div style="padding:8px 8px 0">${svg}</div>
     <div class="chart-legend"><div class="chart-legend-item"><div class="chart-legend-dot" style="background:var(--income)"></div>Income</div><div class="chart-legend-item"><div class="chart-legend-dot" style="background:var(--expense)"></div>Expenses</div></div>` : ''}
   </div>`;
@@ -1529,7 +1509,7 @@ function renderCategoryDonut() {
   const total = Object.values(catTotals).reduce((a,b)=>a+b, 0);
   const sorted = Object.entries(catTotals).sort((a,b)=>b[1]-a[1]);
   if (!sorted.length) return `<div class="card chart-card">
-    <div class="sec-hdr" data-action="toggle-section" data-key="categoryDonut"><div><div class="sec-title-row"><span class="sec-dot" style="background:#7c3aed"></span><span class="sec-title">Spending Breakdown</span></div><div class="sec-sub">${cur} · ${fmtMonth(mon)}</div></div><span class="sec-arrow">${isOpen?'▾':'▸'}</span></div>
+    <div class="sec-hdr" data-action="toggle-section" data-sec="categoryDonut" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}"><div><div class="sec-title-row"><span class="sec-dot" style="background:#7c3aed"></span><span class="sec-title">Spending Breakdown</span></div><div class="sec-sub">${cur} · ${fmtMonth(mon)}</div></div></div>
     ${isOpen ? '<div class="empty"><p>No expenses this month</p></div>' : ''}
   </div>`;
   const r = 70, sw = 28, circ = 2 * Math.PI * r;
@@ -1547,7 +1527,7 @@ function renderCategoryDonut() {
   </svg>`;
   const legend = sorted.map(([cat,amt],i)=> `<div class="chart-legend-item"><div class="chart-legend-dot" style="background:${colors[i%colors.length]}"></div>${esc(cat)} <span style="color:var(--muted-fg)">${Math.round(amt/total*100)}%</span></div>`).join('');
   return `<div class="card chart-card">
-    <div class="sec-hdr" data-action="toggle-section" data-key="categoryDonut"><div><div class="sec-title-row"><span class="sec-dot" style="background:#7c3aed"></span><span class="sec-title">Spending Breakdown</span></div><div class="sec-sub">${cur} · ${fmtMonth(mon)}</div></div><span class="sec-arrow">${isOpen?'▾':'▸'}</span></div>
+    <div class="sec-hdr" data-action="toggle-section" data-sec="categoryDonut" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}"><div><div class="sec-title-row"><span class="sec-dot" style="background:#7c3aed"></span><span class="sec-title">Spending Breakdown</span></div><div class="sec-sub">${cur} · ${fmtMonth(mon)}</div></div></div>
     ${isOpen ? `<div style="padding:12px 8px 4px">${svg}</div><div class="chart-legend">${legend}</div>` : ''}
   </div>`;
 }
@@ -1882,26 +1862,20 @@ function renderActivity() {
   const allCats = [...new Set(entries.map(e => e.category).filter(Boolean))];
   const curFilter = S.activityCurFilter;
   const catFilter = S.activityCatFilter;
-  const search = (S.activitySearch||'').toLowerCase();
   let filtered = entries;
   if (curFilter) filtered = filtered.filter(e => e.currencies ? e.currencies.includes(curFilter) : e.badge === curFilter);
   if (catFilter) filtered = filtered.filter(e => e.category === catFilter);
-  if (search) filtered = filtered.filter(e => (e.name||'').toLowerCase().includes(search) || (e.rawNote||'').toLowerCase().includes(search));
 
   const isOpen = S.secOpen.tx;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="tx" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
       <div><div class="sec-title-row"><span class="sec-dot blue"></span><span class="sec-title">All Activity</span></div><div class="sec-sub">${filtered.length?`${filtered.length} this month`:'Recent activity'}</div></div>
     </div>`;
-  const searchBar = `<div style="padding:4px 16px 6px"><input class="input" type="search" placeholder="Search transactions..." value="${esc(S.activitySearch||'')}" data-action="search-activity" style="font-size:12px;padding:6px 10px"></div>`;
-  const curChips = allCurs.length > 1 ? `<div class="toggle-chip-row" style="padding:2px 16px 4px">
-    <button class="toggle-chip${!curFilter?' active':''}" data-action="filter-activity-cur" data-cur="">All</button>
-    ${allCurs.map(c=>`<button class="toggle-chip${curFilter===c?' active':''}" data-action="filter-activity-cur" data-cur="${c}">${c}</button>`).join('')}
+  const hasFilters = allCurs.length > 1 || allCats.length > 1;
+  const filterUI = hasFilters ? `<div class="toggle-chip-row" style="padding:4px 16px 8px;flex-wrap:wrap">
+    ${allCurs.length > 1 ? `<button class="toggle-chip${!curFilter?' active':''}" data-action="filter-activity-cur" data-cur="">All</button>${allCurs.map(c=>`<button class="toggle-chip${curFilter===c?' active':''}" data-action="filter-activity-cur" data-cur="${c}">${c}</button>`).join('')}` : ''}
+    ${allCurs.length > 1 && allCats.length > 1 ? '<span style="width:1px;height:16px;background:var(--border);margin:0 4px"></span>' : ''}
+    ${allCats.length > 1 ? `<button class="toggle-chip${!catFilter?' active':''}" data-action="filter-activity-cat" data-cat="">All Categories</button>${allCats.map(c=>`<button class="toggle-chip${catFilter===c?' active':''}" data-action="filter-activity-cat" data-cat="${c}">${c}</button>`).join('')}` : ''}
   </div>` : '';
-  const catChips = allCats.length > 1 ? `<div class="toggle-chip-row" style="padding:2px 16px 8px;flex-wrap:wrap">
-    <button class="toggle-chip${!catFilter?' active':''}" data-action="filter-activity-cat" data-cat="">All</button>
-    ${allCats.map(c=>`<button class="toggle-chip${catFilter===c?' active':''}" data-action="filter-activity-cat" data-cat="${c}">${c}</button>`).join('')}
-  </div>` : '';
-  const filterUI = searchBar + curChips + catChips;
   if (!isOpen) return `<div class="card">${hdr}</div>`;
   if (!filtered.length) return `<div class="card">${hdr}${filterUI}<div class="empty"><p>No matching activity</p></div></div>`;
 
@@ -2602,13 +2576,6 @@ function handleClick(e) {
   if (action==='filter-activity-cat') { S.activityCatFilter = btn.dataset.cat || null; renderDashboard(); return; }
   if (action==='toggle-theme') { document.body.classList.toggle('dark'); localStorage.setItem('mmc.theme', document.body.classList.contains('dark')?'dark':'light'); renderSettings(); return; }
   if (action==='set-report-range') { S.reportRange = btn.dataset.range; renderInsights(); return; }
-  if (action==='ai-action') {
-    const tab = btn.dataset.tab, type = btn.dataset.type;
-    switchTab(tab);
-    if (tab==='portfolio') { S.portfolioAddType = type; const bs=document.getElementById('bottom-sheet'),bsc=document.getElementById('bottom-sheet-content'); bsc.innerHTML=renderPortfolioQuickAdd(); bs.style.display=''; }
-    else if (tab==='recurring') { S.recurringAddType = type; const bs=document.getElementById('bottom-sheet'),bsc=document.getElementById('bottom-sheet-content'); bsc.innerHTML=renderRecurringQuickAdd(); bs.style.display=''; }
-    return;
-  }
   if (action==='toggle-add-entry') { S.addEntryType = S.addEntryType ? null : 'tx-expense'; renderDashboard(); return; }
   if (action==='set-entry-type') { S.addEntryType=btn.dataset.type; const bs=document.getElementById('bottom-sheet'); if(bs.style.display!=='none'){document.getElementById('bottom-sheet-content').innerHTML=renderQuickAdd();}else{renderDashboard();} return; }
   if (action==='cancel-entry') { S.addEntryType=null; S.editingId=null; document.getElementById('bottom-sheet').style.display='none'; renderDashboard(); return; }
@@ -2817,7 +2784,6 @@ function handleClick(e) {
 
 function handleInput(e) {
   const inp = e.target;
-  if (inp.dataset.action==='search-activity') { S.activitySearch = inp.value; renderDashboard(); const el=document.querySelector('[data-action="search-activity"]'); if(el){el.focus();el.selectionStart=el.selectionEnd=el.value.length;} return; }
   if (inp.dataset.action==='report-from') { S.reportFrom = inp.value; renderInsights(); return; }
   if (inp.dataset.action==='report-to') { S.reportTo = inp.value; renderInsights(); return; }
   if (inp.hasAttribute('data-loan-preview')) {
