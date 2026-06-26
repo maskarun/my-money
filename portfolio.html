@@ -1096,7 +1096,6 @@ function renderQuickAdd() {
       <input class="input" type="text" name="smartText" placeholder="e.g. Spent 500 on groceries" style="flex:1 1 auto;min-width:0;width:100%" ${S.smartAddLoading?'disabled':''}>
       <button type="submit" class="ibtn" style="flex:0 0 32px;width:32px;height:32px;background:var(--accent);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center" ${S.smartAddLoading||!hasApiKey?'disabled':''}>${S.smartAddLoading?'…':'✨'}</button>
     </form>
-    ${!hasApiKey?'<div class="text-sm text-muted" style="margin-top:4px;font-size:10px">Set API key in Settings to use smart add</div>':''}
   </div>`;
 
   const entryTypes = [
@@ -1173,13 +1172,27 @@ function renderQuickAdd() {
     }
   }
 
-  const addPanel = S.addEntryType
-    ? `<div class="add-form">
+  let addPanel;
+  if (hasApiKey) {
+    if (S.addEntryType) {
+      addPanel = `<div class="add-form">
         ${smartInput}
         <div class="toggle-chip-row">${typeChips}</div>
         ${entryForm}
-      </div>`
-    : `<div class="add-form">${smartInput}<button class="add-row-btn" data-action="toggle-add-entry">${svgPlus} Add Entry</button></div>`;
+      </div>`;
+    } else {
+      addPanel = `<div class="add-form">${smartInput}<button class="link-btn" data-action="toggle-add-entry" style="margin-top:2px">Manual entry</button></div>`;
+    }
+  } else {
+    if (S.addEntryType) {
+      addPanel = `<div class="add-form">
+        <div class="toggle-chip-row">${typeChips}</div>
+        ${entryForm}
+      </div>`;
+    } else {
+      addPanel = `<button class="add-row-btn" data-action="toggle-add-entry">${svgPlus} Add Entry</button>`;
+    }
+  }
 
   return `<div class="card">${addPanel}</div>`;
 }
@@ -2664,7 +2677,7 @@ function handleClick(e) {
   if (action==='filter-activity-cat') { S.activityCatFilter = btn.dataset.cat || null; renderDashboard(); return; }
   if (action==='toggle-theme') { document.body.classList.toggle('dark'); localStorage.setItem('mmc.theme', document.body.classList.contains('dark')?'dark':'light'); renderSettings(); return; }
   if (action==='set-report-range') { S.reportRange = btn.dataset.range; renderInsights(); return; }
-  if (action==='toggle-add-entry') { S.addEntryType = S.addEntryType ? null : 'tx-expense'; renderDashboard(); return; }
+  if (action==='toggle-add-entry') { S.addEntryType = S.addEntryType ? null : 'tx-expense'; renderQuickAddContent(); return; }
   if (action==='set-entry-type') { S.addEntryType=btn.dataset.type; const bs=document.getElementById('bottom-sheet'); if(bs.style.display!=='none'){document.getElementById('bottom-sheet-content').innerHTML=renderQuickAdd();}else{renderDashboard();} return; }
   if (action==='cancel-entry') { S.addEntryType=null; S.editingId=null; document.getElementById('bottom-sheet').style.display='none'; renderDashboard(); return; }
   if (action==='edit-tx') {
@@ -2680,7 +2693,7 @@ function handleClick(e) {
     const bs=document.getElementById('bottom-sheet'), bsc=document.getElementById('bottom-sheet-content');
     if (S.tab==='portfolio') { if(!S.portfolioAddType) S.portfolioAddType='saving'; bsc.innerHTML=renderPortfolioQuickAdd(); }
     else if (S.tab==='recurring') { if(!S.recurringAddType) S.recurringAddType='recurring-income'; bsc.innerHTML=renderRecurringQuickAdd(); }
-    else { if(!S.addEntryType) S.addEntryType='tx-expense'; bsc.innerHTML=renderQuickAdd(); }
+    else { if(!S.addEntryType && !localStorage.getItem('mmc.apiKey')) S.addEntryType='tx-expense'; bsc.innerHTML=renderQuickAdd(); }
     bs.style.display=''; return;
   }
   if (action==='close-fab-backdrop') { if (btn.id==='bottom-sheet') { S.addEntryType=null; S.editingId=null; btn.style.display='none'; } return; }
