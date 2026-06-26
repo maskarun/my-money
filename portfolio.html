@@ -426,7 +426,6 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
   </div>
   <div id="header-month-nav"></div>
   <div class="header-actions">
-    <span id="header-date" style="font-size:12px;color:var(--text);font-weight:700;margin-right:8px"></span>
     <button class="hbtn" data-action="switch-tab" data-tab="insights" title="AI Insights">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 017 7c0 3-2 5-3 6.5S15 18 15 19H9c0-1-1-2.5-2-3.5S5 12 5 9a7 7 0 017-7z"/><path d="M9 19v1a3 3 0 006 0v-1"/><path d="M10 2.5a4 4 0 013 0"/></svg>
     </button>
@@ -3106,7 +3105,7 @@ document.addEventListener('change', function(e) {
 const savedTheme = localStorage.getItem('mmc.theme');
 if (savedTheme==='dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) document.body.classList.add('dark');
 load(); renderDashboard(); renderPortfolio(); renderRecurring(); renderInsights(); renderSettings();
-document.getElementById('header-date').textContent = new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+
 </script>
 <script>
 (function(){
