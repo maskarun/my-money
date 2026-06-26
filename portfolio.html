@@ -1093,8 +1093,8 @@ function renderQuickAdd() {
   const hasApiKey = !!localStorage.getItem('mmc.apiKey');
   const smartInput = `<div class="form-row" style="margin-bottom:8px">
     <form data-action="smart-add" style="display:flex;gap:6px;align-items:center">
-      <input class="input" type="text" name="smartText" placeholder="e.g. Spent 500 on groceries at DMart" style="flex:1" ${S.smartAddLoading?'disabled':''}>
-      <button type="submit" class="btn btn-accent" style="white-space:nowrap;font-size:11px;padding:7px 12px" ${S.smartAddLoading||!hasApiKey?'disabled':''}>${S.smartAddLoading?'Parsing...':'✨ Parse'}</button>
+      <input class="input" type="text" name="smartText" placeholder="e.g. Spent 500 on groceries" style="flex:1 1 auto;min-width:0;width:100%" ${S.smartAddLoading?'disabled':''}>
+      <button type="submit" class="ibtn" style="flex:0 0 32px;width:32px;height:32px;background:var(--accent);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center" ${S.smartAddLoading||!hasApiKey?'disabled':''}>${S.smartAddLoading?'…':'✨'}</button>
     </form>
     ${!hasApiKey?'<div class="text-sm text-muted" style="margin-top:4px;font-size:10px">Set API key in Settings to use smart add</div>':''}
   </div>`;
