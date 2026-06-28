@@ -399,6 +399,12 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 }
 @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
 @keyframes slideUp { from { transform: translateY(100%) } to { transform: translateY(0) } }
+.drag-sec { transition: transform 0.2s ease; }
+.drag-sec.dragging { opacity: 0.5; transform: scale(0.97); pointer-events: none; }
+.drag-sec.drag-over { box-shadow: 0 -3px 0 0 var(--accent); }
+.drag-handle { display: none; position: absolute; top: 10px; right: 8px; color: var(--muted-fg); cursor: grab; font-size: 14px; z-index: 2; user-select: none; -webkit-user-select: none; }
+.drag-sec:hover .drag-handle, .drag-sec:active .drag-handle { display: block; }
+@media (pointer: coarse) { .drag-handle { display: block; } }
 </style>
 </head>
 <body>
@@ -489,6 +495,12 @@ const S = {
   secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, investments: true, insurance: true, projections: true, netWorth: false, aiInsights: true, smartAlerts: true, trendChart: true, categoryDonut: true, reports: true, anomalies: true, goals: true },
   addingGoal: false,
   updatingGoalId: null,
+  sectionOrder: {
+    dashboard: ['heroCards','anomalies','budgetAlerts','trendChart','overview','categoryDonut','reports','activity'],
+    portfolio: ['summary','savings','loans','goldLoans','investments','insurance'],
+    recurring: ['recSummary','recIncome','bills','cards'],
+    insights: ['goals','aiInsights']
+  },
 };
 
 function save() {
@@ -522,6 +534,18 @@ function load() {
   try { const g = localStorage.getItem('mmc.goals.v1'); if (g) S.goals = JSON.parse(g); } catch(e) { S.goals = []; }
   S.selectedMonth = thisMonth();
   try { const so = localStorage.getItem('mmc.secOpen'); if (so) Object.assign(S.secOpen, JSON.parse(so)); } catch(e) {}
+  try {
+    const ord = localStorage.getItem('mmc.sectionOrder.v1');
+    if (ord) {
+      const saved = JSON.parse(ord);
+      const defaults = { dashboard: ['heroCards','anomalies','budgetAlerts','trendChart','overview','categoryDonut','reports','activity'], portfolio: ['summary','savings','loans','goldLoans','investments','insurance'], recurring: ['recSummary','recIncome','bills','cards'], insights: ['goals','aiInsights'] };
+      for (const tab of Object.keys(defaults)) {
+        const s = saved[tab] || [];
+        const missing = defaults[tab].filter(k => !s.includes(k));
+        S.sectionOrder[tab] = [...s.filter(k => defaults[tab].includes(k)), ...missing];
+      }
+    }
+  } catch(e) {}
 }
 
 
@@ -1172,7 +1196,7 @@ async function getGoalPlan(goalId) {
 }
 
 function renderInsights() {
-  document.getElementById('tab-insights').innerHTML = renderGoals() + buildInsightsCards();
+  document.getElementById('tab-insights').innerHTML = renderOrderedSections('insights');
 }
 
 function ordinal(n) { const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
@@ -1604,15 +1628,33 @@ function switchTab(tab) {
   const fab = document.getElementById('fab'); if(fab) fab.classList.toggle('hidden', !['dashboard','portfolio','recurring'].includes(S.tab));
 }
 
+const SECTION_RENDERERS = {
+  heroCards: () => renderHeroCards(), anomalies: () => renderAnomalyAlerts(), budgetAlerts: () => renderBudgetAlerts(),
+  trendChart: () => renderTrendChart(), overview: () => renderOverviewCards(), categoryDonut: () => renderCategoryDonut(),
+  reports: () => renderReports(), activity: () => renderActivity(),
+  summary: () => renderPortfolioSummary(), savings: () => renderSavings(), loans: () => renderLoans(),
+  goldLoans: () => renderGoldLoans(), investments: () => renderInvestmentsCard(), insurance: () => renderInsuranceCard(),
+  recSummary: () => renderRecurringSummary(), recIncome: () => renderRecurringIncome(), bills: () => renderBills(), cards: () => renderCreditCards(),
+  goals: () => renderGoals(), aiInsights: () => buildInsightsCards()
+};
+
+function renderOrderedSections(tabKey) {
+  return S.sectionOrder[tabKey].map(k => {
+    const fn = SECTION_RENDERERS[k];
+    if (!fn) return '';
+    const html = fn();
+    if (!html) return '';
+    return `<div class="drag-sec" data-drag-key="${k}" data-drag-tab="${tabKey}" style="position:relative"><span class="drag-handle" data-drag-grip="1">⠿</span>${html}</div>`;
+  }).join('');
+}
+
 function renderDashboard() {
-  document.getElementById('tab-dashboard').innerHTML =
-    renderHeroCards() + renderAnomalyAlerts() + renderBudgetAlerts() + renderTrendChart() + renderOverviewCards() + renderCategoryDonut() + renderReports() + renderActivity();
+  document.getElementById('tab-dashboard').innerHTML = renderOrderedSections('dashboard');
   updateHeaderMonthNav();
 }
 
 function renderRecurring() {
-  document.getElementById('tab-recurring').innerHTML =
-    renderRecurringSummary() + renderRecurringIncome() + renderBills() + renderCreditCards();
+  document.getElementById('tab-recurring').innerHTML = renderOrderedSections('recurring');
   updateHeaderMonthNav();
 }
 
@@ -2183,8 +2225,7 @@ function renderPortfolioQuickAdd() {
 }
 
 function renderPortfolio() {
-  document.getElementById('tab-portfolio').innerHTML =
-    renderPortfolioSummary() + renderSavings() + renderLoans() + renderGoldLoans() + renderInvestmentsCard() + renderInsuranceCard();
+  document.getElementById('tab-portfolio').innerHTML = renderOrderedSections('portfolio');
 }
 
 function getPortfolioCurrencies() {
@@ -3184,6 +3225,62 @@ document.addEventListener('change', function(e) {
 const savedTheme = localStorage.getItem('mmc.theme');
 if (savedTheme==='dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) document.body.classList.add('dark');
 load(); renderDashboard(); renderPortfolio(); renderRecurring(); renderInsights(); renderSettings();
+
+// Drag-and-drop section reordering
+(function() {
+  let dragEl = null, dragTab = null, longTimer = null, startY = 0;
+  function getSecEl(el) { while (el && !el.classList?.contains('drag-sec')) el = el.parentElement; return el; }
+  function onStart(e) {
+    const grip = e.target.closest('[data-drag-grip]');
+    if (!grip) return;
+    const sec = getSecEl(grip);
+    if (!sec) return;
+    e.preventDefault();
+    const y = e.touches ? e.touches[0].clientY : e.clientY;
+    startY = y;
+    longTimer = setTimeout(() => {
+      dragEl = sec;
+      dragTab = sec.dataset.dragTab;
+      sec.classList.add('dragging');
+    }, 200);
+  }
+  function onMove(e) {
+    if (longTimer && Math.abs((e.touches ? e.touches[0].clientY : e.clientY) - startY) > 10) { clearTimeout(longTimer); longTimer = null; }
+    if (!dragEl) return;
+    e.preventDefault();
+    const y = e.touches ? e.touches[0].clientY : e.clientY;
+    const siblings = [...dragEl.parentElement.querySelectorAll('.drag-sec')];
+    siblings.forEach(s => s.classList.remove('drag-over'));
+    for (const s of siblings) {
+      if (s === dragEl) continue;
+      const r = s.getBoundingClientRect();
+      if (y > r.top && y < r.bottom) { s.classList.add('drag-over'); break; }
+    }
+  }
+  function onEnd() {
+    clearTimeout(longTimer); longTimer = null;
+    if (!dragEl) return;
+    const parent = dragEl.parentElement;
+    const siblings = [...parent.querySelectorAll('.drag-sec')];
+    const overEl = siblings.find(s => s.classList.contains('drag-over'));
+    siblings.forEach(s => s.classList.remove('drag-over'));
+    dragEl.classList.remove('dragging');
+    if (overEl && overEl !== dragEl) {
+      const dragIdx = siblings.indexOf(dragEl), overIdx = siblings.indexOf(overEl);
+      if (dragIdx < overIdx) overEl.after(dragEl); else overEl.before(dragEl);
+      const newOrder = [...parent.querySelectorAll('.drag-sec')].map(s => s.dataset.dragKey);
+      S.sectionOrder[dragTab] = newOrder;
+      localStorage.setItem('mmc.sectionOrder.v1', JSON.stringify(S.sectionOrder));
+    }
+    dragEl = null; dragTab = null;
+  }
+  document.addEventListener('mousedown', onStart);
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onEnd);
+  document.addEventListener('touchstart', onStart, { passive: false });
+  document.addEventListener('touchmove', onMove, { passive: false });
+  document.addEventListener('touchend', onEnd);
+})();
 
 </script>
 <script>
