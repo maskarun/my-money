@@ -1578,10 +1578,12 @@ function renderCreditCards() {
         <div class="p-row-btns">
           ${paid
             ? `<span class="rec-badge paid">✓ Paid · ${formatMoney(billAmt,c)}</span><button class="ibtn" data-action="unmark-card" data-id="${card.id}" title="Mark unpaid">${svgUndo}</button>`
-            : `<form data-action="save-card-bill" data-id="${card.id}" style="display:flex;gap:6px;align-items:center">
-                <input class="input rec-amt-input" type="number" name="amount" inputmode="decimal" placeholder="Bill amt" value="${billAmt||''}" min="0" step="0.01">
-                <button type="submit" class="btn btn-accent rec-btn">Paid</button>
-               </form>`}
+            : billAmt
+              ? `<span class="rec-badge" style="background:#fef3c7;color:#92400e">${formatMoney(billAmt,c)}</span><button class="btn btn-accent rec-btn" data-action="pay-card-bill" data-id="${card.id}">Pay</button><button class="ibtn" data-action="clear-card-amount" data-id="${card.id}" title="Clear amount" style="width:24px;height:24px">✕</button>`
+              : `<form data-action="save-card-amount" data-id="${card.id}" style="display:flex;gap:6px;align-items:center">
+                  <input class="input rec-amt-input" type="number" name="amount" inputmode="decimal" placeholder="Bill amt" min="0" step="0.01">
+                  <button type="submit" class="btn btn-outline rec-btn">Save</button>
+                 </form>`}
           <button class="ibtn del" data-action="del-credit-card" data-id="${card.id}" title="Delete">${svgTrash}</button>
         </div>
       </div>
@@ -2831,15 +2833,12 @@ function handleSubmit(e) {
     else { saving.amount = Math.max(0, saving.amount - amount); S.transactions.unshift({id:uid(),type:'income',amount,category:'Saving',note:saving.name+(d.note?' - '+d.note:''),date:txDate,currency:getCur(saving)}); }
     S.addEntryType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderDashboard(); renderPortfolio(); toast((d.type==='deposit'?'Deposit':'Withdrawal')+' recorded'); return;
   }
-  if (action==='save-card-bill') {
+  if (action==='save-card-amount') {
     const card = S.recurring.creditCards.find(c=>c.id===form.dataset.id); if (!card) return;
+    const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
     const mon = S.selectedMonth; if (!card.months) card.months = {};
-    const amount = parseFloat(d.amount)||0;
     card.months[mon] = {...(card.months[mon]||{}), amount};
-    const txId = uid();
-    S.transactions.unshift({id:txId,type:'expense',amount,category:'Bills',note:card.name+' CC Bill',date:dateInMonth(mon),currency:card.currency||'INR'});
-    card.months[mon].paid = true; card.months[mon].txId = txId;
-    save(); renderDashboard(); renderRecurring(); toast(card.name+' bill recorded'); return;
+    save(); renderRecurring(); toast(card.name+' bill amount saved'); return;
   }
   if (action==='mark-variable-bill') {
     const item = S.recurring.items.find(i=>i.id===form.dataset.id); if (!item) return;
@@ -2989,6 +2988,21 @@ function handleClick(e) {
     if (ms.txId) S.transactions = S.transactions.filter(t=>t.id!==ms.txId);
     ms.paid = false; ms.txId = undefined;
     save(); renderDashboard(); renderRecurring(); toast(item.name+' marked unpaid'); return;
+  }
+  if (action==='pay-card-bill') {
+    const card = S.recurring.creditCards.find(c=>c.id===btn.dataset.id); if (!card) return;
+    const mon = S.selectedMonth; if (!card.months) card.months = {};
+    const amount = card.months[mon]?.amount || 0;
+    if (!amount) return toast('No amount saved');
+    const txId = uid();
+    S.transactions.unshift({id:txId,type:'expense',amount,category:'Bills',note:card.name+' CC Bill',date:dateInMonth(mon),currency:card.currency||'INR'});
+    card.months[mon].paid = true; card.months[mon].txId = txId;
+    save(); renderDashboard(); renderRecurring(); toast(card.name+' bill paid'); return;
+  }
+  if (action==='clear-card-amount') {
+    const card = S.recurring.creditCards.find(c=>c.id===btn.dataset.id); if (!card) return;
+    const mon = S.selectedMonth; if (card.months?.[mon]) { card.months[mon].amount = 0; }
+    save(); renderRecurring(); return;
   }
   if (action==='unmark-card') {
     const card = S.recurring.creditCards.find(c=>c.id===btn.dataset.id); if (!card) return;
