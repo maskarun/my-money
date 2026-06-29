@@ -1565,7 +1565,7 @@ function renderCreditCards() {
   const monthLabel = fmtMonth(mon);
 
   const cardRows = cards.map(card => {
-    const ms = card.months||{}, paid = ms[mon]?.paid, billAmt = ms[mon]?.amount||0;
+    const ms = card.months||{}, paid = ms[mon]?.paid, billAmt = ms[mon]?.amount, amountSaved = ms[mon]?.amountSaved;
     const c = card.currency||'INR';
     const badge = getDueBadge(card.dueDay, paid, mon);
     return `<div class="p-row"${paid?' style="opacity:.55"':''}>
@@ -1577,11 +1577,11 @@ function renderCreditCards() {
       <div class="p-row-right">
         <div class="p-row-btns">
           ${paid
-            ? `<span class="rec-badge paid">✓ Paid · ${formatMoney(billAmt,c)}</span><button class="ibtn" data-action="unmark-card" data-id="${card.id}" title="Mark unpaid">${svgUndo}</button>`
-            : billAmt
-              ? `<span class="rec-badge" style="background:#fef3c7;color:#92400e">${formatMoney(billAmt,c)}</span><button class="btn btn-accent rec-btn" data-action="pay-card-bill" data-id="${card.id}">Pay</button><button class="ibtn" data-action="clear-card-amount" data-id="${card.id}" title="Clear amount" style="width:24px;height:24px">✕</button>`
+            ? `<span class="rec-badge paid">✓ Paid · ${formatMoney(billAmt||0,c)}</span><button class="ibtn" data-action="unmark-card" data-id="${card.id}" title="Mark unpaid">${svgUndo}</button>`
+            : amountSaved
+              ? `<span class="rec-badge" style="background:#fef3c7;color:#92400e">${formatMoney(billAmt||0,c)}</span><button class="btn btn-accent rec-btn" data-action="pay-card-bill" data-id="${card.id}">Pay</button><button class="ibtn" data-action="undo-card-amount" data-id="${card.id}" title="Undo">${svgUndo}</button>`
               : `<form data-action="save-card-amount" data-id="${card.id}" style="display:flex;gap:6px;align-items:center">
-                  <input class="input rec-amt-input" type="number" name="amount" inputmode="decimal" placeholder="Bill amt" min="0" step="0.01">
+                  <input class="input rec-amt-input" type="number" name="amount" inputmode="decimal" placeholder="Bill amt" value="${billAmt!=null?billAmt:''}" min="0" step="0.01">
                   <button type="submit" class="btn btn-outline rec-btn">Save</button>
                  </form>`}
           <button class="ibtn del" data-action="del-credit-card" data-id="${card.id}" title="Delete">${svgTrash}</button>
@@ -2835,9 +2835,10 @@ function handleSubmit(e) {
   }
   if (action==='save-card-amount') {
     const card = S.recurring.creditCards.find(c=>c.id===form.dataset.id); if (!card) return;
-    const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
+    const amount = parseFloat(d.amount); if (isNaN(amount)||amount<0) return toast('Enter a valid amount');
     const mon = S.selectedMonth; if (!card.months) card.months = {};
-    card.months[mon] = {...(card.months[mon]||{}), amount};
+    const prev = card.months[mon] || {};
+    card.months[mon] = {...prev, amount, amountSaved: true, prevAmount: prev.amount};
     save(); renderRecurring(); toast(card.name+' bill amount saved'); return;
   }
   if (action==='mark-variable-bill') {
@@ -2999,9 +3000,10 @@ function handleClick(e) {
     card.months[mon].paid = true; card.months[mon].txId = txId;
     save(); renderDashboard(); renderRecurring(); toast(card.name+' bill paid'); return;
   }
-  if (action==='clear-card-amount') {
+  if (action==='undo-card-amount') {
     const card = S.recurring.creditCards.find(c=>c.id===btn.dataset.id); if (!card) return;
-    const mon = S.selectedMonth; if (card.months?.[mon]) { card.months[mon].amount = 0; }
+    const mon = S.selectedMonth; const ms = card.months?.[mon]; if (!ms) return;
+    ms.amount = ms.prevAmount; ms.amountSaved = false; delete ms.prevAmount;
     save(); renderRecurring(); return;
   }
   if (action==='unmark-card') {
