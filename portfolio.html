@@ -496,10 +496,10 @@ const S = {
   addingGoal: false,
   updatingGoalId: null,
   sectionOrder: {
-    dashboard: ['heroCards','anomalies','budgetAlerts','trendChart','netWorth','projections','categoryDonut','reports','activity'],
+    dashboard: ['heroCards','anomalies','budgetAlerts','trendChart','netWorth','categoryDonut','reports','activity'],
     portfolio: ['summary','savings','loans','goldLoans','investments','insurance'],
     recurring: ['recSummary','recIncome','bills','cards'],
-    insights: ['goals','aiInsights']
+    insights: ['goals','projections','aiInsights']
   },
 };
 
@@ -538,7 +538,7 @@ function load() {
     const ord = localStorage.getItem('mmc.sectionOrder.v1');
     if (ord) {
       const saved = JSON.parse(ord);
-      const defaults = { dashboard: ['heroCards','anomalies','budgetAlerts','trendChart','netWorth','projections','categoryDonut','reports','activity'], portfolio: ['summary','savings','loans','goldLoans','investments','insurance'], recurring: ['recSummary','recIncome','bills','cards'], insights: ['goals','aiInsights'] };
+      const defaults = { dashboard: ['heroCards','anomalies','budgetAlerts','trendChart','netWorth','categoryDonut','reports','activity'], portfolio: ['summary','savings','loans','goldLoans','investments','insurance'], recurring: ['recSummary','recIncome','bills','cards'], insights: ['goals','projections','aiInsights'] };
       for (const tab of Object.keys(defaults)) {
         const s = saved[tab] || [];
         const missing = defaults[tab].filter(k => !s.includes(k));
@@ -2102,8 +2102,8 @@ async function getAIProjections() {
   ).join('\n');
   const summary = buildPortfolioSummary();
   const prompt = `You are a personal finance analyst. Based on these projections and portfolio data, provide:\n\n1. **Spending Trend Analysis** - what patterns do you see?\n2. **3 Scenarios** (Optimistic / Realistic / Pessimistic) - projected savings in 6 and 12 months\n3. **Top 3 Savings Opportunities** - specific areas to cut or optimize\n4. **Investment Allocation Advice** - where to put the surplus\n\nKeep each section to 2-3 bullet points. Be specific to the numbers.\n\nCurrent monthly projections:\n${projText}\n\nPortfolio context:\n${summary}`;
-  await callAI(prompt, v => { projectionAIResult = v; }, v => { projectionAILoading = v; renderDashboard(); }, 'mmc.aiProjections');
-  renderDashboard();
+  await callAI(prompt, v => { projectionAIResult = v; }, v => { projectionAILoading = v; renderInsights(); }, 'mmc.aiProjections');
+  renderInsights();
 }
 
 function renderProjections() {
