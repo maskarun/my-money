@@ -2463,7 +2463,14 @@ function renderSettings() {
       <div class="p-row-meta" style="flex:1;min-width:0"><div class="p-row-name">Auto Backup</div><div class="p-row-sub" style="word-break:break-word">${(() => { const t = localStorage.getItem('mmc.backup.time'); return t ? 'Last: ' + new Date(t).toLocaleString() : 'No backup yet'; })()}</div><div class="p-row-sub" style="word-break:break-word;margin-top:2px">Location: localStorage → mmc.backup</div></div>
       <button class="btn btn-outline" style="font-size:10px;padding:4px 10px;white-space:nowrap;flex-shrink:0" data-action="restore-backup" ${localStorage.getItem('mmc.backup.time')?'':'disabled'}>Restore</button>
     </div>
-    <div class="add-form-btns" style="padding:12px 16px">
+    <div class="p-row" style="flex-wrap:wrap;gap:8px">
+      <div class="p-row-meta" style="flex:1;min-width:0"><div class="p-row-name">Sync Across Devices</div><div class="p-row-sub">Copy data as sync code, paste on another device</div></div>
+    </div>
+    <div class="add-form-btns" style="padding:4px 16px 8px">
+      <button class="btn btn-outline" data-action="copy-sync-code">Copy Sync Code</button>
+      <button class="btn btn-accent" data-action="paste-sync-code">Paste Sync Code</button>
+    </div>
+    <div class="add-form-btns" style="padding:4px 16px 12px">
       <button class="btn btn-outline" data-action="import-trigger">Import</button>
       <button class="btn btn-accent" data-action="export">Export</button>
     </div>
@@ -3139,6 +3146,8 @@ function handleClick(e) {
   }
   if (action==='toggle-gold') { S.expandedGoldLoan=S.expandedGoldLoan===btn.dataset.id?null:btn.dataset.id; renderPortfolio(); return; }
   if (action==='export') { exportJSON(); return; }
+  if (action==='copy-sync-code') { copySyncCode(); return; }
+  if (action==='paste-sync-code') { pasteSyncCode(); return; }
   if (action==='get-insights') { getInsights(); return; }
   if (action==='get-smart-alerts') { getSmartAlerts(); return; }
   if (action==='get-ai-projections') { getAIProjections(); return; }
@@ -3195,6 +3204,49 @@ function handleInput(e) {
   if (inp.name==='currency' && inp.closest('[data-action="add-tx"]')) {
     S.txCurrency=inp.value; localStorage.setItem('mmc.lastCurrency.v1',inp.value);
   }
+}
+
+async function copySyncCode() {
+  try {
+    const payload = JSON.stringify({version:3, transactions:S.transactions, portfolio:S.portfolio, recurring:S.recurring, goals:S.goals, syncedAt:new Date().toISOString()});
+    const blob = new Blob([payload]);
+    const cs = new CompressionStream('gzip');
+    const stream = blob.stream().pipeThrough(cs);
+    const compressed = await new Response(stream).arrayBuffer();
+    const bytes = new Uint8Array(compressed);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    const b64 = btoa(binary);
+    await navigator.clipboard.writeText('MMC:' + b64);
+    toast('Sync code copied to clipboard!');
+  } catch(e) { toast('Copy failed: ' + (e.message || e)); }
+}
+
+async function pasteSyncCode() {
+  try {
+    const text = await navigator.clipboard.readText();
+    if (!text.startsWith('MMC:')) { toast('Invalid sync code'); return; }
+    const b64 = text.slice(4);
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const ds = new DecompressionStream('gzip');
+    const stream = new Blob([bytes]).stream().pipeThrough(ds);
+    const json = await new Response(stream).text();
+    const data = JSON.parse(json);
+    if (!data.version) { toast('Invalid sync data'); return; }
+    const txCount = (data.transactions||[]).length;
+    const goalCount = (data.goals||[]).length;
+    const syncTime = data.syncedAt ? new Date(data.syncedAt).toLocaleString() : 'unknown';
+    if (!confirm(`Restore sync from ${syncTime}?\n${txCount} transactions, ${goalCount} goals.\nThis will overwrite current data.`)) return;
+    S.transactions = data.transactions || [];
+    S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[],insurance:[]}, data.portfolio || {});
+    S.recurring = Object.assign({items:[],creditCards:[]}, data.recurring || {});
+    S.goals = data.goals || [];
+    save();
+    renderDashboard(); renderPortfolio(); renderRecurring(); renderInsights(); renderSettings();
+    toast('Data restored from sync code');
+  } catch(e) { toast('Paste failed: ' + (e.message || e)); }
 }
 
 function exportJSON() {
