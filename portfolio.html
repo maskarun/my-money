@@ -496,7 +496,7 @@ const S = {
   addingGoal: false,
   updatingGoalId: null,
   sectionOrder: {
-    dashboard: ['heroCards','anomalies','budgetAlerts','trendChart','overview','categoryDonut','reports','activity'],
+    dashboard: ['heroCards','anomalies','budgetAlerts','trendChart','netWorth','projections','categoryDonut','reports','activity'],
     portfolio: ['summary','savings','loans','goldLoans','investments','insurance'],
     recurring: ['recSummary','recIncome','bills','cards'],
     insights: ['goals','aiInsights']
@@ -538,7 +538,7 @@ function load() {
     const ord = localStorage.getItem('mmc.sectionOrder.v1');
     if (ord) {
       const saved = JSON.parse(ord);
-      const defaults = { dashboard: ['heroCards','anomalies','budgetAlerts','trendChart','overview','categoryDonut','reports','activity'], portfolio: ['summary','savings','loans','goldLoans','investments','insurance'], recurring: ['recSummary','recIncome','bills','cards'], insights: ['goals','aiInsights'] };
+      const defaults = { dashboard: ['heroCards','anomalies','budgetAlerts','trendChart','netWorth','projections','categoryDonut','reports','activity'], portfolio: ['summary','savings','loans','goldLoans','investments','insurance'], recurring: ['recSummary','recIncome','bills','cards'], insights: ['goals','aiInsights'] };
       for (const tab of Object.keys(defaults)) {
         const s = saved[tab] || [];
         const missing = defaults[tab].filter(k => !s.includes(k));
@@ -737,7 +737,7 @@ function renderOverviewCards() {
         </div>
       </div>`;
     }).join('');
-    return compactCards + renderProjections();
+    return compactCards;
   }
 
   // Expanded view (original)
@@ -787,7 +787,7 @@ function renderOverviewCards() {
     </div>`;
   }).join('');
 
-  return cards + renderProjections();
+  return cards;
 }
 
 let insightsResult = localStorage.getItem('mmc.insights') || '';
@@ -1630,7 +1630,7 @@ function switchTab(tab) {
 
 const SECTION_RENDERERS = {
   heroCards: () => renderHeroCards(), anomalies: () => renderAnomalyAlerts(), budgetAlerts: () => renderBudgetAlerts(),
-  trendChart: () => renderTrendChart(), overview: () => renderOverviewCards(), categoryDonut: () => renderCategoryDonut(),
+  trendChart: () => renderTrendChart(), netWorth: () => renderOverviewCards(), projections: () => renderProjections(), categoryDonut: () => renderCategoryDonut(),
   reports: () => renderReports(), activity: () => renderActivity(),
   summary: () => renderPortfolioSummary(), savings: () => renderSavings(), loans: () => renderLoans(),
   goldLoans: () => renderGoldLoans(), investments: () => renderInvestmentsCard(), insurance: () => renderInsuranceCard(),
