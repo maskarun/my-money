@@ -938,7 +938,7 @@ async function callAI(prompt, setResult, setLoading, cacheKey) {
 
 async function getInsights() {
   const summary = buildPortfolioSummary();
-  const prompt = `You are a personal finance advisor. Analyze this portfolio and respond with exactly two sections:\n\n**Top 3 Portfolio Insights** - key observations about spending, savings, and financial health. Be specific to the numbers.\n\n**Top 3 Investment Suggestions** - specific investment opportunities considering current allocations and risk. Include types and reasoning.\n\nKeep each point to 1-2 sentences. Be concise and actionable.\n\n${summary}`;
+  const prompt = `You are a personal finance advisor. Analyze this portfolio and provide **Top 5 Portfolio Insights** - key observations about spending patterns, savings health, debt exposure, and overall financial health. Be specific to the numbers. Do NOT include investment suggestions or forward-looking advice. Keep each point to 1-2 sentences. Be concise and actionable.\n\n${summary}`;
   await callAI(prompt, v => { insightsResult = v; }, v => { insightsLoading = v; }, 'mmc.insights');
 }
 
