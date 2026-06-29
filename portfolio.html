@@ -85,17 +85,17 @@ a { color: inherit; text-decoration: none; }
   display: none; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; position: relative;
 }
 #header-month-nav.visible { display: flex; }
-.month-label { cursor: pointer; display: flex; align-items: center; gap: 4px; user-select: none; }
-.month-label::after { content: '▾'; font-size: 9px; color: var(--muted-fg); transition: transform .2s; }
-.month-label.open::after { transform: rotate(180deg); }
-.month-picker { position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%); background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.15); z-index: 100; padding: 8px; min-width: 240px; }
+.month-label { cursor: pointer; user-select: none; }
+.month-picker { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: #fff; border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 12px 40px rgba(0,0,0,.2); z-index: 100; padding: 16px; min-width: 260px; }
+body.dark .month-picker { background: #1e293b; box-shadow: 0 12px 40px rgba(0,0,0,.6); }
 .month-picker-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
-.month-picker-yr { font-size: 10px; font-weight: 800; color: var(--muted-fg); text-transform: uppercase; letter-spacing: .5px; padding: 6px 4px 2px; grid-column: 1/-1; }
-.mp-btn { padding: 7px 4px; border-radius: 8px; font-size: 11px; font-weight: 600; text-align: center; cursor: pointer; border: none; background: none; color: var(--fg); }
+.month-picker-yr { font-size: 11px; font-weight: 800; color: var(--fg); letter-spacing: .3px; padding: 8px 4px 4px; grid-column: 1/-1; }
+.month-picker-yr:first-child { padding-top: 2px; }
+.mp-btn { padding: 10px 4px; border-radius: 8px; font-size: 12px; font-weight: 600; text-align: center; cursor: pointer; border: none; background: none; color: var(--fg); }
 .mp-btn:hover { background: var(--muted); }
 .mp-btn.active { background: var(--accent); color: #fff; }
 .mp-btn.today { box-shadow: inset 0 0 0 1.5px var(--accent); }
-.month-picker-backdrop { position: fixed; inset: 0; z-index: 99; }
+.month-picker-backdrop { position: fixed; inset: 0; z-index: 99; background: rgba(0,0,0,.35); }
 
 /* Scroll */
 #scroll {
@@ -1709,17 +1709,17 @@ function renderMonthPicker() {
 function updateHeaderMonthNav() {
   const el = document.getElementById('header-month-nav');
   if (!el) return;
-  if (['dashboard','recurring'].includes(S.tab)) {
-    const label = fmtMonth(S.selectedMonth);
-    const isCurrent = S.selectedMonth === thisMonth();
-    el.innerHTML = `<span class="month-label${S.monthPickerOpen?' open':''}" data-action="toggle-month-picker">${label}</span>${isCurrent ? '' : '<button class="link-btn" data-action="goto-current-month">Today</button>'}`;
+  const label = fmtMonth(S.selectedMonth);
+  const isCurrent = S.selectedMonth === thisMonth();
+  const showPicker = ['dashboard','recurring'].includes(S.tab);
+  if (showPicker) {
+    el.innerHTML = `<span class="month-label" data-action="toggle-month-picker">${label}</span>${isCurrent ? '' : '<button class="link-btn" data-action="goto-current-month">Today</button>'}`;
     if (S.monthPickerOpen) el.innerHTML += renderMonthPicker();
-    el.classList.add('visible');
   } else {
     S.monthPickerOpen = false;
-    el.classList.remove('visible');
-    el.innerHTML = '';
+    el.innerHTML = `<span>${label}</span>`;
   }
+  el.classList.add('visible');
 }
 
 
