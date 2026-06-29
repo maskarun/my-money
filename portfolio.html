@@ -2056,14 +2056,17 @@ function computeProjections() {
   (S.recurring?.creditCards||[]).forEach(c => allCurs.add(getCur(c)));
   const results = {};
   for (const cur of allCurs) {
-    let incTotal = 0, expTotal = 0;
+    let incTotal = 0, expTotal = 0, monthsWithData = 0;
     for (const mon of past3) {
+      let hadData = false;
       for (const t of S.transactions.filter(t => localTxMonth(t.date)===mon && getCur(t)===cur && !recurTxIds.has(t.id))) {
-        if (t.type==='income') incTotal += t.amount;
-        else if (t.type==='expense') expTotal += t.amount;
+        if (t.type==='income') { incTotal += t.amount; hadData = true; }
+        else if (t.type==='expense') { expTotal += t.amount; hadData = true; }
       }
+      if (hadData) monthsWithData++;
     }
-    const txAvgInc = incTotal/3, txAvgExp = expTotal/3;
+    const divisor = monthsWithData || 1;
+    const txAvgInc = incTotal/divisor, txAvgExp = expTotal/divisor;
     let recIncome = 0, recExpense = 0;
     for (const item of (S.recurring?.items||[])) {
       if (getCur(item) !== cur) continue;
