@@ -794,6 +794,8 @@ let insightsResult = localStorage.getItem('mmc.insights') || '';
 let insightsLoading = false;
 let smartAlertsResult = localStorage.getItem('mmc.smartAlerts') || '';
 let smartAlertsLoading = false;
+let projectionAIResult = localStorage.getItem('mmc.aiProjections') || '';
+let projectionAILoading = false;
 
 function formatInsights(txt) {
   const lines = txt.split('\n');
@@ -2093,6 +2095,17 @@ function computeProjections() {
   return results;
 }
 
+async function getAIProjections() {
+  const proj = computeProjections();
+  const projText = Object.entries(proj).map(([cur, p]) =>
+    `${cur}: Monthly Income ${formatMoney(p.monthlyIncome, cur)}, Monthly Expense ${formatMoney(p.monthlyExpense, cur)}, Surplus ${formatMoney(p.monthlyIncome - p.monthlyExpense, cur)}`
+  ).join('\n');
+  const summary = buildPortfolioSummary();
+  const prompt = `You are a personal finance analyst. Based on these projections and portfolio data, provide:\n\n1. **Spending Trend Analysis** - what patterns do you see?\n2. **3 Scenarios** (Optimistic / Realistic / Pessimistic) - projected savings in 6 and 12 months\n3. **Top 3 Savings Opportunities** - specific areas to cut or optimize\n4. **Investment Allocation Advice** - where to put the surplus\n\nKeep each section to 2-3 bullet points. Be specific to the numbers.\n\nCurrent monthly projections:\n${projText}\n\nPortfolio context:\n${summary}`;
+  await callAI(prompt, v => { projectionAIResult = v; }, v => { projectionAILoading = v; renderDashboard(); }, 'mmc.aiProjections');
+  renderDashboard();
+}
+
 function renderProjections() {
   const proj = computeProjections();
   const curs = Object.keys(proj);
@@ -2119,7 +2132,19 @@ function renderProjections() {
       return `<span style="color:${s>=0?'var(--income)':'var(--expense)'}">${s<0?'−':''}${formatMoney(Math.abs(s), cur)}</span>`;
     });
   }
-  return `<div class="card">${hdr}${body}</div>`;
+  const hasKey = !!localStorage.getItem('mmc.apiKey');
+  let aiSection = '';
+  if (hasKey) {
+    const aiBody = projectionAILoading
+      ? `<div class="empty"><p>Analyzing projections...</p></div>`
+      : projectionAIResult
+        ? `<div style="padding:12px 16px;font-size:12px;line-height:1.6">${formatInsights(projectionAIResult)}</div>`
+        : '';
+    aiSection = `${aiBody}<div class="add-form-btns" style="padding:12px 16px">
+      <button class="btn btn-accent" data-action="get-ai-projections" ${projectionAILoading?'disabled':''}>✨ AI Analysis</button>
+    </div>`;
+  }
+  return `<div class="card">${hdr}${body}${aiSection}</div>`;
 }
 
 function renderActivity() {
@@ -3116,6 +3141,7 @@ function handleClick(e) {
   if (action==='export') { exportJSON(); return; }
   if (action==='get-insights') { getInsights(); return; }
   if (action==='get-smart-alerts') { getSmartAlerts(); return; }
+  if (action==='get-ai-projections') { getAIProjections(); return; }
   if (action==='show-add-goal') { S.addingGoal = true; renderInsights(); return; }
   if (action==='cancel-add-goal') { S.addingGoal = false; renderInsights(); return; }
   if (action==='update-goal-progress') { S.updatingGoalId = btn.dataset.id; renderInsights(); return; }
