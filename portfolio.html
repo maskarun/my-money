@@ -257,7 +257,7 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .swipe-wrap { position: relative; overflow: hidden; }
 .swipe-front { position: relative; z-index: 1; background: var(--card-bg); transition: transform .25s ease; overflow: hidden; }
 .swipe-wrap { border-top: 1px solid var(--muted); }
-.swipe-wrap .p-row { border-top: none; }
+.swipe-wrap .p-row, .swipe-wrap .tx-row { border-top: none; }
 .swipe-back { position: absolute; right: 0; top: 0; bottom: 0; display: flex; align-items: stretch; z-index: 0; opacity: 0; transition: opacity .15s; }
 .swipe-wrap.swiped .swipe-back, .swipe-wrap.swiping .swipe-back { opacity: 1; }
 .swipe-back button { display: flex; align-items: center; justify-content: center; width: 48px; border: none; cursor: pointer; color: #fff; }
@@ -2294,12 +2294,18 @@ function renderActivity() {
       else dateLabel = new Date(entryDate + 'T12:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric'});
       dateHdr = `<li class="tx-date-hdr">${dateLabel}</li>`;
     }
-    return `${dateHdr}<li class="tx-row" ${e.txId?`data-action="edit-tx" data-id="${e.txId}"`:''}>
+    return `${dateHdr}${e.delBtn ? `<li class="swipe-wrap" style="--swipe-w:-48px">
+      <div class="swipe-back"><button class="sb-del" data-action="del-tx" data-id="${e.txId}" title="Delete">${svgTrash}</button></div>
+      <div class="swipe-front"><div class="tx-row" ${e.txId?`data-action="edit-tx" data-id="${e.txId}"`:''}>
+        <div class="tx-icon ${e.icon}">${e.iconSvg}</div>
+        <div class="tx-body"><div class="tx-cat">${esc(e.name)}${e.badge?`<span class="tx-badge">${e.badge}</span>`:''}${srcPill}</div><div class="tx-meta">${e.meta}</div></div>
+        <div class="tx-right">${e.amtHtml}</div>
+      </div></div>
+    </li>` : `<li class="tx-row" ${e.txId?`data-action="edit-tx" data-id="${e.txId}"`:''}>
       <div class="tx-icon ${e.icon}">${e.iconSvg}</div>
       <div class="tx-body"><div class="tx-cat">${esc(e.name)}${e.badge?`<span class="tx-badge">${e.badge}</span>`:''}${srcPill}</div><div class="tx-meta">${e.meta}</div></div>
       <div class="tx-right">${e.amtHtml}</div>
-      ${e.delBtn}
-    </li>`;
+    </li>`}`;
   }).join('');
   return `<div class="card">${hdr}${filterUI}<ul class="tx-list">${rows}</ul></div>`;
 }
@@ -2369,16 +2375,18 @@ function renderSavings() {
       ${payments.length?`<div class="pp-tbl-wrap"><table class="pp-tbl"><thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Note</th><th></th></tr></thead><tbody>${payments.map(p=>`<tr><td>${p.date}</td><td>${p.type==='deposit'?'<span class="ledger-src inc">Deposit</span>':'<span class="ledger-src exp">Withdrawal</span>'}</td><td class="pp-tbl-amt ${p.type==='deposit'?'grn':'red'}">${p.type==='deposit'?'+':'−'}${formatMoney(p.amount,c)}</td><td>${p.note?esc(p.note):''}</td><td><button class="ibtn del" data-action="del-saving-payment" data-saving-id="${item.id}" data-payment-id="${p.id}" title="Delete">${svgTrash}</button></td></tr>`).join('')}</tbody></table></div>`:`<div class="text-sm text-muted" style="padding:4px 0">No payments yet. Use Dashboard → Add Entry → Savings.</div>`}
     </div></div>` : '';
     return `<div>
-      <div class="p-row" data-action="toggle-saving" data-id="${item.id}" style="cursor:pointer">
-        <div class="p-row-icon sav">${svgBank.replace('stroke="currentColor"','stroke="#0284c7"')}</div>
-        <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span></div><div class="p-row-sub">${item.institution?'Institution: '+esc(item.institution):''}${item.interestRate?' · '+item.interestRate+'% p.a.':''}</div></div>
-        <div class="p-row-right">
-          <div><div class="p-row-amt-lbl">Balance</div><div class="p-row-amt grn">${formatMoney(item.amount,c)}</div></div>
-          <div class="p-row-btns">
-            <button class="ibtn" title="Edit" data-action="edit-saving" data-id="${item.id}">${svgEdit}</button>
-            <button class="ibtn del" title="Delete" data-action="del-saving" data-id="${item.id}">${svgTrash}</button>
-          </div>
+      <div class="swipe-wrap" style="--swipe-w:-96px">
+        <div class="swipe-back">
+          <button class="sb-edit" data-action="edit-saving" data-id="${item.id}" title="Edit">${svgEdit}</button>
+          <button class="sb-del" data-action="del-saving" data-id="${item.id}" title="Delete">${svgTrash}</button>
         </div>
+        <div class="swipe-front"><div class="p-row" data-action="toggle-saving" data-id="${item.id}" style="cursor:pointer">
+          <div class="p-row-icon sav">${svgBank.replace('stroke="currentColor"','stroke="#0284c7"')}</div>
+          <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span></div><div class="p-row-sub">${item.institution?'Institution: '+esc(item.institution):''}${item.interestRate?' · '+item.interestRate+'% p.a.':''}</div></div>
+          <div class="p-row-right">
+            <div><div class="p-row-amt-lbl">Balance</div><div class="p-row-amt grn">${formatMoney(item.amount,c)}</div></div>
+          </div>
+        </div></div>
       </div>
       ${payHtml}
     </div>`;
@@ -2438,16 +2446,18 @@ function renderInvestmentsCard() {
   const rows = items.map(item => {
     const c = getCur(item);
     if (S.editingId===item.id && S.editSection==='investment') return `<div class="add-form">${investmentForm(item)}</div>`;
-    return `<div class="p-row">
-      <div class="p-row-icon inv">${svgChart.replace('stroke="currentColor"','stroke="#9333ea"')}</div>
-      <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span></div><div class="p-row-sub">${item.type?esc(item.type):''}${item.note?' · '+esc(item.note):''}</div></div>
-      <div class="p-row-right">
-        <div><div class="p-row-amt-lbl">Current · Invested</div><div class="p-row-amt grn">${formatMoney(item.currentValue,c)}</div><div class="p-row-sub">${formatMoney(item.amountInvested,c)} invested</div></div>
-        <div class="p-row-btns">
-          <button class="ibtn" title="Edit" data-action="edit-investment" data-id="${item.id}">${svgEdit}</button>
-          <button class="ibtn del" title="Delete" data-action="del-investment" data-id="${item.id}">${svgTrash}</button>
-        </div>
+    return `<div class="swipe-wrap" style="--swipe-w:-96px">
+      <div class="swipe-back">
+        <button class="sb-edit" data-action="edit-investment" data-id="${item.id}" title="Edit">${svgEdit}</button>
+        <button class="sb-del" data-action="del-investment" data-id="${item.id}" title="Delete">${svgTrash}</button>
       </div>
+      <div class="swipe-front"><div class="p-row">
+        <div class="p-row-icon inv">${svgChart.replace('stroke="currentColor"','stroke="#9333ea"')}</div>
+        <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span></div><div class="p-row-sub">${item.type?esc(item.type):''}${item.note?' · '+esc(item.note):''}</div></div>
+        <div class="p-row-right">
+          <div><div class="p-row-amt-lbl">Current · Invested</div><div class="p-row-amt grn">${formatMoney(item.currentValue,c)}</div><div class="p-row-sub">${formatMoney(item.amountInvested,c)} invested</div></div>
+        </div>
+      </div></div>
     </div>`;
   }).join('');
   const recRows = recItems.map(item => {
@@ -2502,16 +2512,18 @@ function renderInsuranceCard() {
     if (S.editingId===item.id && S.editSection==='insurance') return `<div class="add-form">${insuranceForm(item)}</div>`;
     const dateRange = fmtD(item.startDate) + (item.endDate ? ' – '+fmtD(item.endDate) : ' – ongoing');
     const sub = [item.type, dateRange, item.premium?`${formatMoney(item.premium,c)} ${(item.premiumFreq||'Yearly').toLowerCase()}`:''].filter(Boolean).join(' · ');
-    return `<div class="p-row">
-      <div class="p-row-icon" style="background:#eff6ff;color:#3b82f6">${svgShield.replace('stroke="currentColor"','stroke="#3b82f6"')}</div>
-      <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span></div><div class="p-row-sub" style="max-width:none">${sub}</div></div>
-      <div class="p-row-right">
-        <div><div class="p-row-amt-lbl">Sum Assured</div><div class="p-row-amt grn">${formatMoney(item.sumAssured,c)}</div></div>
-        <div class="p-row-btns">
-          <button class="ibtn" title="Edit" data-action="edit-insurance" data-id="${item.id}">${svgEdit}</button>
-          <button class="ibtn del" title="Delete" data-action="del-insurance" data-id="${item.id}">${svgTrash}</button>
-        </div>
+    return `<div class="swipe-wrap" style="--swipe-w:-96px">
+      <div class="swipe-back">
+        <button class="sb-edit" data-action="edit-insurance" data-id="${item.id}" title="Edit">${svgEdit}</button>
+        <button class="sb-del" data-action="del-insurance" data-id="${item.id}" title="Delete">${svgTrash}</button>
       </div>
+      <div class="swipe-front"><div class="p-row">
+        <div class="p-row-icon" style="background:#eff6ff;color:#3b82f6">${svgShield.replace('stroke="currentColor"','stroke="#3b82f6"')}</div>
+        <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span></div><div class="p-row-sub" style="max-width:none">${sub}</div></div>
+        <div class="p-row-right">
+          <div><div class="p-row-amt-lbl">Sum Assured</div><div class="p-row-amt grn">${formatMoney(item.sumAssured,c)}</div></div>
+        </div>
+      </div></div>
     </div>`;
   }).join('');
   const isOpen = S.secOpen.insurance;
@@ -2654,21 +2666,23 @@ function renderLoans() {
     </div>` : '';
     const curPillClass = c==='USD'?'':''; // default blue pill for all
     return `<div>
-      <div class="p-row" data-action="toggle-loan" data-id="${loan.id}" style="cursor:pointer${loan.closed?';opacity:0.5':''}">
-        <div class="p-row-icon loan">${svgHome.replace('stroke="currentColor"','stroke="#e11d48"')}</div>
-        <div class="p-row-meta"><div class="p-row-name">${esc(loan.name)}<span class="cur-pill red">${c}</span></div><div class="p-row-sub">${loan.lender?esc(loan.lender)+' · ':''}${formatMoney(loan.principal,c)} · ${loan.tenureYears}yr · ${loan.interestRate}% · EMI ${formatMoney(emi,c)}</div></div>
-        <div class="p-row-right">
+      <div class="swipe-wrap" style="--swipe-w:-144px">
+        <div class="swipe-back">
           ${loan.closed
-            ? `<span class="rec-badge paid">✓ Closed</span>`
-            : `<div><div class="p-row-amt-lbl">Outstanding</div><div class="p-row-amt red">${formatMoney(outstanding,c)}</div></div>`}
-          <div class="p-row-btns">
-            ${loan.closed
-              ? `<button class="ibtn" title="Reopen" data-action="reopen-loan" data-id="${loan.id}">${svgUndo}</button>`
-              : `<button class="ibtn" title="Close Loan" data-action="close-loan" data-id="${loan.id}">✓</button>`}
-            <button class="ibtn" title="Edit" data-action="edit-loan" data-id="${loan.id}">${svgEdit}</button>
-            <button class="ibtn del" title="Delete" data-action="del-loan" data-id="${loan.id}">${svgTrash}</button>
-          </div>
+            ? `<button class="sb-undo" data-action="reopen-loan" data-id="${loan.id}" title="Reopen">${svgUndo}</button>`
+            : `<button class="sb-tag" data-action="close-loan" data-id="${loan.id}" title="Close Loan">✓</button>`}
+          <button class="sb-edit" data-action="edit-loan" data-id="${loan.id}" title="Edit">${svgEdit}</button>
+          <button class="sb-del" data-action="del-loan" data-id="${loan.id}" title="Delete">${svgTrash}</button>
         </div>
+        <div class="swipe-front"><div class="p-row" data-action="toggle-loan" data-id="${loan.id}" style="cursor:pointer${loan.closed?';opacity:0.5':''}">
+          <div class="p-row-icon loan">${svgHome.replace('stroke="currentColor"','stroke="#e11d48"')}</div>
+          <div class="p-row-meta"><div class="p-row-name">${esc(loan.name)}<span class="cur-pill red">${c}</span></div><div class="p-row-sub">${loan.lender?esc(loan.lender)+' · ':''}${formatMoney(loan.principal,c)} · ${loan.tenureYears}yr · ${loan.interestRate}% · EMI ${formatMoney(emi,c)}</div></div>
+          <div class="p-row-right">
+            ${loan.closed
+              ? `<span class="rec-badge paid">✓ Closed</span>`
+              : `<div><div class="p-row-amt-lbl">Outstanding</div><div class="p-row-amt red">${formatMoney(outstanding,c)}</div></div>`}
+          </div>
+        </div></div>
       </div>
       ${loan.closed?'':schedHtml}
     </div>`;
@@ -2741,21 +2755,23 @@ function renderGoldLoans() {
       ${goldPayHtml}
     </div>` : '';
     return `<div>
-      <div class="p-row" data-action="toggle-gold" data-id="${loan.id}" style="cursor:pointer${loan.closed?';opacity:0.5':''}">
-        <div class="p-row-icon gold">${svgGold.replace('stroke="currentColor"','stroke="#d97706"')}</div>
-        <div class="p-row-meta"><div class="p-row-name">${esc(loan.name)}<span class="cur-pill amb">${c}</span></div><div class="p-row-sub">${loan.lender?esc(loan.lender)+' · ':''}${formatMoney(loan.principal,c)} · ${loan.interestRate}% p.a.${loan.startDate?' · Started '+fmtDate(loan.startDate):''}</div></div>
-        <div class="p-row-right">
+      <div class="swipe-wrap" style="--swipe-w:-144px">
+        <div class="swipe-back">
           ${loan.closed
-            ? `<span class="rec-badge paid">✓ Closed</span>`
-            : `<div><div class="p-row-amt-lbl">${payoff?'Payoff '+fmtDate(payoff.toISOString()):'Total Owed'}</div><div class="p-row-amt amb">${formatMoney(totalOwed,c)}</div></div>`}
-          <div class="p-row-btns">
-            ${loan.closed
-              ? `<button class="ibtn" title="Reopen" data-action="reopen-gold" data-id="${loan.id}">${svgUndo}</button>`
-              : `<button class="ibtn" title="Close Loan" data-action="close-gold" data-id="${loan.id}">✓</button>`}
-            <button class="ibtn" title="Edit" data-action="edit-gold" data-id="${loan.id}">${svgEdit}</button>
-            <button class="ibtn del" title="Delete" data-action="del-gold" data-id="${loan.id}">${svgTrash}</button>
-          </div>
+            ? `<button class="sb-undo" data-action="reopen-gold" data-id="${loan.id}" title="Reopen">${svgUndo}</button>`
+            : `<button class="sb-tag" data-action="close-gold" data-id="${loan.id}" title="Close Loan">✓</button>`}
+          <button class="sb-edit" data-action="edit-gold" data-id="${loan.id}" title="Edit">${svgEdit}</button>
+          <button class="sb-del" data-action="del-gold" data-id="${loan.id}" title="Delete">${svgTrash}</button>
         </div>
+        <div class="swipe-front"><div class="p-row" data-action="toggle-gold" data-id="${loan.id}" style="cursor:pointer${loan.closed?';opacity:0.5':''}">
+          <div class="p-row-icon gold">${svgGold.replace('stroke="currentColor"','stroke="#d97706"')}</div>
+          <div class="p-row-meta"><div class="p-row-name">${esc(loan.name)}<span class="cur-pill amb">${c}</span></div><div class="p-row-sub">${loan.lender?esc(loan.lender)+' · ':''}${formatMoney(loan.principal,c)} · ${loan.interestRate}% p.a.${loan.startDate?' · Started '+fmtDate(loan.startDate):''}</div></div>
+          <div class="p-row-right">
+            ${loan.closed
+              ? `<span class="rec-badge paid">✓ Closed</span>`
+              : `<div><div class="p-row-amt-lbl">${payoff?'Payoff '+fmtDate(payoff.toISOString()):'Total Owed'}</div><div class="p-row-amt amb">${formatMoney(totalOwed,c)}</div></div>`}
+          </div>
+        </div></div>
       </div>
       ${schedHtml}
     </div>`;
@@ -3447,13 +3463,13 @@ load(); renderDashboard(); renderPortfolio(); renderRecurring(); renderInsights(
 
 // Swipe-to-reveal actions
 (function() {
-  let active = null, startX = 0, startY = 0, dx = 0, swiping = false;
+  let active = null, startX = 0, startY = 0, dx = 0, swiping = false, suppressClick = false;
   function getWrap(el) { while (el && !el.classList?.contains('swipe-wrap')) el = el.parentElement; return el; }
   function closeAll(except) { document.querySelectorAll('.swipe-wrap.swiped').forEach(w => { if (w !== except) w.classList.remove('swiped'); }); }
   function onStart(e) {
     const wrap = getWrap(e.target);
     if (!wrap) return;
-    if (e.target.closest('.swipe-back') || e.target.closest('form') || e.target.closest('button:not(.swipe-front button)') || e.target.closest('input')) return;
+    if (e.target.closest('.swipe-back') || e.target.closest('form') || e.target.closest('input')) return;
     const pt = e.touches ? e.touches[0] : e;
     startX = pt.clientX; startY = pt.clientY; dx = 0; swiping = false; active = wrap;
   }
@@ -3473,7 +3489,15 @@ load(); renderDashboard(); renderPortfolio(); renderRecurring(); renderInsights(
     front.style.transform = `translateX(${clamped}px)`;
   }
   function onEnd() {
-    if (!active || !swiping) { if (active && !swiping) { closeAll(null); } active = null; return; }
+    if (!active || !swiping) {
+      if (active && !swiping) {
+        const wasSwiped = active.classList.contains('swiped');
+        closeAll(null);
+        if (wasSwiped) { suppressClick = true; setTimeout(() => suppressClick = false, 50); }
+      }
+      active = null; return;
+    }
+    suppressClick = true; setTimeout(() => suppressClick = false, 50);
     active.classList.remove('swiping');
     const front = active.querySelector('.swipe-front');
     front.style.transition = ''; front.style.transform = '';
@@ -3493,6 +3517,9 @@ load(); renderDashboard(); renderPortfolio(); renderRecurring(); renderInsights(
   document.addEventListener('mousedown', onStart);
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onEnd);
+  document.addEventListener('click', function(e) {
+    if (suppressClick && e.target.closest('.swipe-front')) { e.stopPropagation(); e.preventDefault(); }
+  }, true);
 })();
 
 // Drag-and-drop section reordering
