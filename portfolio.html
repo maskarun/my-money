@@ -252,6 +252,20 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .rec-badge.due-soon { background: #fef3c7; color: #d97706; }
 .rec-btn { font-size: 10.5px; padding: 4px 8px; height: auto; min-width: 54px; white-space: nowrap; }
 .rec-amt-input { width: 72px; height: 32px; font-size: 13px; padding: 0 8px; flex-shrink: 0; }
+
+/* Swipe-to-reveal actions */
+.swipe-wrap { position: relative; overflow: hidden; }
+.swipe-front { position: relative; z-index: 1; background: var(--card-bg); transition: transform .25s ease; overflow: hidden; }
+.swipe-wrap { border-top: 1px solid var(--muted); }
+.swipe-wrap .p-row { border-top: none; }
+.swipe-back { position: absolute; right: 0; top: 0; bottom: 0; display: flex; align-items: stretch; z-index: 0; opacity: 0; transition: opacity .15s; }
+.swipe-wrap.swiped .swipe-back, .swipe-wrap.swiping .swipe-back { opacity: 1; }
+.swipe-back button { display: flex; align-items: center; justify-content: center; width: 48px; border: none; cursor: pointer; color: #fff; }
+.swipe-back .sb-edit { background: #3b82f6; }
+.swipe-back .sb-tag { background: #8b5cf6; }
+.swipe-back .sb-del { background: #ef4444; }
+.swipe-back .sb-undo { background: #f59e0b; }
+.swipe-wrap.swiped .swipe-front { transform: translateX(var(--swipe-w, -96px)); }
 .hist-note { font-size: 10px; color: var(--muted-fg); font-weight: 400; margin-top: 1px; }
 
 /* Inline add form */
@@ -1495,21 +1509,26 @@ function renderRecurringIncome() {
         </form>
       </div>`;
     }
-    return `<div class="p-row"${paid?' style="opacity:.55"':''}>
-      <div class="p-row-icon sav">${svgArrowUp.replace('stroke="currentColor"','stroke="#059669"')}</div>
-      <div class="p-row-meta">
-        <div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span>${isOverride?'<span class="cur-pill" style="background:#dbeafe;color:#1d4ed8">This month</span>':''}</div>
-        <div class="p-row-sub">${item.category||'Salary'}${item.dayOfMonth?' · '+ordinal(item.dayOfMonth)+' of month':''}${badge?' '+badge:''}</div>
+    return `<div class="swipe-wrap" style="--swipe-w:-${paid?144:96}px">
+      <div class="swipe-back">
+        ${paid?`<button class="sb-undo" data-action="unmark-recurring-item" data-id="${item.id}" title="Undo">${svgUndo}</button>`:``}
+        <button class="sb-edit" data-action="edit-recurring-item" data-id="${item.id}" title="Edit">${svgEdit}</button>
+        <button class="sb-del" data-action="del-recurring-item" data-id="${item.id}" title="Delete">${svgTrash}</button>
       </div>
-      <div class="p-row-right">
-        <div class="p-row-btns">
-          ${paid
-            ? `<span class="rec-badge paid">✓ Credited · ${formatMoney(effAmt,c)}</span><button class="ibtn" data-action="unmark-recurring-item" data-id="${item.id}" title="Mark unpaid">${svgUndo}</button>`
-            : `<span class="p-row-amt grn">${formatMoney(effAmt,c)}</span><button class="btn btn-accent rec-btn" data-action="confirm-recurring" data-id="${item.id}">Confirm</button>`}
-          <button class="ibtn" data-action="edit-recurring-item" data-id="${item.id}" title="Edit">${svgEdit}</button>
-          <button class="ibtn del" data-action="del-recurring-item" data-id="${item.id}" title="Delete">${svgTrash}</button>
+      <div class="swipe-front"><div class="p-row"${paid?' style="opacity:.55"':''}>
+        <div class="p-row-icon sav">${svgArrowUp.replace('stroke="currentColor"','stroke="#059669"')}</div>
+        <div class="p-row-meta">
+          <div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span>${isOverride?'<span class="cur-pill" style="background:#dbeafe;color:#1d4ed8">This month</span>':''}</div>
+          <div class="p-row-sub">${item.category||'Salary'}${item.dayOfMonth?' · '+ordinal(item.dayOfMonth)+' of month':''}${badge?' '+badge:''}</div>
         </div>
-      </div>
+        <div class="p-row-right">
+          <div class="p-row-btns">
+            ${paid
+              ? `<span class="rec-badge paid">✓ Credited · ${formatMoney(effAmt,c)}</span>`
+              : `<span class="p-row-amt grn">${formatMoney(effAmt,c)}</span><button class="btn btn-accent rec-btn" data-action="confirm-recurring" data-id="${item.id}">Confirm</button>`}
+          </div>
+        </div>
+      </div></div>
     </div>`;
   }).join('');
 
@@ -1560,27 +1579,32 @@ function renderBills() {
         </form>
       </div>`;
     }
-    return `<div class="p-row"${paid?' style="opacity:.55"':''}>
-      <div class="p-row-icon loan">${svgArrowDown.replace('stroke="currentColor"','stroke="#e11d48"')}</div>
-      <div class="p-row-meta">
-        <div class="p-row-name">${esc(item.name)}<span class="cur-pill red">${c}</span>${isOverride?'<span class="cur-pill" style="background:#dbeafe;color:#1d4ed8">This month</span>':''}${item.portfolioTag==='investment'?'<span class="cur-pill purple">Investment</span>':item.portfolioTag==='savings'?'<span class="cur-pill green">Savings</span>':''}</div>
-        <div class="p-row-sub">${item.isVariable?'Variable':'Fixed · '+formatMoney(item.amount,c)}${item.dayOfMonth?' · Due '+ordinal(item.dayOfMonth):''}${badge?' '+badge:''}</div>
+    return `<div class="swipe-wrap" style="--swipe-w:-${paid?192:144}px">
+      <div class="swipe-back">
+        ${paid?`<button class="sb-undo" data-action="unmark-recurring-item" data-id="${item.id}" title="Undo">${svgUndo}</button>`:``}
+        <button class="sb-edit" data-action="edit-recurring-item" data-id="${item.id}" title="Edit">${svgEdit}</button>
+        <button class="sb-tag" data-action="cycle-portfolio-tag" data-id="${item.id}" title="Tag">${svgTag}</button>
+        <button class="sb-del" data-action="del-recurring-item" data-id="${item.id}" title="Delete">${svgTrash}</button>
       </div>
-      <div class="p-row-right">
-        <div class="p-row-btns">
-          ${paid
-            ? `<span class="rec-badge paid">✓ Paid · ${formatMoney(lastAmt,c)}</span><button class="ibtn" data-action="unmark-recurring-item" data-id="${item.id}" title="Mark unpaid">${svgUndo}</button>`
-            : item.isVariable
-              ? `<form data-action="mark-variable-bill" data-id="${item.id}" style="display:flex;gap:6px;align-items:center">
-                  <input class="input rec-amt-input" type="number" name="amount" inputmode="decimal" placeholder="Amount" value="${lastAmt||''}" min="0.01" step="0.01" required>
-                  <button type="submit" class="btn btn-accent rec-btn">Paid</button>
-                 </form>`
-              : `<button class="btn btn-accent rec-btn" data-action="mark-bill-paid" data-id="${item.id}">Mark Paid</button>`}
-          <button class="ibtn" data-action="edit-recurring-item" data-id="${item.id}" title="Edit">${svgEdit}</button>
-          <button class="ibtn" data-action="cycle-portfolio-tag" data-id="${item.id}" title="Tag: ${item.portfolioTag||'none'}">${svgTag}</button>
-          <button class="ibtn del" data-action="del-recurring-item" data-id="${item.id}" title="Delete">${svgTrash}</button>
+      <div class="swipe-front"><div class="p-row"${paid?' style="opacity:.55"':''}>
+        <div class="p-row-icon loan">${svgArrowDown.replace('stroke="currentColor"','stroke="#e11d48"')}</div>
+        <div class="p-row-meta">
+          <div class="p-row-name">${esc(item.name)}<span class="cur-pill red">${c}</span>${isOverride?'<span class="cur-pill" style="background:#dbeafe;color:#1d4ed8">This month</span>':''}${item.portfolioTag==='investment'?'<span class="cur-pill purple">Investment</span>':item.portfolioTag==='savings'?'<span class="cur-pill green">Savings</span>':''}</div>
+          <div class="p-row-sub">${item.isVariable?'Variable':'Fixed · '+formatMoney(item.amount,c)}${item.dayOfMonth?' · Due '+ordinal(item.dayOfMonth):''}${badge?' '+badge:''}</div>
         </div>
-      </div>
+        <div class="p-row-right">
+          <div class="p-row-btns">
+            ${paid
+              ? `<span class="rec-badge paid">✓ Paid · ${formatMoney(lastAmt,c)}</span>`
+              : item.isVariable
+                ? `<form data-action="mark-variable-bill" data-id="${item.id}" style="display:flex;gap:6px;align-items:center">
+                    <input class="input rec-amt-input" type="number" name="amount" inputmode="decimal" placeholder="Amount" value="${lastAmt||''}" min="0.01" step="0.01" required>
+                    <button type="submit" class="btn btn-accent rec-btn">Paid</button>
+                   </form>`
+                : `<button class="btn btn-accent rec-btn" data-action="mark-bill-paid" data-id="${item.id}">Mark Paid</button>`}
+          </div>
+        </div>
+      </div></div>
     </div>`;
   }).join('');
 
@@ -1611,25 +1635,30 @@ function renderCreditCards() {
     const ms = card.months||{}, paid = ms[mon]?.paid, billAmt = ms[mon]?.amount, amountSaved = ms[mon]?.amountSaved;
     const c = card.currency||'INR';
     const badge = getDueBadge(card.dueDay, paid, mon);
-    return `<div class="p-row"${paid?' style="opacity:.55"':''}>
-      <div class="p-row-icon" style="background:#ede9fe">${svgCard.replace('stroke="currentColor"','stroke="#7c3aed"')}</div>
-      <div class="p-row-meta">
-        <div class="p-row-name">${esc(card.name)}<span class="cur-pill amb">${c}</span></div>
-        <div class="p-row-sub">Due ${ordinal(card.dueDay)} of month${badge?' '+badge:''}</div>
+    return `<div class="swipe-wrap" style="--swipe-w:-${paid||amountSaved?96:48}px">
+      <div class="swipe-back">
+        ${paid?`<button class="sb-undo" data-action="unmark-card" data-id="${card.id}" title="Undo">${svgUndo}</button>`:amountSaved?`<button class="sb-undo" data-action="undo-card-amount" data-id="${card.id}" title="Undo">${svgUndo}</button>`:''}
+        <button class="sb-del" data-action="del-credit-card" data-id="${card.id}" title="Delete">${svgTrash}</button>
       </div>
-      <div class="p-row-right">
-        <div class="p-row-btns">
-          ${paid
-            ? `<span class="rec-badge paid">✓ Paid · ${formatMoney(billAmt||0,c)}</span><button class="ibtn" data-action="unmark-card" data-id="${card.id}" title="Mark unpaid">${svgUndo}</button>`
-            : amountSaved
-              ? `<span class="rec-badge" style="background:#fef3c7;color:#92400e">${formatMoney(billAmt||0,c)}</span><button class="btn btn-accent rec-btn" data-action="pay-card-bill" data-id="${card.id}">Pay</button><button class="ibtn" data-action="undo-card-amount" data-id="${card.id}" title="Undo">${svgUndo}</button>`
-              : `<form data-action="save-card-amount" data-id="${card.id}" style="display:flex;gap:6px;align-items:center">
-                  <input class="input rec-amt-input" type="number" name="amount" inputmode="decimal" placeholder="Bill amt" value="${billAmt!=null?billAmt:''}" min="0" step="0.01">
-                  <button type="submit" class="btn btn-outline rec-btn">Save</button>
-                 </form>`}
-          <button class="ibtn del" data-action="del-credit-card" data-id="${card.id}" title="Delete">${svgTrash}</button>
+      <div class="swipe-front"><div class="p-row"${paid?' style="opacity:.55"':''}>
+        <div class="p-row-icon" style="background:#ede9fe">${svgCard.replace('stroke="currentColor"','stroke="#7c3aed"')}</div>
+        <div class="p-row-meta">
+          <div class="p-row-name">${esc(card.name)}<span class="cur-pill amb">${c}</span></div>
+          <div class="p-row-sub">Due ${ordinal(card.dueDay)} of month${badge?' '+badge:''}</div>
         </div>
-      </div>
+        <div class="p-row-right">
+          <div class="p-row-btns">
+            ${paid
+              ? `<span class="rec-badge paid">✓ Paid · ${formatMoney(billAmt||0,c)}</span>`
+              : amountSaved
+                ? `<span class="rec-badge" style="background:#fef3c7;color:#92400e">${formatMoney(billAmt||0,c)}</span><button class="btn btn-accent rec-btn" data-action="pay-card-bill" data-id="${card.id}">Pay</button>`
+                : `<form data-action="save-card-amount" data-id="${card.id}" style="display:flex;gap:6px;align-items:center">
+                    <input class="input rec-amt-input" type="number" name="amount" inputmode="decimal" placeholder="Bill amt" value="${billAmt!=null?billAmt:''}" min="0" step="0.01">
+                    <button type="submit" class="btn btn-outline rec-btn">Save</button>
+                   </form>`}
+          </div>
+        </div>
+      </div></div>
     </div>`;
   }).join('');
 
@@ -3415,6 +3444,56 @@ document.addEventListener('change', function(e) {
 const savedTheme = localStorage.getItem('mmc.theme');
 if (savedTheme==='dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) document.body.classList.add('dark');
 load(); renderDashboard(); renderPortfolio(); renderRecurring(); renderInsights(); renderSettings();
+
+// Swipe-to-reveal actions
+(function() {
+  let active = null, startX = 0, startY = 0, dx = 0, swiping = false;
+  function getWrap(el) { while (el && !el.classList?.contains('swipe-wrap')) el = el.parentElement; return el; }
+  function closeAll(except) { document.querySelectorAll('.swipe-wrap.swiped').forEach(w => { if (w !== except) w.classList.remove('swiped'); }); }
+  function onStart(e) {
+    const wrap = getWrap(e.target);
+    if (!wrap) return;
+    if (e.target.closest('.swipe-back') || e.target.closest('form') || e.target.closest('button:not(.swipe-front button)') || e.target.closest('input')) return;
+    const pt = e.touches ? e.touches[0] : e;
+    startX = pt.clientX; startY = pt.clientY; dx = 0; swiping = false; active = wrap;
+  }
+  function onMove(e) {
+    if (!active) return;
+    const pt = e.touches ? e.touches[0] : e;
+    const deltaX = pt.clientX - startX, deltaY = pt.clientY - startY;
+    if (!swiping && Math.abs(deltaY) > Math.abs(deltaX)) { active = null; return; }
+    if (!swiping && Math.abs(deltaX) > 10) { swiping = true; active.classList.add('swiping'); }
+    if (!swiping) return;
+    e.preventDefault();
+    dx = deltaX;
+    const front = active.querySelector('.swipe-front');
+    const maxSlide = parseInt(getComputedStyle(active).getPropertyValue('--swipe-w')) || -96;
+    const clamped = Math.max(maxSlide, Math.min(0, dx + (active.classList.contains('swiped') ? maxSlide : 0)));
+    front.style.transition = 'none';
+    front.style.transform = `translateX(${clamped}px)`;
+  }
+  function onEnd() {
+    if (!active || !swiping) { if (active && !swiping) { closeAll(null); } active = null; return; }
+    active.classList.remove('swiping');
+    const front = active.querySelector('.swipe-front');
+    front.style.transition = ''; front.style.transform = '';
+    const maxSlide = parseInt(getComputedStyle(active).getPropertyValue('--swipe-w')) || -96;
+    const threshold = Math.abs(maxSlide) * 0.3;
+    const wasSwiped = active.classList.contains('swiped');
+    if (wasSwiped) {
+      if (dx > threshold) { active.classList.remove('swiped'); }
+    } else {
+      if (dx < -threshold) { closeAll(active); active.classList.add('swiped'); }
+    }
+    active = null; swiping = false;
+  }
+  document.addEventListener('touchstart', onStart, {passive: true});
+  document.addEventListener('touchmove', onMove, {passive: false});
+  document.addEventListener('touchend', onEnd);
+  document.addEventListener('mousedown', onStart);
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onEnd);
+})();
 
 // Drag-and-drop section reordering
 (function() {
