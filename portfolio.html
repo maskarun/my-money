@@ -3331,6 +3331,7 @@ function handleClick(e) {
   if (action==='export') { exportJSON(); return; }
   if (action==='copy-sync-code') { copySyncCode(); return; }
   if (action==='paste-sync-code') { pasteSyncCode(); return; }
+  if (action==='close-sync-modal') { document.getElementById('sync-modal')?.remove(); return; }
   if (action==='get-insights') { getInsights(); return; }
   if (action==='get-smart-alerts') { getSmartAlerts(); return; }
   if (action==='get-ai-projections') { getAIProjections(); return; }
@@ -3403,6 +3404,21 @@ function fallbackCopy(text) {
   ta.remove();
 }
 
+function showSyncModal(title, bodyHtml) {
+  const existing = document.getElementById('sync-modal');
+  if (existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.id = 'sync-modal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px';
+  modal.innerHTML = `<div style="position:absolute;inset:0;background:rgba(0,0,0,.35)" data-action="close-sync-modal"></div>
+    <div style="position:relative;background:var(--card-bg,#fff);border-radius:14px;padding:20px;width:100%;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,.18)">
+      <div style="font-weight:700;font-size:15px;margin-bottom:12px">${title}</div>
+      ${bodyHtml}
+    </div>`;
+  document.body.appendChild(modal);
+  return modal;
+}
+
 async function copySyncCode() {
   try {
     const payload = JSON.stringify({version:3, transactions:S.transactions, portfolio:S.portfolio, recurring:S.recurring, goals:S.goals, syncedAt:new Date().toISOString()});
@@ -3414,39 +3430,59 @@ async function copySyncCode() {
     let binary = '';
     for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
     const b64 = 'MMC:' + btoa(binary);
-    await copyToClipboard(b64);
-    toast('Sync code copied!');
+    const modal = showSyncModal('Copy Sync Code', `
+      <textarea id="sync-copy-ta" readonly style="width:100%;height:100px;font-size:11px;font-family:monospace;word-break:break-all;resize:none;padding:8px;border:1px solid var(--muted);border-radius:8px;background:var(--bg)">${b64}</textarea>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btn-accent" style="flex:1" id="sync-copy-btn">Copy</button>
+        <button class="btn btn-outline" style="flex:1" data-action="close-sync-modal">Close</button>
+      </div>`);
+    const ta = modal.querySelector('#sync-copy-ta');
+    ta.focus(); ta.select();
+    modal.querySelector('#sync-copy-btn').addEventListener('click', () => {
+      ta.select();
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(b64).then(() => toast('Copied!')).catch(() => { document.execCommand('copy'); toast('Copied!'); });
+      } else { document.execCommand('copy'); toast('Copied!'); }
+    });
   } catch(e) { toast('Copy failed: ' + (e.message || e)); }
 }
 
-async function pasteSyncCode() {
-  let text;
-  try { text = await navigator.clipboard.readText(); } catch(e) {}
-  if (!text) text = prompt('Paste your sync code here:');
-  if (!text) return;
-  try {
-    if (!text.startsWith('MMC:')) { toast('Invalid sync code'); return; }
-    const b64 = text.slice(4);
-    const binary = atob(b64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    const ds = new DecompressionStream('gzip');
-    const stream = new Blob([bytes]).stream().pipeThrough(ds);
-    const json = await new Response(stream).text();
-    const data = JSON.parse(json);
-    if (!data.version) { toast('Invalid sync data'); return; }
-    const txCount = (data.transactions||[]).length;
-    const goalCount = (data.goals||[]).length;
-    const syncTime = data.syncedAt ? new Date(data.syncedAt).toLocaleString() : 'unknown';
-    if (!confirm(`Restore sync from ${syncTime}?\n${txCount} transactions, ${goalCount} goals.\nThis will overwrite current data.`)) return;
-    S.transactions = data.transactions || [];
-    S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[],insurance:[]}, data.portfolio || {});
-    S.recurring = Object.assign({items:[],creditCards:[]}, data.recurring || {});
-    S.goals = data.goals || [];
-    save();
-    renderDashboard(); renderPortfolio(); renderRecurring(); renderInsights(); renderSettings();
-    toast('Data restored from sync code');
-  } catch(e) { toast('Paste failed: ' + (e.message || e)); }
+function pasteSyncCode() {
+  const modal = showSyncModal('Paste Sync Code', `
+    <textarea id="sync-paste-ta" placeholder="Paste your sync code here…" style="width:100%;height:100px;font-size:11px;font-family:monospace;word-break:break-all;resize:none;padding:8px;border:1px solid var(--muted);border-radius:8px;background:var(--bg)"></textarea>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-accent" style="flex:1" id="sync-restore-btn">Restore</button>
+      <button class="btn btn-outline" style="flex:1" data-action="close-sync-modal">Close</button>
+    </div>`);
+  modal.querySelector('#sync-paste-ta').focus();
+  modal.querySelector('#sync-restore-btn').addEventListener('click', async () => {
+    const text = modal.querySelector('#sync-paste-ta').value.trim();
+    if (!text) { toast('Please paste a sync code'); return; }
+    try {
+      if (!text.startsWith('MMC:')) { toast('Invalid sync code'); return; }
+      const b64 = text.slice(4);
+      const binary = atob(b64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const ds = new DecompressionStream('gzip');
+      const stream = new Blob([bytes]).stream().pipeThrough(ds);
+      const json = await new Response(stream).text();
+      const data = JSON.parse(json);
+      if (!data.version) { toast('Invalid sync data'); return; }
+      const txCount = (data.transactions||[]).length;
+      const goalCount = (data.goals||[]).length;
+      const syncTime = data.syncedAt ? new Date(data.syncedAt).toLocaleString() : 'unknown';
+      if (!confirm(`Restore sync from ${syncTime}?\n${txCount} transactions, ${goalCount} goals.\nThis will overwrite current data.`)) return;
+      S.transactions = data.transactions || [];
+      S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[],insurance:[]}, data.portfolio || {});
+      S.recurring = Object.assign({items:[],creditCards:[]}, data.recurring || {});
+      S.goals = data.goals || [];
+      save();
+      modal.remove();
+      renderDashboard(); renderPortfolio(); renderRecurring(); renderInsights(); renderSettings();
+      toast('Data restored from sync code');
+    } catch(e) { toast('Paste failed: ' + (e.message || e)); }
+  });
 }
 
 function exportJSON() {
