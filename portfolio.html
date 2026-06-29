@@ -271,16 +271,16 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .swipe-back, .swipe-back-left { position: absolute; top: 0; bottom: 0; display: flex; align-items: stretch; z-index: 0; opacity: 0; transition: opacity .15s; }
 .swipe-back { right: 0; }
 .swipe-back-left { left: 0; }
-.swipe-wrap.swiped-right .swipe-back, .swipe-wrap.swiping-right .swipe-back { opacity: 1; }
-.swipe-wrap.swiped-left .swipe-back-left, .swipe-wrap.swiping-left .swipe-back-left { opacity: 1; }
+.swipe-wrap.swiped-left .swipe-back, .swipe-wrap.swiping-left .swipe-back { opacity: 1; }
+.swipe-wrap.swiped-right .swipe-back-left, .swipe-wrap.swiping-right .swipe-back-left { opacity: 1; }
 .swipe-back button, .swipe-back-left button { display: flex; align-items: center; justify-content: center; width: 48px; border: none; cursor: pointer; color: #fff; }
 .swipe-back .sb-edit { background: #3b82f6; }
 .swipe-back .sb-tag { background: #8b5cf6; }
 .swipe-back .sb-del { background: #ef4444; }
 .swipe-back .sb-undo { background: #f59e0b; }
 .swipe-back-left .sb-confirm { background: #059669; font-size: 10px; font-weight: 700; width: 72px; gap: 4px; }
-.swipe-wrap.swiped-right .swipe-front { transform: translateX(var(--swipe-w, 96px)); }
-.swipe-wrap.swiped-left .swipe-front { transform: translateX(var(--swipe-wl, -72px)); }
+.swipe-wrap.swiped-left .swipe-front { transform: translateX(var(--swipe-w, -96px)); }
+.swipe-wrap.swiped-right .swipe-front { transform: translateX(var(--swipe-wl, 72px)); }
 .hist-note { font-size: 10px; color: var(--muted-fg); font-weight: 400; margin-top: 1px; }
 
 /* Inline add form */
@@ -1525,7 +1525,7 @@ function renderRecurringIncome() {
         </form>
       </div>`;
     }
-    return `<div class="swipe-wrap" style="--swipe-w:${paid?144:96}px${!paid?';--swipe-wl:-72px':''}">
+    return `<div class="swipe-wrap" style="--swipe-w:-${paid?144:96}px${!paid?';--swipe-wl:72px':''}">
       <div class="swipe-back">
         ${paid?`<button class="sb-undo" data-action="unmark-recurring-item" data-id="${item.id}" title="Undo">${svgUndo}</button>`:``}
         <button class="sb-edit" data-action="edit-recurring-item" data-id="${item.id}" title="Edit">${svgEdit}</button>
@@ -1596,7 +1596,7 @@ function renderBills() {
         </form>
       </div>`;
     }
-    return `<div class="swipe-wrap" style="--swipe-w:${paid?192:144}px${!paid&&!item.isVariable?';--swipe-wl:-72px':''}">
+    return `<div class="swipe-wrap" style="--swipe-w:-${paid?192:144}px${!paid&&!item.isVariable?';--swipe-wl:72px':''}">
       <div class="swipe-back">
         ${paid?`<button class="sb-undo" data-action="unmark-recurring-item" data-id="${item.id}" title="Undo">${svgUndo}</button>`:``}
         <button class="sb-edit" data-action="edit-recurring-item" data-id="${item.id}" title="Edit">${svgEdit}</button>
@@ -1653,7 +1653,7 @@ function renderCreditCards() {
     const ms = card.months||{}, paid = ms[mon]?.paid, billAmt = ms[mon]?.amount, amountSaved = ms[mon]?.amountSaved;
     const c = card.currency||'INR';
     const badge = getDueBadge(card.dueDay, paid, mon);
-    return `<div class="swipe-wrap" style="--swipe-w:${paid||amountSaved?96:48}px${amountSaved&&!paid?';--swipe-wl:-72px':''}">
+    return `<div class="swipe-wrap" style="--swipe-w:-${paid||amountSaved?96:48}px${amountSaved&&!paid?';--swipe-wl:72px':''}">
       <div class="swipe-back">
         ${paid?`<button class="sb-undo" data-action="unmark-card" data-id="${card.id}" title="Undo">${svgUndo}</button>`:amountSaved?`<button class="sb-undo" data-action="undo-card-amount" data-id="${card.id}" title="Undo">${svgUndo}</button>`:''}
         <button class="sb-del" data-action="del-credit-card" data-id="${card.id}" title="Delete">${svgTrash}</button>
@@ -2337,7 +2337,7 @@ function renderActivity() {
       else dateLabel = new Date(entryDate + 'T12:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric'});
       dateHdr = `<li class="tx-date-hdr">${dateLabel}</li>`;
     }
-    return `${dateHdr}${e.delBtn ? `<li class="swipe-wrap" style="--swipe-w:48px">
+    return `${dateHdr}${e.delBtn ? `<li class="swipe-wrap" style="--swipe-w:-48px">
       <div class="swipe-back"><button class="sb-del" data-action="del-tx" data-id="${e.txId}" title="Delete">${svgTrash}</button></div>
       <div class="swipe-front"><div class="tx-row" ${e.txId?`data-action="edit-tx" data-id="${e.txId}"`:''}>
         <div class="tx-icon ${e.icon}">${e.iconSvg}</div>
@@ -2418,7 +2418,7 @@ function renderSavings() {
       ${payments.length?`<div class="pp-tbl-wrap"><table class="pp-tbl"><thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Note</th><th></th></tr></thead><tbody>${payments.map(p=>`<tr><td>${p.date}</td><td>${p.type==='deposit'?'<span class="ledger-src inc">Deposit</span>':'<span class="ledger-src exp">Withdrawal</span>'}</td><td class="pp-tbl-amt ${p.type==='deposit'?'grn':'red'}">${p.type==='deposit'?'+':'−'}${formatMoney(p.amount,c)}</td><td>${p.note?esc(p.note):''}</td><td><button class="ibtn del" data-action="del-saving-payment" data-saving-id="${item.id}" data-payment-id="${p.id}" title="Delete">${svgTrash}</button></td></tr>`).join('')}</tbody></table></div>`:`<div class="text-sm text-muted" style="padding:4px 0">No payments yet. Use Dashboard → Add Entry → Savings.</div>`}
     </div></div>` : '';
     return `<div>
-      <div class="swipe-wrap" style="--swipe-w:96px">
+      <div class="swipe-wrap" style="--swipe-w:-96px">
         <div class="swipe-back">
           <button class="sb-edit" data-action="edit-saving" data-id="${item.id}" title="Edit">${svgEdit}</button>
           <button class="sb-del" data-action="del-saving" data-id="${item.id}" title="Delete">${svgTrash}</button>
@@ -2489,7 +2489,7 @@ function renderInvestmentsCard() {
   const rows = items.map(item => {
     const c = getCur(item);
     if (S.editingId===item.id && S.editSection==='investment') return `<div class="add-form">${investmentForm(item)}</div>`;
-    return `<div class="swipe-wrap" style="--swipe-w:96px">
+    return `<div class="swipe-wrap" style="--swipe-w:-96px">
       <div class="swipe-back">
         <button class="sb-edit" data-action="edit-investment" data-id="${item.id}" title="Edit">${svgEdit}</button>
         <button class="sb-del" data-action="del-investment" data-id="${item.id}" title="Delete">${svgTrash}</button>
@@ -2555,7 +2555,7 @@ function renderInsuranceCard() {
     if (S.editingId===item.id && S.editSection==='insurance') return `<div class="add-form">${insuranceForm(item)}</div>`;
     const dateRange = fmtD(item.startDate) + (item.endDate ? ' – '+fmtD(item.endDate) : ' – ongoing');
     const sub = [item.type, dateRange, item.premium?`${formatMoney(item.premium,c)} ${(item.premiumFreq||'Yearly').toLowerCase()}`:''].filter(Boolean).join(' · ');
-    return `<div class="swipe-wrap" style="--swipe-w:96px">
+    return `<div class="swipe-wrap" style="--swipe-w:-96px">
       <div class="swipe-back">
         <button class="sb-edit" data-action="edit-insurance" data-id="${item.id}" title="Edit">${svgEdit}</button>
         <button class="sb-del" data-action="del-insurance" data-id="${item.id}" title="Delete">${svgTrash}</button>
@@ -2709,7 +2709,7 @@ function renderLoans() {
     </div>` : '';
     const curPillClass = c==='USD'?'':''; // default blue pill for all
     return `<div>
-      <div class="swipe-wrap" style="--swipe-w:144px">
+      <div class="swipe-wrap" style="--swipe-w:-144px">
         <div class="swipe-back">
           ${loan.closed
             ? `<button class="sb-undo" data-action="reopen-loan" data-id="${loan.id}" title="Reopen">${svgUndo}</button>`
@@ -2798,7 +2798,7 @@ function renderGoldLoans() {
       ${goldPayHtml}
     </div>` : '';
     return `<div>
-      <div class="swipe-wrap" style="--swipe-w:144px">
+      <div class="swipe-wrap" style="--swipe-w:-144px">
         <div class="swipe-back">
           ${loan.closed
             ? `<button class="sb-undo" data-action="reopen-gold" data-id="${loan.id}" title="Reopen">${svgUndo}</button>`
@@ -3511,7 +3511,7 @@ load(); renderDashboard(); renderPortfolio(); renderRecurring(); renderInsights(
     if (!swiping && Math.abs(deltaX) > 10) {
       swiping = true;
       dir = deltaX > 0 ? 'right' : 'left';
-      if (dir === 'left' && !active.querySelector('.swipe-back-left')) { active = null; return; }
+      if (dir === 'right' && !active.querySelector('.swipe-back-left')) { active = null; return; }
       active.classList.add(dir === 'right' ? 'swiping-right' : 'swiping-left');
     }
     if (!swiping) return;
@@ -3519,13 +3519,13 @@ load(); renderDashboard(); renderPortfolio(); renderRecurring(); renderInsights(
     dx = deltaX;
     const front = active.querySelector('.swipe-front');
     let clamped;
-    if (dir === 'right') {
-      const maxR = parseInt(getComputedStyle(active).getPropertyValue('--swipe-w')) || 96;
-      const base = active.classList.contains('swiped-right') ? maxR : 0;
-      clamped = Math.max(0, Math.min(maxR, dx + base));
+    if (dir === 'left') {
+      const maxL = parseInt(getComputedStyle(active).getPropertyValue('--swipe-w')) || -96;
+      const base = active.classList.contains('swiped-left') ? maxL : 0;
+      clamped = Math.max(maxL, Math.min(0, dx + base));
     } else {
-      const maxL = parseInt(getComputedStyle(active).getPropertyValue('--swipe-wl')) || -72;
-      clamped = Math.max(maxL, Math.min(0, dx));
+      const maxR = parseInt(getComputedStyle(active).getPropertyValue('--swipe-wl')) || 72;
+      clamped = Math.max(0, Math.min(maxR, dx));
     }
     front.style.transition = 'none';
     front.style.transform = `translateX(${clamped}px)`;
@@ -3543,19 +3543,19 @@ load(); renderDashboard(); renderPortfolio(); renderRecurring(); renderInsights(
     active.classList.remove('swiping-right', 'swiping-left');
     const front = active.querySelector('.swipe-front');
     front.style.transition = ''; front.style.transform = '';
-    if (dir === 'right') {
-      const maxR = parseInt(getComputedStyle(active).getPropertyValue('--swipe-w')) || 96;
-      const threshold = maxR * 0.3;
-      if (active.classList.contains('swiped-right')) {
-        if (dx < -threshold) active.classList.remove('swiped-right');
+    if (dir === 'left') {
+      const maxL = Math.abs(parseInt(getComputedStyle(active).getPropertyValue('--swipe-w')) || -96);
+      const threshold = maxL * 0.3;
+      if (active.classList.contains('swiped-left')) {
+        if (dx > threshold) active.classList.remove('swiped-left');
       } else {
-        if (dx > threshold) { closeAll(active); active.classList.add('swiped-right'); }
+        if (Math.abs(dx) > threshold) { closeAll(active); active.classList.add('swiped-left'); }
       }
     } else {
-      const maxL = Math.abs(parseInt(getComputedStyle(active).getPropertyValue('--swipe-wl')) || -72);
-      if (Math.abs(dx) > maxL * 0.5) {
+      const maxR = parseInt(getComputedStyle(active).getPropertyValue('--swipe-wl')) || 72;
+      if (dx > maxR * 0.5) {
         const btn = active.querySelector('.swipe-back-left button');
-        if (btn) { active.classList.add('swiped-left'); setTimeout(() => { btn.click(); }, 200); }
+        if (btn) { active.classList.add('swiped-right'); setTimeout(() => { btn.click(); }, 200); }
       }
     }
     active = null; swiping = false; dir = null;
