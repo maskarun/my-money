@@ -541,7 +541,7 @@ function save() {
     localStorage.setItem('mmc.recurring.v1', JSON.stringify(S.recurring));
     localStorage.setItem('mmc.lastCurrency.v1', S.txCurrency);
     localStorage.setItem('mmc.goals.v1', JSON.stringify(S.goals));
-    const backup = JSON.stringify({version:3, transactions:S.transactions, portfolio:S.portfolio, recurring:S.recurring});
+    const backup = JSON.stringify({version:3, transactions:S.transactions, portfolio:S.portfolio, recurring:S.recurring, goals:S.goals, budgets:JSON.parse(localStorage.getItem('mmc.budgets')||'{}')});
     localStorage.setItem('mmc.backup', backup);
     localStorage.setItem('mmc.backup.time', new Date().toISOString());
   } catch(e) {}
@@ -3421,7 +3421,8 @@ function showSyncModal(title, bodyHtml) {
 
 async function copySyncCode() {
   try {
-    const payload = JSON.stringify({version:3, transactions:S.transactions, portfolio:S.portfolio, recurring:S.recurring, goals:S.goals, syncedAt:new Date().toISOString()});
+    const budgets = JSON.parse(localStorage.getItem('mmc.budgets')||'{}');
+    const payload = JSON.stringify({version:3, transactions:S.transactions, portfolio:S.portfolio, recurring:S.recurring, goals:S.goals, budgets, syncedAt:new Date().toISOString()});
     const blob = new Blob([payload]);
     const cs = new CompressionStream('gzip');
     const stream = blob.stream().pipeThrough(cs);
@@ -3477,6 +3478,7 @@ function pasteSyncCode() {
       S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[],insurance:[]}, data.portfolio || {});
       S.recurring = Object.assign({items:[],creditCards:[]}, data.recurring || {});
       S.goals = data.goals || [];
+      if (data.budgets) localStorage.setItem('mmc.budgets', JSON.stringify(data.budgets));
       save();
       modal.remove();
       renderDashboard(); renderPortfolio(); renderRecurring(); renderInsights(); renderSettings();
@@ -3486,7 +3488,8 @@ function pasteSyncCode() {
 }
 
 function exportJSON() {
-  const payload = JSON.stringify({version:3,transactions:S.transactions,portfolio:S.portfolio,recurring:S.recurring},null,2);
+  const budgets = JSON.parse(localStorage.getItem('mmc.budgets')||'{}');
+  const payload = JSON.stringify({version:3,transactions:S.transactions,portfolio:S.portfolio,recurring:S.recurring,goals:S.goals,budgets},null,2);
   const fname = 'my-money.json';
   const blob = new Blob([payload],{type:'application/json'}), url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href=url; a.download=fname;
@@ -3506,6 +3509,10 @@ document.getElementById('file-input').addEventListener('change', async function(
       recurring=Object.assign({items:[],creditCards:[]},data.recurring||{});
     }
     S.transactions=transactions; S.portfolio=portfolio; S.recurring=recurring;
+    if (!Array.isArray(data)) {
+      if (data.goals) S.goals = data.goals;
+      if (data.budgets) localStorage.setItem('mmc.budgets', JSON.stringify(data.budgets));
+    }
     save(); renderDashboard(); renderPortfolio(); renderRecurring(); renderSettings(); toast(`Imported ${transactions.length} transactions`);
   } catch(err) { toast('Import failed — invalid JSON'); }
   this.value='';
