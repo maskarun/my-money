@@ -495,6 +495,7 @@ const S = {
   secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, investments: true, insurance: true, projections: true, netWorth: false, aiInsights: true, smartAlerts: true, trendChart: true, categoryDonut: true, reports: true, anomalies: true, goals: true },
   addingGoal: false,
   updatingGoalId: null,
+  editingRecurringId: null,
   sectionOrder: {
     dashboard: ['heroCards','anomalies','budgetAlerts','trendChart','netWorth','categoryDonut','reports','activity'],
     portfolio: ['summary','savings','loans','goldLoans','investments','insurance'],
@@ -1385,7 +1386,7 @@ function renderRecurringSummary() {
     if (item.endMonth && mon > item.endMonth) continue;
     const cur = item.currency || 'USD';
     ensure(cur);
-    byCur[cur].expectedIncome += item.amount || 0;
+    byCur[cur].expectedIncome += (item.months?.[mon]?.amount ?? item.amount) || 0;
     byCur[cur].totalCount++;
     if (item.months?.[mon]?.paid) byCur[cur].paidCount++;
   }
@@ -1406,7 +1407,7 @@ function renderRecurringSummary() {
       }
       byCur[cur].expectedBills += cnt ? sum / cnt : 0;
     } else {
-      byCur[cur].expectedBills += item.amount || 0;
+      byCur[cur].expectedBills += (item.months?.[mon]?.amount ?? item.amount) || 0;
     }
     byCur[cur].totalCount++;
     if (item.months?.[mon]?.paid) byCur[cur].paidCount++;
@@ -1472,18 +1473,40 @@ function renderRecurringIncome() {
   const incomeRows = incomeItems.map(item => {
     const ms = item.months||{}, paid = ms[mon]?.paid;
     const c = item.currency||'USD';
+    const effAmt = ms[mon]?.amount ?? item.amount;
+    const isOverride = ms[mon]?.amount !== undefined && ms[mon]?.amount !== item.amount;
     const badge = getDueBadge(item.dayOfMonth, paid, mon);
+    if (S.editingRecurringId === item.id) {
+      return `<div class="p-row" style="flex-direction:column;align-items:stretch">
+        <form data-action="save-recurring-edit" data-id="${item.id}" style="display:flex;flex-direction:column;gap:8px;padding:4px 0">
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <input class="input" type="text" name="name" value="${esc(item.name)}" placeholder="Name" required style="flex:1;min-width:120px">
+            <input class="input" type="number" name="amount" value="${effAmt}" inputmode="decimal" placeholder="Amount" step="0.01" min="0" required style="width:100px">
+            <input class="input" type="number" name="dayOfMonth" value="${item.dayOfMonth||''}" placeholder="Day" min="1" max="31" style="width:60px">
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <select class="input" name="category" style="width:auto">${INCOME_CATS.map(c=>`<option${c===(item.category||'Salary')?' selected':''}>${c}</option>`).join('')}</select>
+            <label style="font-size:11px;display:flex;align-items:center;gap:4px;color:var(--muted-fg)"><input type="checkbox" name="thisMonthOnly"${isOverride?' checked':''}>This month only</label>
+            <div style="margin-left:auto;display:flex;gap:4px">
+              <button type="submit" class="btn btn-accent" style="font-size:11px;padding:4px 10px">Save</button>
+              <button type="button" class="btn" data-action="cancel-recurring-edit" style="font-size:11px;padding:4px 10px">Cancel</button>
+            </div>
+          </div>
+        </form>
+      </div>`;
+    }
     return `<div class="p-row"${paid?' style="opacity:.55"':''}>
       <div class="p-row-icon sav">${svgArrowUp.replace('stroke="currentColor"','stroke="#059669"')}</div>
       <div class="p-row-meta">
-        <div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span></div>
+        <div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span>${isOverride?'<span class="cur-pill" style="background:#dbeafe;color:#1d4ed8">This month</span>':''}</div>
         <div class="p-row-sub">${item.category||'Salary'}${item.dayOfMonth?' · '+ordinal(item.dayOfMonth)+' of month':''}${badge?' '+badge:''}</div>
       </div>
       <div class="p-row-right">
         <div class="p-row-btns">
           ${paid
-            ? `<span class="rec-badge paid">✓ Credited · ${formatMoney(item.amount,c)}</span><button class="ibtn" data-action="unmark-recurring-item" data-id="${item.id}" title="Mark unpaid">${svgUndo}</button>`
-            : `<span class="p-row-amt grn">${formatMoney(item.amount,c)}</span><button class="btn btn-accent rec-btn" data-action="confirm-recurring" data-id="${item.id}">Confirm</button>`}
+            ? `<span class="rec-badge paid">✓ Credited · ${formatMoney(effAmt,c)}</span><button class="ibtn" data-action="unmark-recurring-item" data-id="${item.id}" title="Mark unpaid">${svgUndo}</button>`
+            : `<span class="p-row-amt grn">${formatMoney(effAmt,c)}</span><button class="btn btn-accent rec-btn" data-action="confirm-recurring" data-id="${item.id}">Confirm</button>`}
+          <button class="ibtn" data-action="edit-recurring-item" data-id="${item.id}" title="Edit">${svgEdit}</button>
           <button class="ibtn del" data-action="del-recurring-item" data-id="${item.id}" title="Delete">${svgTrash}</button>
         </div>
       </div>
@@ -1516,12 +1539,31 @@ function renderBills() {
   const billRows = billItems.map(item => {
     const ms = item.months||{}, paid = ms[mon]?.paid;
     const c = item.currency||'USD';
-    const lastAmt = ms[mon]?.amount || item.amount || 0;
+    const lastAmt = ms[mon]?.amount ?? item.amount ?? 0;
+    const isOverride = ms[mon]?.amount !== undefined && ms[mon]?.amount !== item.amount;
     const badge = getDueBadge(item.dayOfMonth, paid, mon);
+    if (S.editingRecurringId === item.id) {
+      return `<div class="p-row" style="flex-direction:column;align-items:stretch">
+        <form data-action="save-recurring-edit" data-id="${item.id}" style="display:flex;flex-direction:column;gap:8px;padding:4px 0">
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <input class="input" type="text" name="name" value="${esc(item.name)}" placeholder="Name" required style="flex:1;min-width:120px">
+            ${item.isVariable?'':`<input class="input" type="number" name="amount" value="${lastAmt}" inputmode="decimal" placeholder="Amount" step="0.01" min="0" required style="width:100px">`}
+            <input class="input" type="number" name="dayOfMonth" value="${item.dayOfMonth||''}" placeholder="Day" min="1" max="31" style="width:60px">
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            ${!item.isVariable?`<label style="font-size:11px;display:flex;align-items:center;gap:4px;color:var(--muted-fg)"><input type="checkbox" name="thisMonthOnly"${isOverride?' checked':''}>This month only</label>`:''}
+            <div style="margin-left:auto;display:flex;gap:4px">
+              <button type="submit" class="btn btn-accent" style="font-size:11px;padding:4px 10px">Save</button>
+              <button type="button" class="btn" data-action="cancel-recurring-edit" style="font-size:11px;padding:4px 10px">Cancel</button>
+            </div>
+          </div>
+        </form>
+      </div>`;
+    }
     return `<div class="p-row"${paid?' style="opacity:.55"':''}>
       <div class="p-row-icon loan">${svgArrowDown.replace('stroke="currentColor"','stroke="#e11d48"')}</div>
       <div class="p-row-meta">
-        <div class="p-row-name">${esc(item.name)}<span class="cur-pill red">${c}</span>${item.portfolioTag==='investment'?'<span class="cur-pill purple">Investment</span>':item.portfolioTag==='savings'?'<span class="cur-pill green">Savings</span>':''}</div>
+        <div class="p-row-name">${esc(item.name)}<span class="cur-pill red">${c}</span>${isOverride?'<span class="cur-pill" style="background:#dbeafe;color:#1d4ed8">This month</span>':''}${item.portfolioTag==='investment'?'<span class="cur-pill purple">Investment</span>':item.portfolioTag==='savings'?'<span class="cur-pill green">Savings</span>':''}</div>
         <div class="p-row-sub">${item.isVariable?'Variable':'Fixed · '+formatMoney(item.amount,c)}${item.dayOfMonth?' · Due '+ordinal(item.dayOfMonth):''}${badge?' '+badge:''}</div>
       </div>
       <div class="p-row-right">
@@ -1534,6 +1576,7 @@ function renderBills() {
                   <button type="submit" class="btn btn-accent rec-btn">Paid</button>
                  </form>`
               : `<button class="btn btn-accent rec-btn" data-action="mark-bill-paid" data-id="${item.id}">Mark Paid</button>`}
+          <button class="ibtn" data-action="edit-recurring-item" data-id="${item.id}" title="Edit">${svgEdit}</button>
           <button class="ibtn" data-action="cycle-portfolio-tag" data-id="${item.id}" title="Tag: ${item.portfolioTag||'none'}">${svgTag}</button>
           <button class="ibtn del" data-action="del-recurring-item" data-id="${item.id}" title="Delete">${svgTrash}</button>
         </div>
@@ -2841,6 +2884,31 @@ function handleSubmit(e) {
     card.months[mon] = {...prev, amount, amountSaved: true, prevAmount: prev.amount};
     save(); renderRecurring(); toast(card.name+' bill amount saved'); return;
   }
+  if (action==='save-recurring-edit') {
+    const item = S.recurring.items.find(i=>i.id===form.dataset.id); if (!item) return;
+    if (!d.name.trim()) return toast('Name is required');
+    const mon = S.selectedMonth;
+    item.name = d.name.trim();
+    if (d.dayOfMonth) item.dayOfMonth = parseInt(d.dayOfMonth); else delete item.dayOfMonth;
+    if (d.category) item.category = d.category;
+    if (d.amount !== undefined && d.amount !== '') {
+      const amount = parseFloat(d.amount); if (isNaN(amount)||amount<0) return toast('Enter a valid amount');
+      if (!item.months) item.months = {};
+      if (!item.months[mon]) item.months[mon] = {};
+      if (d.thisMonthOnly) {
+        item.months[mon].amount = amount;
+      } else {
+        item.amount = amount;
+        delete item.months[mon].amount;
+      }
+      if (item.months[mon]?.paid && item.months[mon]?.txId) {
+        const tx = S.transactions.find(t=>t.id===item.months[mon].txId);
+        if (tx) tx.amount = amount;
+      }
+    }
+    S.editingRecurringId = null;
+    save(); renderDashboard(); renderRecurring(); toast(item.name+' updated'); return;
+  }
   if (action==='mark-variable-bill') {
     const item = S.recurring.items.find(i=>i.id===form.dataset.id); if (!item) return;
     const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
@@ -2974,13 +3042,20 @@ function handleClick(e) {
   if (action==='toggle-recurring-add') { S.recurringAddType = S.recurringAddType ? null : 'recurring-income'; renderRecurring(); return; }
   if (action==='set-recurring-add-type') { S.recurringAddType=btn.dataset.type; const bs=document.getElementById('bottom-sheet'); if(bs.style.display!=='none'){document.getElementById('bottom-sheet-content').innerHTML=renderRecurringQuickAdd();}else{renderRecurring();} return; }
   if (action==='cancel-recurring-add') { S.recurringAddType=null; document.getElementById('bottom-sheet').style.display='none'; renderRecurring(); return; }
+  if (action==='edit-recurring-item') {
+    S.editingRecurringId = btn.dataset.id; renderRecurring(); return;
+  }
+  if (action==='cancel-recurring-edit') {
+    S.editingRecurringId = null; renderRecurring(); return;
+  }
   if (action==='confirm-recurring') {
     const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
     const mon = S.selectedMonth;
     if (!item.months) item.months = {};
+    const effAmt = item.months[mon]?.amount ?? item.amount;
     const txId = uid();
-    S.transactions.unshift({id:txId,type:'income',amount:item.amount,category:item.category||'Salary',note:item.name,date:dateInMonth(mon),currency:item.currency||'USD'});
-    item.months[mon] = {paid:true, amount:item.amount, txId};
+    S.transactions.unshift({id:txId,type:'income',amount:effAmt,category:item.category||'Salary',note:item.name,date:dateInMonth(mon),currency:item.currency||'USD'});
+    item.months[mon] = {...(item.months[mon]||{}), paid:true, amount:effAmt, txId};
     save(); renderDashboard(); renderRecurring(); toast(item.name+' credited'); return;
   }
   if (action==='unmark-recurring-item') {
@@ -3039,9 +3114,10 @@ function handleClick(e) {
     const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
     const mon = S.selectedMonth;
     if (!item.months) item.months = {};
+    const effAmt = item.months[mon]?.amount ?? item.amount;
     const txId = uid();
-    S.transactions.unshift({id:txId,type:'expense',amount:item.amount,category:'Bills',note:item.name,date:dateInMonth(mon),currency:item.currency||'INR'});
-    item.months[mon] = {paid:true, amount:item.amount, txId};
+    S.transactions.unshift({id:txId,type:'expense',amount:effAmt,category:'Bills',note:item.name,date:dateInMonth(mon),currency:item.currency||'INR'});
+    item.months[mon] = {...(item.months[mon]||{}), paid:true, amount:effAmt, txId};
     save(); renderDashboard(); renderRecurring(); toast(item.name+' marked paid'); return;
   }
 
