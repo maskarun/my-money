@@ -3222,6 +3222,20 @@ function handleInput(e) {
   }
 }
 
+function copyToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    return navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+  }
+  return fallbackCopy(text);
+}
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px';
+  document.body.appendChild(ta); ta.select();
+  document.execCommand('copy');
+  ta.remove();
+}
+
 async function copySyncCode() {
   try {
     const payload = JSON.stringify({version:3, transactions:S.transactions, portfolio:S.portfolio, recurring:S.recurring, goals:S.goals, syncedAt:new Date().toISOString()});
@@ -3232,15 +3246,18 @@ async function copySyncCode() {
     const bytes = new Uint8Array(compressed);
     let binary = '';
     for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-    const b64 = btoa(binary);
-    await navigator.clipboard.writeText('MMC:' + b64);
-    toast('Sync code copied to clipboard!');
+    const b64 = 'MMC:' + btoa(binary);
+    await copyToClipboard(b64);
+    toast('Sync code copied!');
   } catch(e) { toast('Copy failed: ' + (e.message || e)); }
 }
 
 async function pasteSyncCode() {
+  let text;
+  try { text = await navigator.clipboard.readText(); } catch(e) {}
+  if (!text) text = prompt('Paste your sync code here:');
+  if (!text) return;
   try {
-    const text = await navigator.clipboard.readText();
     if (!text.startsWith('MMC:')) { toast('Invalid sync code'); return; }
     const b64 = text.slice(4);
     const binary = atob(b64);
