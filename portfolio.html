@@ -1567,7 +1567,7 @@ function renderBills() {
   const monthLabel = fmtMonth(mon);
 
   const billRows = billItems.map(item => {
-    const ms = item.months||{}, paid = ms[mon]?.paid;
+    const ms = item.months||{}, paid = ms[mon]?.paid, amountSaved = ms[mon]?.amountSaved;
     const c = item.currency||'USD';
     const lastAmt = ms[mon]?.amount ?? item.amount ?? 0;
     const isOverride = ms[mon]?.amount !== undefined && ms[mon]?.amount !== item.amount;
@@ -1590,14 +1590,16 @@ function renderBills() {
         </form>
       </div>`;
     }
-    return `<div class="swipe-wrap" style="--swipe-w:-${paid?192:144}px${!paid&&!item.isVariable?';--swipe-wl:72px':''}">
+    return `<div class="swipe-wrap" style="--swipe-w:-${paid?192:144}px${(item.isVariable?(amountSaved&&!paid):(!paid&&!item.isVariable))?';--swipe-wl:72px':''}">
       <div class="swipe-back">
-        ${paid?`<button class="sb-undo" data-action="unmark-recurring-item" data-id="${item.id}" title="Undo">${svgUndo}</button>`:``}
+        ${paid?`<button class="sb-undo" data-action="unmark-recurring-item" data-id="${item.id}" title="Undo">${svgUndo}</button>`:item.isVariable&&amountSaved?`<button class="sb-undo" data-action="undo-variable-bill-amount" data-id="${item.id}" title="Undo">${svgUndo}</button>`:``}
         <button class="sb-edit" data-action="edit-recurring-item" data-id="${item.id}" title="Edit">${svgEdit}</button>
         <button class="sb-tag" data-action="cycle-portfolio-tag" data-id="${item.id}" title="Tag">${svgTag}</button>
         <button class="sb-del" data-action="del-recurring-item" data-id="${item.id}" title="Delete">${svgTrash}</button>
       </div>
-      ${!paid&&!item.isVariable?`<div class="swipe-back-left"><button class="sb-confirm" data-action="mark-bill-paid" data-id="${item.id}">✓ Paid</button></div>`:''}
+      ${item.isVariable
+        ? (amountSaved&&!paid?`<div class="swipe-back-left"><button class="sb-confirm" data-action="pay-variable-bill" data-id="${item.id}">✓ Pay</button></div>`:'')
+        : (!paid?`<div class="swipe-back-left"><button class="sb-confirm" data-action="mark-bill-paid" data-id="${item.id}">✓ Paid</button></div>`:'')}
       <div class="swipe-front"><div class="p-row"${paid?' style="opacity:.55"':''}>
         <div class="p-row-icon loan">${svgArrowDown.replace('stroke="currentColor"','stroke="#e11d48"')}</div>
         <div class="p-row-meta">
@@ -1609,10 +1611,12 @@ function renderBills() {
             ${paid
               ? `<span class="rec-badge paid">✓ Paid · ${formatMoney(lastAmt,c)}</span>`
               : item.isVariable
-                ? `<form data-action="mark-variable-bill" data-id="${item.id}" style="display:flex;gap:6px;align-items:center">
-                    <input class="input rec-amt-input" type="number" name="amount" inputmode="decimal" placeholder="Amount" value="${lastAmt||''}" min="0.01" step="0.01" required>
-                    <button type="submit" class="btn btn-accent rec-btn">Paid</button>
-                   </form>`
+                ? (amountSaved
+                    ? `<span class="rec-badge" style="background:#fef3c7;color:#92400e">${formatMoney(lastAmt,c)}</span>`
+                    : `<form data-action="save-variable-bill" data-id="${item.id}" style="display:flex;gap:6px;align-items:center">
+                        <input class="input rec-amt-input" type="number" name="amount" inputmode="decimal" placeholder="Amount" value="${lastAmt||''}" min="0.01" step="0.01" required>
+                        <button type="submit" class="btn btn-outline rec-btn">Save</button>
+                       </form>`)
                 : `<span class="p-row-amt red">${formatMoney(lastAmt,c)}</span>`}
           </div>
         </div>
@@ -2991,14 +2995,13 @@ function handleSubmit(e) {
     S.editingRecurringId = null;
     save(); renderDashboard(); renderRecurring(); toast(item.name+' updated'); return;
   }
-  if (action==='mark-variable-bill') {
+  if (action==='save-variable-bill') {
     const item = S.recurring.items.find(i=>i.id===form.dataset.id); if (!item) return;
     const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
     const mon = S.selectedMonth; if (!item.months) item.months = {};
-    const txId = uid();
-    S.transactions.unshift({id:txId,type:'expense',amount,category:'Bills',note:item.name,date:dateInMonth(mon),currency:item.currency||'INR'});
-    item.months[mon] = {paid:true, amount, txId};
-    save(); renderDashboard(); renderRecurring(); toast(item.name+' marked paid'); return;
+    const prev = item.months[mon] || {};
+    item.months[mon] = {...prev, amount, amountSaved: true, prevAmount: prev.amount};
+    save(); renderRecurring(); toast(item.name+' bill amount saved'); return;
   }
   if (action==='add-saving') {
     if (!d.name.trim()) return toast('Name is required');
@@ -3149,6 +3152,22 @@ function handleClick(e) {
     if (ms.txId) S.transactions = S.transactions.filter(t=>t.id!==ms.txId);
     ms.paid = false; ms.txId = undefined;
     save(); renderDashboard(); renderRecurring(); toast(item.name+' marked unpaid'); return;
+  }
+  if (action==='pay-variable-bill') {
+    const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
+    const mon = S.selectedMonth; if (!item.months) item.months = {};
+    const amount = item.months[mon]?.amount || 0;
+    if (!amount) return toast('No amount saved');
+    const txId = uid();
+    S.transactions.unshift({id:txId,type:'expense',amount,category:'Bills',note:item.name,date:dateInMonth(mon),currency:item.currency||'INR'});
+    item.months[mon].paid = true; item.months[mon].txId = txId;
+    save(); renderDashboard(); renderRecurring(); toast(item.name+' marked paid'); return;
+  }
+  if (action==='undo-variable-bill-amount') {
+    const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
+    const mon = S.selectedMonth; const ms = item.months?.[mon]; if (!ms) return;
+    ms.amount = ms.prevAmount; ms.amountSaved = false; delete ms.prevAmount;
+    save(); renderRecurring(); return;
   }
   if (action==='pay-card-bill') {
     const card = S.recurring.creditCards.find(c=>c.id===btn.dataset.id); if (!card) return;
