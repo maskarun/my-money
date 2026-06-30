@@ -1590,7 +1590,7 @@ function renderBills() {
         </form>
       </div>`;
     }
-    return `<div class="swipe-wrap" style="--swipe-w:-${paid?192:144}px${(item.isVariable?(amountSaved&&!paid):(!paid&&!item.isVariable))?';--swipe-wl:72px':''}">
+    return `<div class="swipe-wrap" style="--swipe-w:-${(paid||(item.isVariable&&amountSaved))?192:144}px${(item.isVariable?(amountSaved&&!paid):(!paid&&!item.isVariable))?';--swipe-wl:72px':''}">
       <div class="swipe-back">
         ${paid?`<button class="sb-undo" data-action="unmark-recurring-item" data-id="${item.id}" title="Undo">${svgUndo}</button>`:item.isVariable&&amountSaved?`<button class="sb-undo" data-action="undo-variable-bill-amount" data-id="${item.id}" title="Undo">${svgUndo}</button>`:``}
         <button class="sb-edit" data-action="edit-recurring-item" data-id="${item.id}" title="Edit">${svgEdit}</button>
