@@ -1450,13 +1450,7 @@ function renderRecurringSummary() {
     if (card.endMonth && mon > card.endMonth) continue;
     const cur = card.currency || 'INR';
     ensure(cur);
-    let sum = 0, cnt = 0;
-    for (let d = 1; d <= 3; d++) {
-      const pm = shiftMonth(mon, -d);
-      const a = card.months?.[pm]?.amount;
-      if (a) { sum += a; cnt++; }
-    }
-    byCur[cur].expectedCC += cnt ? sum / cnt : 0;
+    byCur[cur].expectedCC += card.months?.[mon]?.amount || 0;
     byCur[cur].totalCount++;
     if (card.months?.[mon]?.paid) byCur[cur].paidCount++;
   }
