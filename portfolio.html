@@ -1510,7 +1510,6 @@ function renderRecurringIncome() {
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
             <select class="input" name="category" style="width:auto">${INCOME_CATS.map(c=>`<option${c===(item.category||'Salary')?' selected':''}>${c}</option>`).join('')}</select>
-            <label style="font-size:11px;display:flex;align-items:center;gap:4px;color:var(--muted-fg)"><input type="checkbox" name="thisMonthOnly"${isOverride?' checked':''}>This month only</label>
             <div style="margin-left:auto;display:flex;gap:4px">
               <button type="submit" class="btn btn-accent" style="font-size:11px;padding:4px 10px">Save</button>
               <button type="button" class="btn" data-action="cancel-recurring-edit" style="font-size:11px;padding:4px 10px">Cancel</button>
@@ -1581,7 +1580,6 @@ function renderBills() {
             <input class="input" type="number" name="dayOfMonth" value="${item.dayOfMonth||''}" placeholder="Day" min="1" max="31" style="width:60px">
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            ${!item.isVariable?`<label style="font-size:11px;display:flex;align-items:center;gap:4px;color:var(--muted-fg)"><input type="checkbox" name="thisMonthOnly"${isOverride?' checked':''}>This month only</label>`:''}
             <div style="margin-left:auto;display:flex;gap:4px">
               <button type="submit" class="btn btn-accent" style="font-size:11px;padding:4px 10px">Save</button>
               <button type="button" class="btn" data-action="cancel-recurring-edit" style="font-size:11px;padding:4px 10px">Cancel</button>
@@ -2981,12 +2979,8 @@ function handleSubmit(e) {
       const amount = parseFloat(d.amount); if (isNaN(amount)||amount<0) return toast('Enter a valid amount');
       if (!item.months) item.months = {};
       if (!item.months[mon]) item.months[mon] = {};
-      if (d.thisMonthOnly) {
-        item.months[mon].amount = amount;
-      } else {
-        item.amount = amount;
-        delete item.months[mon].amount;
-      }
+      item.amount = amount;
+      delete item.months[mon].amount;
       if (item.months[mon]?.paid && item.months[mon]?.txId) {
         const tx = S.transactions.find(t=>t.id===item.months[mon].txId);
         if (tx) tx.amount = amount;
