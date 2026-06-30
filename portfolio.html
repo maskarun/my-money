@@ -1569,7 +1569,7 @@ function renderBills() {
     const ms = item.months||{}, paid = ms[mon]?.paid, amountSaved = ms[mon]?.amountSaved;
     const c = item.currency||'USD';
     const lastAmt = ms[mon]?.amount ?? item.amount ?? 0;
-    const isOverride = ms[mon]?.amount !== undefined && ms[mon]?.amount !== item.amount;
+    const isOverride = !item.isVariable && ms[mon]?.amount !== undefined && ms[mon]?.amount !== item.amount;
     const badge = getDueBadge(item.dayOfMonth, paid, mon);
     if (S.editingRecurringId === item.id) {
       return `<div class="p-row" style="flex-direction:column;align-items:stretch">
