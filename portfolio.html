@@ -2264,33 +2264,10 @@ function renderHeroCards() {
     if (ms?.paid && ms.amount>0 && !ms.txId) { const c=item.currency||'USD'; prevBal[c]=(prevBal[c]||0)+(item.type==='income'?ms.amount:-ms.amount); }
   }
 
-  // recurring-linked txIds for this month (avoid double counting with S.transactions)
-  const recurTxIds = new Set();
-  for (const item of (S.recurring?.items||[])) { const ms=item.months?.[mon]; if (ms?.txId) recurTxIds.add(ms.txId); }
-  for (const card of (S.recurring?.creditCards||[])) { const ms=card.months?.[mon]; if (ms?.txId) recurTxIds.add(ms.txId); }
-
   for (const t of S.transactions) {
     if (!t.date || localTxMonth(t.date) !== mon) continue;
-    if (recurTxIds.has(t.id)) continue;
     if (t.type==='transfer') { add(t.fromCurrency,'expense',t.fromAmount); add(t.toCurrency,'income',t.toAmount); continue; }
     add(getCur(t), t.type==='income'?'income':'expense', t.amount);
-  }
-  // confirmed recurring income / paid bills for this month
-  for (const item of (S.recurring?.items||[])) {
-    const ms = item.months?.[mon];
-    if (ms?.paid && ms.amount>0) add(item.currency||'USD', item.type==='income'?'income':'expense', ms.amount);
-  }
-  // paid credit card bills for this month
-  for (const card of (S.recurring?.creditCards||[])) {
-    const ms = card.months?.[mon];
-    if (ms?.paid && ms.amount>0) add(card.currency||'USD', 'expense', ms.amount);
-  }
-  // portfolio activity for this month
-  for (const loan of S.portfolio.loans) {
-    for (const p of (loan.partPayments || [])) { if (p.date && localTxMonth(p.date) === mon) add(getCur(loan), 'expense', p.amount); }
-  }
-  for (const loan of S.portfolio.goldLoans) {
-    for (const p of (loan.payments || [])) { if (p.date && localTxMonth(p.date) === mon) add(getCur(loan), 'expense', p.amount); }
   }
 
   // Ensure currencies with prior balance but no current-month activity show up
@@ -2303,7 +2280,7 @@ function renderHeroCards() {
     // Top 3 expense categories for this currency this month
     const catTotals = {};
     for (const t of S.transactions) {
-      if (!t.date || localTxMonth(t.date) !== mon || t.type !== 'expense' || getCur(t) !== cur || recurTxIds.has(t.id)) continue;
+      if (!t.date || localTxMonth(t.date) !== mon || t.type !== 'expense' || getCur(t) !== cur) continue;
       const cat = t.category || 'Other';
       catTotals[cat] = (catTotals[cat] || 0) + t.amount;
     }
@@ -3704,7 +3681,9 @@ function handleSubmit(e) {
     const loan = S.portfolio.loans.find(l=>l.id===form.dataset.id);
     if (!loan) return;
     if (!loan.partPayments) loan.partPayments = [];
-    loan.partPayments.unshift({id:uid(), date:d.date||todayISO(), amount, note:d.note||undefined});
+    const txId = uid();
+    S.transactions.unshift({id:txId, type:'expense', amount, category:'Loans', note:(loan.name||'Loan')+' – Part Payment', date:d.date||todayISO(), currency:getCur(loan)});
+    loan.partPayments.unshift({id:uid(), date:d.date||todayISO(), amount, note:d.note||undefined, txId});
     S.showingPPForm=null; save(); renderPortfolio(); renderDashboard(); toast('Part payment recorded'); return;
   }
   if (action==='add-gold-payment') {
@@ -3712,7 +3691,9 @@ function handleSubmit(e) {
     const loan = S.portfolio.goldLoans.find(l=>l.id===form.dataset.id);
     if (!loan) return;
     if (!loan.payments) loan.payments = [];
-    loan.payments.unshift({id:uid(), date:d.date||todayISO(), amount, note:d.note||undefined});
+    const txId = uid();
+    S.transactions.unshift({id:txId, type:'expense', amount, category:'Loans', note:(loan.name||'Gold Loan')+' – Payment', date:d.date||todayISO(), currency:getCur(loan)});
+    loan.payments.unshift({id:uid(), date:d.date||todayISO(), amount, note:d.note||undefined, txId});
     loan.principal = Math.max(0, loan.principal - amount);
     S.showingGoldPayForm=null; save(); renderPortfolio(); renderDashboard(); toast('Payment recorded'); return;
   }
@@ -3993,7 +3974,11 @@ function handleClick(e) {
   if (action==='del-part-payment') {
     if (!confirm('Delete this payment?')) return;
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.loanId);
-    if (loan) { loan.partPayments=(loan.partPayments||[]).filter(p=>p.id!==btn.dataset.paymentId); save(); renderPortfolio(); renderDashboard(); }
+    if (loan) {
+      const pay = (loan.partPayments||[]).find(p=>p.id===btn.dataset.paymentId);
+      if (pay?.txId) S.transactions = S.transactions.filter(t=>t.id!==pay.txId);
+      loan.partPayments=(loan.partPayments||[]).filter(p=>p.id!==btn.dataset.paymentId); save(); renderPortfolio(); renderDashboard();
+    }
     return;
   }
   if (action==='del-saving-payment') {
@@ -4012,7 +3997,7 @@ function handleClick(e) {
     const loan = S.portfolio.goldLoans.find(l=>l.id===btn.dataset.goldId);
     if (loan) {
       const pay = (loan.payments||[]).find(p=>p.id===btn.dataset.paymentId);
-      if (pay) loan.principal += pay.amount;
+      if (pay) { loan.principal += pay.amount; if (pay.txId) S.transactions = S.transactions.filter(t=>t.id!==pay.txId); }
       loan.payments = (loan.payments||[]).filter(p=>p.id!==btn.dataset.paymentId);
       save(); renderPortfolio(); renderDashboard();
     }
