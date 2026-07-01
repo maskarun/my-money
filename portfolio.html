@@ -1946,7 +1946,7 @@ function updateHeaderMonthNav() {
   if (!el) return;
   const label = fmtMonth(S.selectedMonth);
   const isCurrent = S.selectedMonth === thisMonth();
-  const showPicker = ['dashboard','recurring'].includes(S.tab);
+  const showPicker = ['dashboard','recurring','portfolio'].includes(S.tab);
   if (showPicker) {
     el.innerHTML = `<span class="month-label" data-action="toggle-month-picker">${label}</span>${isCurrent ? '' : '<button class="link-btn" data-action="goto-current-month">Today</button>'}`;
     if (S.monthPickerOpen) el.innerHTML += renderMonthPicker();
