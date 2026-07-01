@@ -1666,7 +1666,7 @@ function renderRecurringIncome() {
     .sort((a,b)=>{
       const ap = a.months?.[mon]?.paid ? 1 : 0, bp = b.months?.[mon]?.paid ? 1 : 0;
       if (ap !== bp) return ap - bp;
-      return (a.currency||'USD').localeCompare(b.currency||'USD') || (a.dayOfMonth||1)-(b.dayOfMonth||1);
+      return (a.currency||'USD').localeCompare(b.currency||'USD') || ((a.dayOfMonth??a.dueDay)||1)-((b.dayOfMonth??b.dueDay)||1);
     });
 
   const paidCount = incomeItems.filter(i=>i.months?.[mon]?.paid).length;
@@ -1678,7 +1678,7 @@ function renderRecurringIncome() {
     const c = item.currency||S.txCurrency;
     const effAmt = ms[mon]?.amount ?? item.amount;
     const isOverride = ms[mon]?.amount !== undefined && ms[mon]?.amount !== item.amount;
-    const badge = getDueBadge(item.dayOfMonth, paid, mon);
+    const badge = getDueBadge(item.dayOfMonth ?? item.dueDay, paid, mon);
     if (S.editingRecurringId === item.id) {
       return `<div class="p-row" style="flex-direction:column;align-items:stretch">
         <form data-action="save-recurring-edit" data-id="${item.id}" style="display:flex;flex-direction:column;gap:8px;padding:4px 0">
@@ -1708,7 +1708,7 @@ function renderRecurringIncome() {
         <div class="p-row-icon sav">${svgArrowUp.replace('stroke="currentColor"','stroke="#059669"')}</div>
         <div class="p-row-meta">
           <div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span>${isOverride?'<span class="cur-pill" style="background:#dbeafe;color:#1d4ed8">This month</span>':''}</div>
-          <div class="p-row-sub">${item.category||'Salary'}${item.dayOfMonth?' · '+ordinal(item.dayOfMonth)+' of month':''}${badge?' '+badge:''}</div>
+          <div class="p-row-sub">${item.category||'Salary'}${(item.dayOfMonth??item.dueDay)?' · '+ordinal(item.dayOfMonth??item.dueDay)+' of month':''}${badge?' '+badge:''}</div>
         </div>
         <div class="p-row-right">
           <div class="p-row-btns">
@@ -1737,7 +1737,7 @@ function renderBills() {
     .sort((a,b)=>{
       const ap = a.months?.[mon]?.paid ? 1 : 0, bp = b.months?.[mon]?.paid ? 1 : 0;
       if (ap !== bp) return ap - bp;
-      return (a.currency||'USD').localeCompare(b.currency||'USD') || (a.dayOfMonth||1)-(b.dayOfMonth||1);
+      return (a.currency||'USD').localeCompare(b.currency||'USD') || ((a.dayOfMonth??a.dueDay)||1)-((b.dayOfMonth??b.dueDay)||1);
     });
 
   const paidCount = billItems.filter(i=>i.months?.[mon]?.paid).length;
@@ -1749,7 +1749,7 @@ function renderBills() {
     const c = item.currency||S.txCurrency;
     const lastAmt = ms[mon]?.amount ?? item.amount ?? 0;
     const isOverride = !item.isVariable && ms[mon]?.amount !== undefined && ms[mon]?.amount !== item.amount;
-    const badge = getDueBadge(item.dayOfMonth, paid, mon);
+    const badge = getDueBadge(item.dayOfMonth ?? item.dueDay, paid, mon);
     if (S.editingRecurringId === item.id) {
       return `<div class="p-row" style="flex-direction:column;align-items:stretch">
         <form data-action="save-recurring-edit" data-id="${item.id}" style="display:flex;flex-direction:column;gap:8px;padding:4px 0">
@@ -1781,7 +1781,7 @@ function renderBills() {
         <div class="p-row-icon loan">${svgArrowDown.replace('stroke="currentColor"','stroke="#e11d48"')}</div>
         <div class="p-row-meta">
           <div class="p-row-name">${esc(item.name)}<span class="cur-pill red">${c}</span>${isOverride?'<span class="cur-pill" style="background:#dbeafe;color:#1d4ed8">This month</span>':''}</div>
-          <div class="p-row-sub">${item.isVariable?'Variable':'Fixed · '+formatMoney(item.amount,c)}${item.dayOfMonth?' · Due '+ordinal(item.dayOfMonth):''}${badge?' '+badge:''}</div>
+          <div class="p-row-sub">${item.isVariable?'Variable':'Fixed · '+formatMoney(item.amount,c)}${(item.dayOfMonth??item.dueDay)?' · Due '+ordinal(item.dayOfMonth??item.dueDay):''}${badge?' '+badge:''}</div>
         </div>
         <div class="p-row-right">
           <div class="p-row-btns">
