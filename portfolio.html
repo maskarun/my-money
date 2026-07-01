@@ -2250,14 +2250,15 @@ function renderHeroCards() {
       prevBal[t.toCurrency] = (prevBal[t.toCurrency]||0) + t.toAmount;
       continue;
     }
-    const c = getCur(t);
-    prevBal[c] = (prevBal[c]||0) + (t.type==='income' ? t.amount : -t.amount);
+    if (!t.currency) continue;
+    prevBal[t.currency] = (prevBal[t.currency]||0) + (t.type==='income' ? t.amount : -t.amount);
   }
 
   for (const t of S.transactions) {
     if (!t.date || localTxMonth(t.date) !== mon) continue;
     if (t.type==='transfer') { add(t.fromCurrency,'expense',t.fromAmount); add(t.toCurrency,'income',t.toAmount); continue; }
-    add(getCur(t), t.type==='income'?'income':'expense', t.amount);
+    if (!t.currency) continue;
+    add(t.currency, t.type==='income'?'income':'expense', t.amount);
   }
 
   // Ensure currencies with prior balance but no current-month activity show up
@@ -2270,7 +2271,7 @@ function renderHeroCards() {
     // Top 3 expense categories for this currency this month
     const catTotals = {};
     for (const t of S.transactions) {
-      if (!t.date || localTxMonth(t.date) !== mon || t.type !== 'expense' || getCur(t) !== cur) continue;
+      if (!t.date || localTxMonth(t.date) !== mon || t.type !== 'expense' || !t.currency || t.currency !== cur) continue;
       const cat = t.category || 'Other';
       catTotals[cat] = (catTotals[cat] || 0) + t.amount;
     }
@@ -2640,7 +2641,11 @@ function renderActivity() {
       const isBill = t.category==='Bills' && t.note;
       const dispName = isBill ? t.note : t.category;
       const dispMeta = isBill ? fmtDate(t.date) : (t.note ? esc(t.note) + ' · ' + fmtDate(t.date) : fmtDate(t.date));
-      entries.push({ date: t.date, icon: t.type, iconSvg: isIncome ? svgArrowUp : svgArrowDown, name: dispName, meta: dispMeta, amtHtml: `<span class="tx-amount ${t.type}">${isIncome?'+':'−'}${formatMoney(t.amount,getCur(t))}</span>`, delBtn: `<button class="tx-del" data-action="del-tx" data-id="${t.id}" title="Delete">${svgTrash}</button>`, badge: getCur(t), source: 'txn', txId: t.id, category: t.category||'Other', rawNote: t.note||'' });
+      const noCur = !t.currency;
+      const amtHtml = noCur
+        ? `<span class="tx-amount expense" style="color:var(--expense)">⚠ No currency</span>`
+        : `<span class="tx-amount ${t.type}">${isIncome?'+':'−'}${formatMoney(t.amount,t.currency)}</span>`;
+      entries.push({ date: t.date, icon: t.type, iconSvg: isIncome ? svgArrowUp : svgArrowDown, name: dispName, meta: dispMeta, amtHtml, delBtn: `<button class="tx-del" data-action="del-tx" data-id="${t.id}" title="Delete">${svgTrash}</button>`, badge: t.currency||'', source: 'txn', txId: t.id, category: t.category||'Other', rawNote: t.note||'', rowStyle: noCur ? 'opacity:.65;border-left:3px solid var(--expense)' : '' });
     }
   }
 
@@ -2700,14 +2705,15 @@ function renderActivity() {
       else dateLabel = new Date(entryDate + 'T12:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric'});
       dateHdr = `<li class="tx-date-hdr">${dateLabel}</li>`;
     }
-    return `${dateHdr}${e.delBtn ? `<li class="swipe-wrap" style="--swipe-w:-48px">
+    const rowStyle = e.rowStyle ? ` style="${e.rowStyle}"` : '';
+    return `${dateHdr}${e.delBtn ? `<li class="swipe-wrap" style="--swipe-w:-48px${e.rowStyle?';'+e.rowStyle:''}">
       <div class="swipe-back"><button class="sb-del" data-action="del-tx" data-id="${e.txId}" title="Delete">${svgTrash}</button></div>
       <div class="swipe-front"><div class="tx-row" ${e.txId?`data-action="edit-tx" data-id="${e.txId}"`:''}>
         <div class="tx-icon ${e.icon}">${e.iconSvg}</div>
         <div class="tx-body"><div class="tx-cat">${esc(e.name)}${e.badge?`<span class="tx-badge">${e.badge}</span>`:''}${srcPill}</div><div class="tx-meta">${e.meta}</div></div>
         <div class="tx-right">${e.amtHtml}</div>
       </div></div>
-    </li>` : `<li class="tx-row" ${e.txId?`data-action="edit-tx" data-id="${e.txId}"`:''}>
+    </li>` : `<li class="tx-row"${rowStyle} ${e.txId?`data-action="edit-tx" data-id="${e.txId}"`:''}>
       <div class="tx-icon ${e.icon}">${e.iconSvg}</div>
       <div class="tx-body"><div class="tx-cat">${esc(e.name)}${e.badge?`<span class="tx-badge">${e.badge}</span>`:''}${srcPill}</div><div class="tx-meta">${e.meta}</div></div>
       <div class="tx-right">${e.amtHtml}</div>
@@ -3374,9 +3380,10 @@ function handleSubmit(e) {
   if (action==='save-recurring-from-savings') {
     const saving = S.portfolio.savings.find(i => i.id === form.dataset.id);
     if (!saving) return;
+    if (!d.currency) return toast('Select a currency');
     S.recurring.items.push({
       id: uid(), type: 'expense', name: (d.name||'').trim() || saving.name,
-      amount: parseFloat(d.amount) || 0, currency: d.currency || S.txCurrency,
+      amount: parseFloat(d.amount) || 0, currency: d.currency,
       dueDay: d.dueDay ? parseInt(d.dueDay) : null,
       isVariable: false, category: 'Savings', portfolioTag: 'savings',
       linkedSavingsId: saving.id, months: {}, createdAt: todayISO()
@@ -3388,9 +3395,10 @@ function handleSubmit(e) {
   if (action==='save-recurring-from-insurance') {
     const ins = S.portfolio.insurance.find(i => i.id === form.dataset.id);
     if (!ins) return;
+    if (!d.currency) return toast('Select a currency');
     S.recurring.items.push({
       id: uid(), type: 'expense', name: (d.name||'').trim() || ins.name,
-      amount: parseFloat(d.amount) || 0, currency: d.currency || S.txCurrency,
+      amount: parseFloat(d.amount) || 0, currency: d.currency,
       dueDay: d.dueDay ? parseInt(d.dueDay) : null,
       isVariable: false, category: 'Insurance', linkedInsuranceId: ins.id,
       months: {}, createdAt: todayISO()
@@ -3401,9 +3409,10 @@ function handleSubmit(e) {
   }
   if (action==='save-recurring-from-loan') {
     const loan = S.portfolio.loans.find(i => i.id === form.dataset.id); if (!loan) return;
+    if (!d.currency) return toast('Select a currency');
     S.recurring.items.push({
       id: uid(), type: 'expense', name: (d.name||'').trim() || loan.name,
-      amount: parseFloat(d.amount) || 0, currency: d.currency || S.txCurrency,
+      amount: parseFloat(d.amount) || 0, currency: d.currency,
       dueDay: d.dueDay ? parseInt(d.dueDay) : null,
       isVariable: false, category: 'Loans', linkedLoanRecId: loan.id,
       months: {}, createdAt: todayISO()
@@ -3414,9 +3423,10 @@ function handleSubmit(e) {
   }
   if (action==='save-recurring-from-gold') {
     const loan = S.portfolio.goldLoans.find(i => i.id === form.dataset.id); if (!loan) return;
+    if (!d.currency) return toast('Select a currency');
     S.recurring.items.push({
       id: uid(), type: 'expense', name: (d.name||'').trim() || loan.name,
-      amount: parseFloat(d.amount) || 0, currency: d.currency || S.txCurrency,
+      amount: parseFloat(d.amount) || 0, currency: d.currency,
       dueDay: d.dueDay ? parseInt(d.dueDay) : null,
       isVariable: false, category: 'Gold Loans', linkedGoldLoanRecId: loan.id,
       months: {}, createdAt: todayISO()
@@ -3428,11 +3438,12 @@ function handleSubmit(e) {
   if (action==='save-sip-from-investment') {
     const inv = S.portfolio.investments.find(i => i.id === form.dataset.id);
     if (!inv) return;
+    if (!d.currency) return toast('Select a currency');
     S.recurring.items.push({
       id: uid(), type: 'expense',
       name: (d.name||'').trim() || inv.name,
       amount: parseFloat(d.amount) || 0,
-      currency: d.currency || S.txCurrency,
+      currency: d.currency,
       dueDay: d.dueDay ? parseInt(d.dueDay) : null,
       isVariable: false, category: 'Investment',
       portfolioTag: 'investment', linkedInvestmentId: inv.id,
@@ -3507,6 +3518,7 @@ function handleSubmit(e) {
   }
   if (action==='add-tx') {
     const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
+    if (!d.currency) return toast('Select a currency');
     const type = S.addEntryType==='tx-income' ? 'income' : 'expense';
     const txDate = d.date ? new Date(d.date+'T12:00:00').toISOString() : new Date().toISOString();
     S.transactions.unshift({id:uid(),type,amount,category:d.category,note:d.note||undefined,date:txDate,currency:d.currency});
@@ -3572,9 +3584,10 @@ function handleSubmit(e) {
     if (!saving) return;
     if (!saving.payments) saving.payments = [];
     const txDate = d.date ? new Date(d.date+'T12:00:00').toISOString() : new Date().toISOString();
+    if (!saving.currency) return toast('Savings account has no currency — edit it first');
     saving.payments.unshift({id:uid(), date:d.date||todayISO(), amount, type:d.type||'deposit', note:d.note||undefined});
-    if (d.type==='deposit') { saving.amount += amount; S.transactions.unshift({id:uid(),type:'expense',amount,category:'Saving',note:saving.name+(d.note?' - '+d.note:''),date:txDate,currency:getCur(saving)}); }
-    else { saving.amount = Math.max(0, saving.amount - amount); S.transactions.unshift({id:uid(),type:'income',amount,category:'Saving',note:saving.name+(d.note?' - '+d.note:''),date:txDate,currency:getCur(saving)}); }
+    if (d.type==='deposit') { saving.amount += amount; S.transactions.unshift({id:uid(),type:'expense',amount,category:'Saving',note:saving.name+(d.note?' - '+d.note:''),date:txDate,currency:saving.currency}); }
+    else { saving.amount = Math.max(0, saving.amount - amount); S.transactions.unshift({id:uid(),type:'income',amount,category:'Saving',note:saving.name+(d.note?' - '+d.note:''),date:txDate,currency:saving.currency}); }
     S.addEntryType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderDashboard(); renderPortfolio(); toast((d.type==='deposit'?'Deposit':'Withdrawal')+' recorded'); return;
   }
   if (action==='save-card-amount') {
@@ -3762,11 +3775,12 @@ function handleClick(e) {
   }
   if (action==='confirm-recurring') {
     const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
+    if (!item.currency) return toast('Recurring item has no currency — edit it first');
     const mon = S.selectedMonth;
     if (!item.months) item.months = {};
     const effAmt = item.months[mon]?.amount ?? item.amount;
     const txId = uid();
-    S.transactions.unshift({id:txId,type:'income',amount:effAmt,category:item.category||'Salary',note:item.name,date:dateInMonth(mon),currency:item.currency||S.txCurrency});
+    S.transactions.unshift({id:txId,type:'income',amount:effAmt,category:item.category||'Salary',note:item.name,date:dateInMonth(mon),currency:item.currency});
     item.months[mon] = {...(item.months[mon]||{}), paid:true, amount:effAmt, txId};
     save(); renderDashboard(); renderRecurring(); toast(item.name+' credited'); return;
   }
@@ -3779,11 +3793,12 @@ function handleClick(e) {
   }
   if (action==='pay-variable-bill') {
     const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
+    if (!item.currency) return toast('Recurring item has no currency — edit it first');
     const mon = S.selectedMonth; if (!item.months) item.months = {};
     const amount = item.months[mon]?.amount || 0;
     if (!amount) return toast('No amount saved');
     const txId = uid();
-    S.transactions.unshift({id:txId,type:'expense',amount,category:item.category||'Bills',note:item.name,date:dateInMonth(mon),currency:item.currency||S.txCurrency});
+    S.transactions.unshift({id:txId,type:'expense',amount,category:item.category||'Bills',note:item.name,date:dateInMonth(mon),currency:item.currency});
     item.months[mon].paid = true; item.months[mon].txId = txId;
     save(); renderDashboard(); renderRecurring(); toast(item.name+' marked paid'); return;
   }
@@ -3795,11 +3810,12 @@ function handleClick(e) {
   }
   if (action==='pay-card-bill') {
     const card = S.recurring.creditCards.find(c=>c.id===btn.dataset.id); if (!card) return;
+    if (!card.currency) return toast('Credit card has no currency — edit it first');
     const mon = S.selectedMonth; if (!card.months) card.months = {};
     const amount = card.months[mon]?.amount || 0;
     if (!amount) return toast('No amount saved');
     const txId = uid();
-    S.transactions.unshift({id:txId,type:'expense',amount,category:'Bills',note:card.name+' CC Bill',date:dateInMonth(mon),currency:card.currency||S.txCurrency});
+    S.transactions.unshift({id:txId,type:'expense',amount,category:'Bills',note:card.name+' CC Bill',date:dateInMonth(mon),currency:card.currency});
     card.months[mon].paid = true; card.months[mon].txId = txId;
     save(); renderDashboard(); renderRecurring(); toast(card.name+' bill paid'); return;
   }
@@ -3832,11 +3848,12 @@ function handleClick(e) {
   // Bills
   if (action==='mark-bill-paid') {
     const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
+    if (!item.currency) return toast('Recurring item has no currency — edit it first');
     const mon = S.selectedMonth;
     if (!item.months) item.months = {};
     const effAmt = item.months[mon]?.amount ?? item.amount;
     const txId = uid();
-    S.transactions.unshift({id:txId,type:'expense',amount:effAmt,category:item.category||'Bills',note:item.name,date:dateInMonth(mon),currency:item.currency||S.txCurrency});
+    S.transactions.unshift({id:txId,type:'expense',amount:effAmt,category:item.category||'Bills',note:item.name,date:dateInMonth(mon),currency:item.currency});
     item.months[mon] = {...(item.months[mon]||{}), paid:true, amount:effAmt, txId};
     save(); renderDashboard(); renderRecurring(); toast(item.name+' marked paid'); return;
   }
