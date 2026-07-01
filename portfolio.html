@@ -3174,7 +3174,6 @@ function renderLoans() {
       <div class="pp-hdr-row">
         <span class="pp-hdr-title">Part Payments${partPayments.length?` <span class="pp-count">${partPayments.length}</span>`:''}</span>
       </div>
-      ${!loan.closed?`<button class="add-row-btn" style="color:var(--expense)" data-action="close-loan" data-id="${loan.id}">✓ Mark as Closed</button>`:''}
       ${partPayments.length?`<div class="pp-tbl-wrap"><table class="pp-tbl"><thead><tr><th>Date</th><th>Amount</th><th>Note</th><th></th></tr></thead><tbody>${partPayments.map(p=>`<tr><td>${p.date}</td><td class="pp-tbl-amt">${formatMoney(p.amount,c)}</td><td>${p.note?esc(p.note):''}</td><td><button class="ibtn del" data-action="del-part-payment" data-loan-id="${loan.id}" data-payment-id="${p.id}" title="Delete">${svgTrash}</button></td></tr>`).join('')}</tbody><tfoot><tr><td colspan="4" class="pp-tbl-footer">Total paid: <strong>${formatMoney(partPayments.reduce((s,p)=>s+p.amount,0),c)}</strong></td></tr></tfoot></table></div>`:''}
       ${ppFormOpen?`<form class="pp-form add-form" data-action="add-part-payment" data-id="${loan.id}">
         <div class="add-form-title">Record Part Payment</div>
@@ -3185,6 +3184,7 @@ function renderLoans() {
         <div class="form-row" style="margin-top:6px"><label class="form-label">Note</label><input class="input" type="text" name="note" placeholder="Optional"></div>
         <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="toggle-pp-form" data-id="${loan.id}">Cancel</button><button type="submit" class="btn btn-accent">Record</button></div>
       </form>`:`<button class="add-row-btn" data-action="toggle-pp-form" data-id="${loan.id}">${svgPlus} Record Part Payment</button>`}
+      ${!loan.closed?`<button class="add-row-btn" style="color:var(--expense)" data-action="close-loan" data-id="${loan.id}">✓ Mark as Closed</button>`:''}
     </div>`;
     const schedHtml = isExpanded ? `<div class="schedule-wrap">
       <div class="text-sm text-muted" style="margin-bottom:6px">${schedule.length} months amortised · Interest: ${formatMoney(schedule.reduce((a,r)=>a+r.interest,0),c)}</div>
@@ -3275,7 +3275,6 @@ function renderGoldLoans() {
     </div>` : '';
     const goldPayHtml = `<div class="pp-section">
       <div class="pp-hdr-row"><span class="pp-hdr-title">Payments${goldPayments.length?` <span class="pp-count">${goldPayments.length}</span>`:''}</span></div>
-      ${!loan.closed?`<button class="add-row-btn" style="color:var(--expense)" data-action="close-gold" data-id="${loan.id}">✓ Mark as Closed</button>`:''}
       ${goldPayments.length?`<div class="pp-tbl-wrap"><table class="pp-tbl"><thead><tr><th>Date</th><th>Amount</th><th>Note</th><th></th></tr></thead><tbody>${goldPayments.map(p=>`<tr><td>${p.date}</td><td class="pp-tbl-amt">${formatMoney(p.amount,c)}</td><td>${p.note?esc(p.note):''}</td><td><button class="ibtn del" data-action="del-gold-payment" data-gold-id="${loan.id}" data-payment-id="${p.id}" title="Delete">${svgTrash}</button></td></tr>`).join('')}</tbody><tfoot><tr><td colspan="4" class="pp-tbl-footer">Total paid: <strong>${formatMoney(goldPayments.reduce((s,p)=>s+p.amount,0),c)}</strong></td></tr></tfoot></table></div>`:''}
       ${goldPayFormOpen?`<form class="pp-form add-form" data-action="add-gold-payment" data-id="${loan.id}">
         <div class="add-form-title">Record Payment</div>
@@ -3286,6 +3285,7 @@ function renderGoldLoans() {
         <div class="form-row" style="margin-top:6px"><label class="form-label">Note</label><input class="input" type="text" name="note" placeholder="Optional"></div>
         <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="toggle-gold-pay-form" data-id="${loan.id}">Cancel</button><button type="submit" class="btn btn-accent">Record</button></div>
       </form>`:`<button class="add-row-btn" data-action="toggle-gold-pay-form" data-id="${loan.id}">${svgPlus} Record Payment</button>`}
+      ${!loan.closed?`<button class="add-row-btn" style="color:var(--expense)" data-action="close-gold" data-id="${loan.id}">✓ Mark as Closed</button>`:''}
     </div>`;
     const schedHtml = isExpanded ? `<div class="schedule-wrap">
       <div class="text-sm text-muted" style="margin-bottom:6px">Interest accrued: ${formatMoney(interest,c)}</div>
