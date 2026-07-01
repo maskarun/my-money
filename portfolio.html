@@ -3690,7 +3690,7 @@ function handleSubmit(e) {
     if (!loan) return;
     if (!loan.partPayments) loan.partPayments = [];
     loan.partPayments.unshift({id:uid(), date:d.date||todayISO(), amount, note:d.note||undefined});
-    S.showingPPForm=null; save(); renderPortfolio(); toast('Part payment recorded'); return;
+    S.showingPPForm=null; save(); renderPortfolio(); renderDashboard(); toast('Part payment recorded'); return;
   }
   if (action==='add-gold-payment') {
     const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
@@ -3978,7 +3978,7 @@ function handleClick(e) {
   if (action==='del-part-payment') {
     if (!confirm('Delete this payment?')) return;
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.loanId);
-    if (loan) { loan.partPayments=(loan.partPayments||[]).filter(p=>p.id!==btn.dataset.paymentId); save(); renderPortfolio(); }
+    if (loan) { loan.partPayments=(loan.partPayments||[]).filter(p=>p.id!==btn.dataset.paymentId); save(); renderPortfolio(); renderDashboard(); }
     return;
   }
   if (action==='del-saving-payment') {
