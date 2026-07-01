@@ -659,8 +659,8 @@ function computeOutstandingAsOf(loan, mon) {
 }
 function closeLinkedRec(item, closedDate) {
   const mon = S.selectedMonth;
-  if (item.months?.[mon]?.paid) { item.endMonth = mon; }
-  else { item.endMonth = shiftMonth(mon, -1); }
+  item.closed = false;
+  item.endMonth = item.months?.[mon]?.paid ? mon : shiftMonth(mon, -1);
   item.closedDate = closedDate;
 }
 function reopenLinkedRec(item) {
@@ -3963,8 +3963,8 @@ function handleClick(e) {
   if (action==='close-loan') {
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.id); if (!loan) return;
     loan.closed = true; loan.closedDate = new Date().toISOString();
-    const _lri = (S.recurring?.items||[]).find(i=>i.id===loan.linkedRecurringId); if (_lri && !_lri.closed && !_lri.endMonth) closeLinkedRec(_lri, loan.closedDate);
-    const loanRec = S.recurring.items.find(r=>r.linkedLoanRecId===loan.id&&!r.closed&&!r.endMonth); if (loanRec) closeLinkedRec(loanRec, loan.closedDate);
+    const _lri = (S.recurring?.items||[]).find(i=>i.id===loan.linkedRecurringId); if (_lri) closeLinkedRec(_lri, loan.closedDate);
+    const loanRec = S.recurring.items.find(r=>r.linkedLoanRecId===loan.id); if (loanRec) closeLinkedRec(loanRec, loan.closedDate);
     save(); renderPortfolio(); renderRecurring(); toast(loan.name + ' closed'); return;
   }
   if (action==='reopen-loan') {
@@ -4018,8 +4018,8 @@ function handleClick(e) {
   if (action==='close-gold') {
     const loan = S.portfolio.goldLoans.find(l=>l.id===btn.dataset.id); if (!loan) return;
     loan.closed = true; loan.closedDate = new Date().toISOString();
-    const _gri = (S.recurring?.items||[]).find(i=>i.id===loan.linkedRecurringId); if (_gri && !_gri.closed && !_gri.endMonth) closeLinkedRec(_gri, loan.closedDate);
-    const goldRec = S.recurring.items.find(r=>r.linkedGoldLoanRecId===loan.id&&!r.closed&&!r.endMonth); if (goldRec) closeLinkedRec(goldRec, loan.closedDate);
+    const _gri = (S.recurring?.items||[]).find(i=>i.id===loan.linkedRecurringId); if (_gri) closeLinkedRec(_gri, loan.closedDate);
+    const goldRec = S.recurring.items.find(r=>r.linkedGoldLoanRecId===loan.id); if (goldRec) closeLinkedRec(goldRec, loan.closedDate);
     save(); renderPortfolio(); renderRecurring(); toast(loan.name + ' closed'); return;
   }
   if (action==='reopen-gold') {
