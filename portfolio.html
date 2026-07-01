@@ -1299,12 +1299,13 @@ function renderQuickAdd() {
   const editTx = S.editingId ? S.transactions.find(t=>t.id===S.editingId) : null;
   const isEdit = !!editTx;
   const p = S.parsedEntry;
+  const defaultDate = S.selectedMonth === thisMonth() ? todayISO() : S.selectedMonth + '-01';
   let entryForm = '';
   if (S.addEntryType==='tx-expense'||S.addEntryType==='tx-income') {
     const cats = S.addEntryType==='tx-income' ? INCOME_CATS : EXPENSE_CATS;
     const eCur = isEdit ? getCur(editTx) : (p?.currency || S.txCurrency);
     const eAmt = isEdit ? editTx.amount : (p?.amount || '');
-    const eDate = isEdit ? editTx.date.slice(0,10) : (p?.date || todayISO());
+    const eDate = isEdit ? editTx.date.slice(0,10) : (p?.date || defaultDate);
     const eCat = isEdit ? (editTx.category||'Other') : (p?.category || '');
     const eNote = isEdit ? (editTx.note||'') : (p?.note || '');
     if (p) S.parsedEntry = null;
@@ -1325,7 +1326,7 @@ function renderQuickAdd() {
     const eFAmt = isEdit ? editTx.fromAmount : '';
     const eTCur = isEdit ? editTx.toCurrency : otherCur(S.txCurrency);
     const eTAmt = isEdit ? editTx.toAmount : '';
-    const eDate = isEdit ? editTx.date.slice(0,10) : todayISO();
+    const eDate = isEdit ? editTx.date.slice(0,10) : defaultDate;
     const eNote = isEdit ? (editTx.note||'') : '';
     entryForm = `<form data-action="${isEdit?'update-transfer':'add-transfer'}" data-id="${isEdit?editTx.id:''}">
       <div class="form-row-2">
