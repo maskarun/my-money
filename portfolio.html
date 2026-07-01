@@ -3808,7 +3808,7 @@ function handleClick(e) {
   if (action==='add-recurring-from-insurance') {
     const ins = S.portfolio.insurance.find(i => i.id === btn.dataset.id);
     if (!ins) return;
-    if (S.recurring.items.some(r => r.linkedInsuranceId === ins.id)) { toast('Already added as recurring bill'); return; }
+    if (S.recurring.items.some(r => r.linkedInsuranceId === ins.id && !r.closed)) { toast('Already added as recurring bill'); return; }
     document.getElementById('bottom-sheet-content').innerHTML = renderInsuranceRecSheet(ins);
     document.getElementById('bottom-sheet').style.display = ''; return;
   }
