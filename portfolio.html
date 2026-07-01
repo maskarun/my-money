@@ -2839,7 +2839,14 @@ function renderInvestmentsCard() {
   const rows = items.map(item => {
     const c = getCur(item);
     if (S.editingId===item.id && S.editSection==='investment') return `<div class="add-form">${investmentForm(item)}</div>`;
-    const sipLinked = S.recurring.items.some(r => r.linkedInvestmentId === item.id && !r.closed);
+    const sip = S.recurring.items.find(r => r.linkedInvestmentId === item.id && !r.closed);
+    const sipLinked = !!sip;
+    const sipTotal = sip ? getRecurringPaidTotal(sip) : 0;
+    const sipPaidMonths = sip ? Object.values(sip.months||{}).filter(m=>m.paid).length : 0;
+    const sipStrip = sip ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:11px;color:var(--muted-fg)"><span class="cur-pill purple" style="margin-right:4px">SIP</span>${formatMoney(sip.amount||0,getCur(sip))}/mo · ${sipPaidMonths} month${sipPaidMonths!==1?'s':''} paid</span>
+      <span style="font-size:11px;font-weight:600;color:var(--income)">${formatMoney(sipTotal,getCur(sip))} total</span>
+    </div>` : '';
     return `<div class="swipe-wrap" style="--swipe-w:-144px">
       <div class="swipe-back">
         <button class="sb-add" data-action="add-sip-from-investment" data-id="${item.id}" title="${sipLinked?'SIP already set up':'Add as monthly SIP'}" style="background:${sipLinked?'var(--muted-fg)':'var(--accent)'}">+</button>
@@ -2852,10 +2859,12 @@ function renderInvestmentsCard() {
         <div class="p-row-right">
           <div><div class="p-row-amt-lbl">Current · Invested</div><div class="p-row-amt grn">${formatMoney(item.currentValue,c)}</div><div class="p-row-sub">${formatMoney(item.amountInvested,c)} invested</div></div>
         </div>
-      </div></div>
+      </div>${sipStrip}</div>
     </div>`;
   }).join('');
-  const recRows = recItems.map(item => {
+  const linkedIds = new Set(items.map(i => i.id));
+  const orphanedSIPs = recItems.filter(r => !r.linkedInvestmentId || !linkedIds.has(r.linkedInvestmentId));
+  const recRows = orphanedSIPs.map(item => {
     const c = getCur(item), total = getRecurringPaidTotal(item), paidMonths = Object.values(item.months||{}).filter(m=>m.paid).length;
     return `<div class="p-row">
       <div class="p-row-icon inv">${svgTag.replace('stroke="currentColor"','stroke="#9333ea"')}</div>
