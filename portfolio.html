@@ -366,6 +366,14 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .cat-amt { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .cat-pct { font-size: 10px; color: var(--muted-fg); margin-left: 3px; }
 .bar-bg { height: 5px; background: var(--muted); border-radius: 3px; overflow: hidden; }
+.cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; padding:0 12px 12px; }
+.cal-day-hdr { text-align:center; font-size:10px; font-weight:600; color:var(--muted-fg); padding:6px 0 4px; }
+.cal-day { border-radius:8px; padding:5px 2px 4px; min-height:46px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:2px; transition:background .1s; }
+.cal-day:active { opacity:.7; }
+.cal-day-num { font-size:12px; font-weight:500; line-height:1; }
+.cal-dots { display:flex; gap:2px; flex-wrap:wrap; justify-content:center; align-items:center; }
+.cal-dot { width:5px; height:5px; border-radius:50%; flex-shrink:0; }
+.cal-dot-more { font-size:8px; color:var(--muted-fg); line-height:1; }
 .bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #0284c7, #38bdf8); }
 .bar-fill.inc { background: linear-gradient(90deg, var(--income), #34d399); }
 .cat-amt.grn { color: var(--income); }
@@ -521,14 +529,15 @@ const S = {
   addEntryType: null, portfolioAddType: null, recurringAddType: null, activityCurFilter: null, activityCatFilter: null,
   reportRange: 'ytd', reportFrom: null, reportTo: null,
   editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, expandedSaving: null, showingPPForm: null, showingGoldPayForm: null, selectedMonth: null, parsedEntry: null, smartAddLoading: false,
-  secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, investments: true, insurance: true, projections: true, netWorth: false, aiInsights: true, smartAlerts: true, trendChart: true, categoryDonut: true, reports: true, anomalies: true, goals: true },
+  secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, investments: true, insurance: true, projections: true, netWorth: false, aiInsights: true, smartAlerts: true, trendChart: true, categoryDonut: true, reports: true, anomalies: true, goals: true, financialCalendar: true },
   addingGoal: false,
   updatingGoalId: null,
   editingRecurringId: null, editingCardId: null,
   whatIfType: null, whatIfItemId: null,
+  calendarSelectedDay: null,
   monthPickerOpen: false,
   sectionOrder: {
-    dashboard: ['heroCards','anomalies','pendingBills','budgetAlerts','trendChart','netWorth','categoryDonut','reports','activity'],
+    dashboard: ['heroCards','anomalies','pendingBills','financialCalendar','budgetAlerts','trendChart','netWorth','categoryDonut','reports','activity'],
     portfolio: ['summary','savings','loans','goldLoans','investments','insurance'],
     recurring: ['recSummary','recIncome','bills','cards'],
     insights: ['goals','projections','whatIf','aiInsights']
@@ -570,7 +579,7 @@ function load() {
     const ord = localStorage.getItem('mmc.sectionOrder.v1');
     if (ord) {
       const saved = JSON.parse(ord);
-      const defaults = { dashboard: ['heroCards','anomalies','pendingBills','budgetAlerts','trendChart','netWorth','categoryDonut','reports','activity'], portfolio: ['summary','savings','loans','goldLoans','investments','insurance'], recurring: ['recSummary','recIncome','bills','cards'], insights: ['goals','projections','whatIf','aiInsights'] };
+      const defaults = { dashboard: ['heroCards','anomalies','pendingBills','financialCalendar','budgetAlerts','trendChart','netWorth','categoryDonut','reports','activity'], portfolio: ['summary','savings','loans','goldLoans','investments','insurance'], recurring: ['recSummary','recIncome','bills','cards'], insights: ['goals','projections','whatIf','aiInsights'] };
       for (const tab of Object.keys(defaults)) {
         const s = saved[tab] || [];
         const missing = defaults[tab].filter(k => !s.includes(k));
@@ -1411,6 +1420,115 @@ function getDueBadge(dueDay, isPaid, mon) {
   return '';
 }
 
+function getCalendarEvents(mon) {
+  const events = new Map();
+  const add = (day, ev) => {
+    if (!day || day < 1 || day > 31) return;
+    if (!events.has(day)) events.set(day, []);
+    events.get(day).push(ev);
+  };
+  const inRange = i => (!i.startMonth || mon >= i.startMonth) && (!i.endMonth || mon <= i.endMonth);
+
+  for (const item of S.recurring.items) {
+    if (item.closed || !inRange(item)) continue;
+    const paid = item.months?.[mon]?.paid;
+    const amt = item.months?.[mon]?.amount ?? item.amount;
+    const cur = item.currency || S.txCurrency;
+    if (item.type === 'income') {
+      add(item.dayOfMonth, {type:'income', name:item.name, amount:amt, cur, paid, color:'var(--income)'});
+    } else {
+      add(item.dueDay, {type:'bill', name:item.name, amount:item.isVariable?(item.months?.[mon]?.amount||0):amt, cur, paid, color: paid ? 'var(--muted-fg)' : 'var(--expense)'});
+    }
+  }
+  for (const card of S.recurring.creditCards) {
+    if (card.closed || !inRange(card)) continue;
+    const paid = card.months?.[mon]?.paid;
+    const cur = card.currency || S.txCurrency;
+    add(card.dueDay, {type:'card', name:card.name, amount:card.months?.[mon]?.amount||0, cur, paid, color: paid ? 'var(--muted-fg)' : '#f59e0b'});
+  }
+  for (const loan of S.portfolio.loans || []) {
+    if (loan.closed || !loan.startDate) continue;
+    const emiDay = new Date(loan.startDate+'T00:00:00').getDate();
+    const cur = loan.currency || S.txCurrency;
+    add(emiDay, {type:'emi', name:loan.name+' EMI', amount:computeEmi(loan.principal,loan.interestRate,loan.tenureYears), cur, color:'#3b82f6'});
+  }
+  for (const tx of S.transactions) {
+    if (!tx.date || localTxMonth(tx.date) !== mon) continue;
+    const day = new Date(tx.date).getDate();
+    const isInc = tx.type === 'income';
+    add(day, {type:'tx', name:tx.note||tx.category||tx.type, amount:tx.amount, cur:tx.currency||S.txCurrency, color: isInc ? 'var(--income)' : 'var(--expense)'});
+  }
+  return events;
+}
+
+function renderFinancialCalendar() {
+  const mon = S.selectedMonth;
+  const [year, month] = mon.split('-').map(Number);
+  const firstDay = new Date(year, month-1, 1).getDay();
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const isCurrentMonth = mon === thisMonth();
+  const todayDay = isCurrentMonth ? new Date().getDate() : -1;
+  const sel = S.calendarSelectedDay;
+  const events = getCalendarEvents(mon);
+
+  const dayHdrs = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+    .map(d => `<div class="cal-day-hdr">${d}</div>`).join('');
+
+  const cells = [];
+  for (let i = 0; i < firstDay; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const cellsHtml = cells.map(d => {
+    if (!d) return `<div class="cal-day" style="cursor:default"></div>`;
+    const evs = events.get(d) || [];
+    const isToday = d === todayDay;
+    const isSel = d === sel;
+    const bgStyle = isToday ? 'background:var(--accent)' : isSel ? 'background:var(--muted)' : '';
+    const numStyle = isToday ? 'color:#fff;font-weight:700' : '';
+    const dotColors = evs.map(e => e.color);
+    const visibleDots = dotColors.slice(0,3).map(c => `<span class="cal-dot" style="background:${c}"></span>`).join('');
+    const moreHtml = evs.length > 3 ? `<span class="cal-dot-more">+${evs.length-3}</span>` : '';
+    return `<div class="cal-day" data-action="select-calendar-day" data-day="${d}" style="${bgStyle}">
+      <span class="cal-day-num" style="${numStyle}">${d}</span>
+      <div class="cal-dots">${visibleDots}${moreHtml}</div>
+    </div>`;
+  }).join('');
+
+  let detailHtml = '';
+  if (sel && sel >= 1 && sel <= daysInMonth) {
+    const evs = events.get(sel) || [];
+    const selDate = new Date(year, month-1, sel).toLocaleDateString('en-US',{month:'long',day:'numeric'});
+    const typeLabel = {income:'Income',bill:'Bill',card:'Credit Card',emi:'Loan EMI',tx:'Transaction'};
+    const rows = evs.length
+      ? evs.map(e => {
+          const status = e.paid ? '<span class="rec-badge" style="background:#d1fae5;color:#065f46">Paid</span>'
+            : e.type==='tx' ? '' : '<span class="rec-badge" style="background:#fee2e2;color:#991b1b">Unpaid</span>';
+          const amtStr = e.amount ? formatMoney(e.amount, e.cur) : '';
+          return `<div class="p-row" style="padding:8px 14px">
+            <div class="p-row-meta">
+              <div class="p-row-name" style="font-size:13px">${esc(e.name)}</div>
+              <div class="p-row-sub">${typeLabel[e.type]||e.type}${status?' · '+status:''}</div>
+            </div>
+            ${amtStr ? `<div class="p-row-right" style="color:${e.color};font-weight:600">${amtStr}</div>` : ''}
+          </div>`;
+        }).join('')
+      : `<div style="padding:14px;color:var(--muted-fg);font-size:12px;text-align:center">No events</div>`;
+    detailHtml = `<div style="margin:0 12px 12px;border-radius:10px;overflow:hidden;border:1px solid var(--border)">
+      <div style="padding:8px 14px;background:var(--accent);color:#fff;font-size:12px;font-weight:700">${selDate}</div>
+      ${rows}
+    </div>`;
+  }
+
+  const isOpen = S.secOpen.financialCalendar !== false;
+  return `<div class="card">
+    <div class="sec-hdr" data-action="toggle-section" data-sec="financialCalendar" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
+      <div><div class="sec-title-row"><span class="sec-dot" style="background:#6366f1"></span><span class="sec-title">Financial Calendar</span></div><div class="sec-sub">${fmtMonth(mon)} · ${events.size} day${events.size!==1?'s':''} with events</div></div>
+    </div>
+    ${isOpen ? `<div class="cal-grid">${dayHdrs}${cellsHtml}</div>${detailHtml}` : ''}
+  </div>`;
+}
+
 function renderPendingBills() {
   const mon = thisMonth();
   const pendingBills = S.recurring.items.filter(i =>
@@ -1826,7 +1944,7 @@ function switchTab(tab) {
 }
 
 const SECTION_RENDERERS = {
-  heroCards: () => renderHeroCards(), anomalies: () => renderAnomalyAlerts(), pendingBills: () => renderPendingBills(), budgetAlerts: () => renderBudgetAlerts(),
+  heroCards: () => renderHeroCards(), anomalies: () => renderAnomalyAlerts(), pendingBills: () => renderPendingBills(), financialCalendar: () => renderFinancialCalendar(), budgetAlerts: () => renderBudgetAlerts(),
   trendChart: () => renderTrendChart(), netWorth: () => renderOverviewCards(), projections: () => renderProjections(), categoryDonut: () => renderCategoryDonut(),
   reports: () => renderReports(), activity: () => renderActivity(),
   summary: () => renderPortfolioSummary(), savings: () => renderSavings(), loans: () => renderLoans(),
@@ -3360,10 +3478,17 @@ function handleClick(e) {
   const action = btn.dataset.action;
 
   if (action==='switch-tab') { switchTab(btn.dataset.tab); return; }
-  if (action==='goto-current-month') { S.selectedMonth = thisMonth(); S.monthPickerOpen = false; renderDashboard(); renderRecurring(); return; }
+  if (action==='goto-current-month') { S.selectedMonth = thisMonth(); S.monthPickerOpen = false; S.calendarSelectedDay = null; renderDashboard(); renderRecurring(); return; }
   if (action==='toggle-month-picker') { S.monthPickerOpen = !S.monthPickerOpen; updateHeaderMonthNav(); return; }
   if (action==='close-month-picker') { S.monthPickerOpen = false; updateHeaderMonthNav(); return; }
-  if (action==='select-month') { S.selectedMonth = btn.dataset.month; S.monthPickerOpen = false; renderDashboard(); renderRecurring(); return; }
+  if (action==='select-month') { S.selectedMonth = btn.dataset.month; S.monthPickerOpen = false; S.calendarSelectedDay = null; renderDashboard(); renderRecurring(); return; }
+  if (action==='select-calendar-day') {
+    const day = parseInt(btn.dataset.day);
+    S.calendarSelectedDay = S.calendarSelectedDay === day ? null : day;
+    const sec = document.querySelector('[data-drag-key="financialCalendar"]');
+    if (sec) sec.innerHTML = '<span class="drag-handle" data-drag-grip="1">⠿</span>' + renderFinancialCalendar();
+    return;
+  }
   if (action==='filter-activity-cur') { S.activityCurFilter = btn.dataset.cur || null; renderDashboard(); return; }
   if (action==='filter-activity-cat') { S.activityCatFilter = btn.dataset.cat || null; renderDashboard(); return; }
   if (action==='toggle-theme') { document.body.classList.toggle('dark'); localStorage.setItem('mmc.theme', document.body.classList.contains('dark')?'dark':'light'); renderSettings(); return; }
