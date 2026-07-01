@@ -2754,7 +2754,11 @@ function renderSavings() {
   const items = S.portfolio.savings;
   const recItems = getTaggedRecurring('savings');
   const totals = {};
-  for (const i of items) { const c=getCur(i); totals[c]=(totals[c]||0)+(i.amount||0); }
+  for (const i of items) {
+    const c=getCur(i);
+    const linked = S.recurring.items.find(r => r.linkedSavingsId === i.id && !r.closed);
+    totals[c]=(totals[c]||0)+(i.amount||0)+(linked?getRecurringPaidTotal(linked):0);
+  }
   for (const i of recItems) { const c=getCur(i); totals[c]=(totals[c]||0)+getRecurringPaidTotal(i); }
   const rows = items.map(item => {
     const c = getCur(item);
@@ -2785,7 +2789,7 @@ function renderSavings() {
             <div class="p-row-icon sav">${svgBank.replace('stroke="currentColor"','stroke="#0284c7"')}</div>
             <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span>${recDep?'<span class="cur-pill purple">Monthly</span>':''}</div><div class="p-row-sub">${item.institution?'Institution: '+esc(item.institution):''}${item.interestRate?' · '+item.interestRate+'% p.a.':''}${recDep?' · '+formatMoney(recDepTotal,getCur(recDep))+' deposited':''}</div></div>
             <div class="p-row-right">
-              <div><div class="p-row-amt-lbl">Balance</div><div class="p-row-amt grn">${formatMoney(item.amount,c)}</div></div>
+              <div><div class="p-row-amt-lbl">Balance</div><div class="p-row-amt grn">${formatMoney((item.amount||0)+recDepTotal,c)}</div></div>
             </div>
           </div>${recDepStrip}
         </div>
