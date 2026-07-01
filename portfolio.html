@@ -525,12 +525,13 @@ const S = {
   addingGoal: false,
   updatingGoalId: null,
   editingRecurringId: null, editingCardId: null,
+  whatIfType: null, whatIfItemId: null,
   monthPickerOpen: false,
   sectionOrder: {
     dashboard: ['heroCards','anomalies','pendingBills','budgetAlerts','trendChart','netWorth','categoryDonut','reports','activity'],
     portfolio: ['summary','savings','loans','goldLoans','investments','insurance'],
     recurring: ['recSummary','recIncome','bills','cards'],
-    insights: ['goals','projections','aiInsights']
+    insights: ['goals','projections','whatIf','aiInsights']
   },
 };
 
@@ -569,7 +570,7 @@ function load() {
     const ord = localStorage.getItem('mmc.sectionOrder.v1');
     if (ord) {
       const saved = JSON.parse(ord);
-      const defaults = { dashboard: ['heroCards','anomalies','pendingBills','budgetAlerts','trendChart','netWorth','categoryDonut','reports','activity'], portfolio: ['summary','savings','loans','goldLoans','investments','insurance'], recurring: ['recSummary','recIncome','bills','cards'], insights: ['goals','projections','aiInsights'] };
+      const defaults = { dashboard: ['heroCards','anomalies','pendingBills','budgetAlerts','trendChart','netWorth','categoryDonut','reports','activity'], portfolio: ['summary','savings','loans','goldLoans','investments','insurance'], recurring: ['recSummary','recIncome','bills','cards'], insights: ['goals','projections','whatIf','aiInsights'] };
       for (const tab of Object.keys(defaults)) {
         const s = saved[tab] || [];
         const missing = defaults[tab].filter(k => !s.includes(k));
@@ -1831,7 +1832,7 @@ const SECTION_RENDERERS = {
   summary: () => renderPortfolioSummary(), savings: () => renderSavings(), loans: () => renderLoans(),
   goldLoans: () => renderGoldLoans(), investments: () => renderInvestmentsCard(), insurance: () => renderInsuranceCard(),
   recSummary: () => renderRecurringSummary(), recIncome: () => renderRecurringIncome(), bills: () => renderBills(), cards: () => renderCreditCards(),
-  goals: () => renderGoals(), aiInsights: () => buildInsightsCards()
+  goals: () => renderGoals(), whatIf: () => renderWhatIf(), aiInsights: () => buildInsightsCards()
 };
 
 function renderOrderedSections(tabKey) {
@@ -2238,6 +2239,160 @@ function renderCatBreakdown() {
   }
 
   return `<div class="card">${hdr}<div class="cat-wrap">${sections}${transferSection}</div></div>`;
+}
+
+function monthsUntil(isoDate) {
+  if (!isoDate) return 0;
+  const d = new Date(isoDate+'T00:00:00'), now = new Date();
+  return Math.max(0, (d.getFullYear()-now.getFullYear())*12 + d.getMonth()-now.getMonth());
+}
+
+function simulateLoanPrepayment(loan, extraMonthly) {
+  const {principal, startDate, tenureYears, interestRate} = loan;
+  if (!principal || !startDate) return null;
+  const r = (interestRate || 0) / 100 / 12;
+  const emi = computeEmi(principal, interestRate, tenureYears);
+  const outstanding = computeOutstanding(loan);
+  if (outstanding <= 0) return null;
+
+  // Original: months remaining at standard EMI
+  let bal = outstanding, origMonths = 0, origInterest = 0;
+  while (bal > 0 && origMonths < 1200) {
+    const interest = bal * r;
+    const princ = Math.min(emi - interest, bal);
+    origInterest += interest;
+    bal = Math.max(0, bal - princ);
+    origMonths++;
+  }
+
+  // With extra payment
+  bal = outstanding;
+  let newMonths = 0, newInterest = 0;
+  const totalPayment = emi + extraMonthly;
+  while (bal > 0 && newMonths < 1200) {
+    const interest = bal * r;
+    const princ = Math.min(totalPayment - interest, bal);
+    newInterest += interest;
+    bal = Math.max(0, bal - princ);
+    newMonths++;
+  }
+
+  const cur = loan.currency || 'USD';
+  const now = new Date();
+  const origPayoff = new Date(now); origPayoff.setMonth(origPayoff.getMonth() + origMonths);
+  const newPayoff = new Date(now); newPayoff.setMonth(newPayoff.getMonth() + newMonths);
+  return {
+    origMonths, newMonths,
+    monthsSaved: Math.max(0, origMonths - newMonths),
+    interestSaved: Math.max(0, origInterest - newInterest),
+    origPayoff: origPayoff.toLocaleDateString('en-US',{month:'short',year:'numeric'}),
+    newPayoff: newPayoff.toLocaleDateString('en-US',{month:'short',year:'numeric'}),
+    cur
+  };
+}
+
+function simulateGoalTopup(goal, extraMonthly) {
+  const remaining = Math.max(0, (goal.targetAmount || 0) - (goal.savedSoFar || 0));
+  const origMonths = monthsUntil(goal.deadline);
+  const currentPerMonth = origMonths > 0 ? remaining / origMonths : remaining;
+  const newPerMonth = currentPerMonth + extraMonthly;
+  const newMonths = newPerMonth > 0 ? Math.ceil(remaining / newPerMonth) : origMonths;
+  return {
+    origMonths, newMonths,
+    monthsSaved: Math.max(0, origMonths - newMonths),
+    currentPerMonth, newPerMonth,
+    remaining, cur: goal.currency || 'USD'
+  };
+}
+
+function simulateSIPGrowth(currentValue, monthlyAdd, annualRatePct, years) {
+  const r = annualRatePct / 100 / 12;
+  const n = years * 12;
+  const fvLump = currentValue * Math.pow(1 + r, n);
+  const fvSIP = monthlyAdd > 0
+    ? (r > 0 ? monthlyAdd * ((Math.pow(1 + r, n) - 1) / r) : monthlyAdd * n)
+    : 0;
+  return fvLump + fvSIP;
+}
+
+let whatIfResult = null;
+
+function renderWhatIfSheet() {
+  const type = S.whatIfType;
+  const titles = {loan:'💳 Loan Prepayment', goal:'🎯 Goal Top-up', sip:'📈 SIP / Investment Growth'};
+  let itemOptions = '';
+  if (type === 'loan') {
+    const loans = (S.portfolio.loans || []).filter(l => !l.closed);
+    if (!loans.length) return `<div style="padding:24px 16px;text-align:center;color:var(--muted-fg)">No active loans found</div>`;
+    itemOptions = loans.map(l => `<option value="${l.id}"${S.whatIfItemId===l.id?' selected':''}>${esc(l.name)}</option>`).join('');
+  } else if (type === 'goal') {
+    const goals = S.goals || [];
+    if (!goals.length) return `<div style="padding:24px 16px;text-align:center;color:var(--muted-fg)">No goals found</div>`;
+    itemOptions = goals.map(g => `<option value="${g.id}"${S.whatIfItemId===g.id?' selected':''}>${esc(g.name)}</option>`).join('');
+  } else {
+    const invs = (S.portfolio.investments || []);
+    if (!invs.length) return `<div style="padding:24px 16px;text-align:center;color:var(--muted-fg)">No investments found</div>`;
+    itemOptions = invs.map(i => `<option value="${i.id}"${S.whatIfItemId===i.id?' selected':''}>${esc(i.name)}</option>`).join('');
+  }
+
+  const inputLabel = type === 'sip' ? 'Expected CAGR (% per year)' : 'Extra monthly payment';
+  const inputPlaceholder = type === 'sip' ? 'e.g. 12' : 'e.g. 5000';
+  const inputType = 'number';
+
+  let resultsHtml = '';
+  if (whatIfResult) {
+    const r = whatIfResult;
+    if (type === 'loan' && r.monthsSaved !== undefined) {
+      const saved = r.monthsSaved;
+      resultsHtml = `<div style="margin:16px;background:var(--bg-card);border-radius:12px;overflow:hidden;border:1px solid var(--border)">
+        <div style="padding:10px 14px;background:var(--accent);color:#fff;font-size:12px;font-weight:700">Result</div>
+        <div class="p-row" style="padding:10px 14px"><div class="p-row-meta"><div class="p-row-name" style="font-size:12px">Payoff date (current)</div></div><div class="p-row-right" style="font-size:12px">${r.origPayoff}</div></div>
+        <div class="p-row" style="padding:10px 14px"><div class="p-row-meta"><div class="p-row-name" style="font-size:12px">Payoff date (with extra)</div></div><div class="p-row-right" style="font-size:12px;color:var(--income);font-weight:700">${r.newPayoff}</div></div>
+        <div class="p-row" style="padding:10px 14px"><div class="p-row-meta"><div class="p-row-name" style="font-size:12px">Months saved</div></div><div class="p-row-right" style="font-size:14px;color:var(--income);font-weight:700">${saved} month${saved!==1?'s':''}</div></div>
+        <div class="p-row" style="padding:10px 14px"><div class="p-row-meta"><div class="p-row-name" style="font-size:12px">Interest saved</div></div><div class="p-row-right" style="font-size:14px;color:var(--income);font-weight:700">${formatMoney(r.interestSaved, r.cur)}</div></div>
+      </div>`;
+    } else if (type === 'goal' && r.monthsSaved !== undefined) {
+      resultsHtml = `<div style="margin:16px;background:var(--bg-card);border-radius:12px;overflow:hidden;border:1px solid var(--border)">
+        <div style="padding:10px 14px;background:var(--accent);color:#fff;font-size:12px;font-weight:700">Result</div>
+        <div class="p-row" style="padding:10px 14px"><div class="p-row-meta"><div class="p-row-name" style="font-size:12px">Current monthly savings needed</div></div><div class="p-row-right" style="font-size:12px">${formatMoney(r.currentPerMonth, r.cur)}</div></div>
+        <div class="p-row" style="padding:10px 14px"><div class="p-row-meta"><div class="p-row-name" style="font-size:12px">New monthly savings needed</div></div><div class="p-row-right" style="font-size:12px;color:var(--income);font-weight:700">${formatMoney(r.newPerMonth, r.cur)}</div></div>
+        <div class="p-row" style="padding:10px 14px"><div class="p-row-meta"><div class="p-row-name" style="font-size:12px">Months saved</div></div><div class="p-row-right" style="font-size:14px;color:var(--income);font-weight:700">${r.monthsSaved} month${r.monthsSaved!==1?'s':''} earlier</div></div>
+      </div>`;
+    } else if (type === 'sip' && r.rows) {
+      const rowsHtml = r.rows.map(row => `<div class="p-row" style="padding:10px 14px">
+        <div class="p-row-meta"><div class="p-row-name" style="font-size:12px">${row.years} year${row.years!==1?'s':''}</div></div>
+        <div style="text-align:right"><div style="font-size:13px;font-weight:700;color:var(--income)">${formatMoney(row.value, r.cur)}</div><div style="font-size:10px;color:var(--muted-fg)">gain: ${formatMoney(row.value - row.invested, r.cur)}</div></div>
+      </div>`).join('');
+      resultsHtml = `<div style="margin:16px;background:var(--bg-card);border-radius:12px;overflow:hidden;border:1px solid var(--border)">
+        <div style="padding:10px 14px;background:var(--accent);color:#fff;font-size:12px;font-weight:700">Projected Value at ${r.cagr}% CAGR</div>
+        ${rowsHtml}
+      </div>`;
+    }
+  }
+
+  return `<div style="padding:16px 16px 0">
+    <div style="font-size:15px;font-weight:700;margin-bottom:14px">${titles[type]||''}</div>
+    <form data-action="calc-whatif">
+      <div class="form-row"><label class="form-label">${type==='loan'?'Loan':type==='goal'?'Goal':'Investment'}</label>
+        <div class="select-wrap"><select class="input" name="itemId">${itemOptions}</select></div>
+      </div>
+      <div class="form-row"><label class="form-label">${inputLabel}</label>
+        <input class="input" type="${inputType}" name="value" inputmode="decimal" placeholder="${inputPlaceholder}" min="0" step="0.01" required>
+      </div>
+      <div class="add-form-btns" style="padding:0 0 12px"><button type="submit" class="btn btn-accent" style="flex:1">Calculate</button></div>
+    </form>
+  </div>${resultsHtml}`;
+}
+
+function renderWhatIf() {
+  return `<div class="card">
+    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#f59e0b"></span><span class="sec-title">What-If Simulator</span></div><div class="sec-sub">Explore financial decisions before committing</div></div></div>
+    <div style="padding:8px 16px 14px;display:flex;flex-direction:column;gap:8px">
+      <button class="btn btn-outline" data-action="open-whatif" data-type="loan" style="text-align:left">💳 Loan Prepayment — see months &amp; interest saved</button>
+      <button class="btn btn-outline" data-action="open-whatif" data-type="goal" style="text-align:left">🎯 Goal Top-up — reach your goal earlier</button>
+      <button class="btn btn-outline" data-action="open-whatif" data-type="sip" style="text-align:left">📈 SIP / Investment Growth — project at any CAGR</button>
+    </div>
+  </div>`;
 }
 
 function computeProjections() {
@@ -2937,6 +3092,35 @@ function handleSubmit(e) {
   if (!action) return; e.preventDefault();
   const d = formData(form);
 
+  if (action==='calc-whatif') {
+    const itemId = d.itemId, val = parseFloat(d.value);
+    if (!itemId || isNaN(val) || val < 0) return;
+    S.whatIfItemId = itemId;
+    const type = S.whatIfType;
+    if (type === 'loan') {
+      const loan = (S.portfolio.loans || []).find(l => l.id === itemId);
+      whatIfResult = loan ? simulateLoanPrepayment(loan, val) : null;
+    } else if (type === 'goal') {
+      const goal = (S.goals || []).find(g => g.id === itemId);
+      whatIfResult = goal ? simulateGoalTopup(goal, val) : null;
+    } else if (type === 'sip') {
+      const inv = (S.portfolio.investments || []).find(i => i.id === itemId);
+      if (inv) {
+        const cur = inv.currency || S.txCurrency;
+        const cv = inv.currentValue || 0;
+        const sipItems = S.recurring.items.filter(r => r.portfolioTag === 'investment' && r.name === inv.name);
+        const monthlyAdd = sipItems.reduce((s, r) => s + (r.amount || 0), 0);
+        const rows = [1,3,5,10].map(years => ({
+          years,
+          value: simulateSIPGrowth(cv, monthlyAdd, val, years),
+          invested: cv + monthlyAdd * years * 12
+        }));
+        whatIfResult = {rows, cur, cagr: val};
+      }
+    }
+    document.getElementById('bottom-sheet-content').innerHTML = renderWhatIfSheet();
+    return;
+  }
   if (action==='save-budgets') {
     const budgets = { overall: {} };
     for (const [k,v] of Object.entries(d)) {
@@ -3203,7 +3387,7 @@ function handleClick(e) {
     else { if(!S.addEntryType && !localStorage.getItem('mmc.apiKey')) S.addEntryType='tx-expense'; bsc.innerHTML=renderQuickAdd(); }
     bs.style.display=''; return;
   }
-  if (action==='close-fab-backdrop') { if (btn.id==='bottom-sheet') { S.addEntryType=null; S.editingId=null; btn.style.display='none'; } return; }
+  if (action==='close-fab-backdrop') { if (btn.id==='bottom-sheet') { S.addEntryType=null; S.editingId=null; S.whatIfType=null; whatIfResult=null; btn.style.display='none'; } return; }
   if (action==='toggle-recurring-add') { S.recurringAddType = S.recurringAddType ? null : 'recurring-income'; renderRecurring(); return; }
   if (action==='set-recurring-add-type') { S.recurringAddType=btn.dataset.type; const bs=document.getElementById('bottom-sheet'); if(bs.style.display!=='none'){document.getElementById('bottom-sheet-content').innerHTML=renderRecurringQuickAdd();}else{renderRecurring();} return; }
   if (action==='cancel-recurring-add') { S.recurringAddType=null; document.getElementById('bottom-sheet').style.display='none'; renderRecurring(); return; }
@@ -3444,6 +3628,12 @@ function handleClick(e) {
   if (action==='copy-sync-code') { copySyncCode(); return; }
   if (action==='paste-sync-code') { pasteSyncCode(); return; }
   if (action==='close-sync-modal') { document.getElementById('sync-modal')?.remove(); return; }
+  if (action==='open-whatif') {
+    S.whatIfType = btn.dataset.type; S.whatIfItemId = null; whatIfResult = null;
+    const bs = document.getElementById('bottom-sheet');
+    document.getElementById('bottom-sheet-content').innerHTML = renderWhatIfSheet();
+    bs.style.display = ''; return;
+  }
   if (action==='get-insights') { getInsights(); return; }
   if (action==='get-smart-alerts') { getSmartAlerts(); return; }
   if (action==='get-ai-projections') { getAIProjections(); return; }
