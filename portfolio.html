@@ -2772,8 +2772,7 @@ function renderSavings() {
     const recDep = S.recurring.items.find(r => r.linkedSavingsId === item.id && !r.closed);
     const recDepTotal = recDep ? getRecurringPaidTotal(recDep) : 0;
     const recDepMonths = recDep ? Object.values(recDep.months||{}).filter(m=>m.paid).length : 0;
-    const recDepExpanded = recDep && S.expandedSavingsRec === item.id;
-    const recDepStrip = recDepExpanded ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
+    const recDepStrip = recDep ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:11px;color:var(--muted-fg)"><span class="cur-pill purple" style="margin-right:4px">Monthly</span>${formatMoney(recDep.amount||0,getCur(recDep))}/mo · ${recDepMonths} month${recDepMonths!==1?'s':''} paid</span>
       <span style="font-size:11px;font-weight:600;color:var(--income)">${formatMoney(recDepTotal,getCur(recDep))} total</span>
     </div>` : '';
@@ -2785,7 +2784,7 @@ function renderSavings() {
           <button class="sb-del" data-action="del-saving" data-id="${item.id}" title="Delete">${svgTrash}</button>
         </div>
         <div class="swipe-front">
-          <div class="p-row" data-action="${recDep?'toggle-savings-rec':'toggle-saving'}" data-id="${item.id}" style="cursor:pointer">
+          <div class="p-row" data-action="toggle-saving" data-id="${item.id}" style="cursor:pointer">
             <div class="p-row-icon sav">${svgBank.replace('stroke="currentColor"','stroke="#0284c7"')}</div>
             <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span>${recDep?'<span class="cur-pill purple">Monthly</span>':''}</div><div class="p-row-sub">${item.institution?'Institution: '+esc(item.institution):''}${item.interestRate?' · '+item.interestRate+'% p.a.':''}${recDep?' · '+formatMoney(recDepTotal,getCur(recDep))+' deposited':''}</div></div>
             <div class="p-row-right">
@@ -2858,9 +2857,8 @@ function renderInvestmentsCard() {
     const sipLinked = !!sip;
     const sipTotal = sip ? getRecurringPaidTotal(sip) : 0;
     const sipPaidMonths = sip ? Object.values(sip.months||{}).filter(m=>m.paid).length : 0;
-    const sipExpanded = sip && S.expandedInvestmentSIP === item.id;
     const effectiveInvested = (item.amountInvested || 0) + sipTotal;
-    const sipStrip = sipExpanded ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
+    const sipStrip = sip ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:11px;color:var(--muted-fg)"><span class="cur-pill purple" style="margin-right:4px">SIP</span>${formatMoney(sip.amount||0,getCur(sip))}/mo · ${sipPaidMonths} month${sipPaidMonths!==1?'s':''} paid</span>
       <span style="font-size:11px;font-weight:600;color:var(--income)">${formatMoney(sipTotal,getCur(sip))} total</span>
     </div>` : '';
@@ -2871,7 +2869,7 @@ function renderInvestmentsCard() {
         <button class="sb-edit" data-action="edit-investment" data-id="${item.id}" title="Edit">${svgEdit}</button>
         <button class="sb-del" data-action="del-investment" data-id="${item.id}" title="Delete">${svgTrash}</button>
       </div>
-      <div class="swipe-front"${sip?` data-action="toggle-investment-sip" data-id="${item.id}"`:''}>
+      <div class="swipe-front">
         <div class="p-row">
           <div class="p-row-icon inv">${svgChart.replace('stroke="currentColor"','stroke="#9333ea"')}</div>
           <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span>${sip?'<span class="cur-pill purple">SIP</span>':''}</div><div class="p-row-sub">${subText}</div></div>
@@ -3022,8 +3020,7 @@ function renderInsuranceCard() {
     const insRec = S.recurring.items.find(r => r.linkedInsuranceId === item.id && !r.closed);
     const insRecTotal = insRec ? getRecurringPaidTotal(insRec) : 0;
     const insRecMonths = insRec ? Object.values(insRec.months||{}).filter(m=>m.paid).length : 0;
-    const insRecExpanded = insRec && S.expandedInsuranceRec === item.id;
-    const insRecStrip = insRecExpanded ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
+    const insRecStrip = insRec ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:11px;color:var(--muted-fg)"><span class="cur-pill purple" style="margin-right:4px">Recurring</span>${formatMoney(insRec.amount||0,getCur(insRec))}/mo · ${insRecMonths} month${insRecMonths!==1?'s':''} paid</span>
       <span style="font-size:11px;font-weight:600;color:var(--income)">${formatMoney(insRecTotal,getCur(insRec))} total</span>
     </div>` : '';
@@ -3033,7 +3030,7 @@ function renderInsuranceCard() {
         <button class="sb-edit" data-action="edit-insurance" data-id="${item.id}" title="Edit">${svgEdit}</button>
         <button class="sb-del" data-action="del-insurance" data-id="${item.id}" title="Delete">${svgTrash}</button>
       </div>
-      <div class="swipe-front"${insRec?` data-action="toggle-insurance-rec" data-id="${item.id}"`:''}>
+      <div class="swipe-front">
         <div class="p-row">
           <div class="p-row-icon" style="background:#eff6ff;color:#3b82f6">${svgShield.replace('stroke="currentColor"','stroke="#3b82f6"')}</div>
           <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span>${insRec?'<span class="cur-pill purple">Recurring</span>':''}</div><div class="p-row-sub" style="max-width:none">${sub}</div></div>
