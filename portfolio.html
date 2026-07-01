@@ -3177,7 +3177,8 @@ function renderLoans() {
   const totals = {};
   const mon = S.selectedMonth;
   for (const l of items) { if (l.closed) continue; const c=getCur(l); totals[c]=(totals[c]||0)+computeOutstandingAsOf(l,mon); }
-  const rows = items.map(loan => {
+  const visible = items.filter(l => !l.closed || mon <= (l.closedMonth || (l.closedDate||'').slice(0,7) || mon));
+  const rows = visible.map(loan => {
     const c = getCur(loan);
     if (S.editingId===loan.id && S.editSection==='loan') return `<div class="add-form">${loanForm(loan)}</div>`;
     const emi = computeEmi(loan.principal,loan.interestRate,loan.tenureYears);
@@ -3277,8 +3278,10 @@ function loanForm(loan) {
 function renderGoldLoans() {
   const items = S.portfolio.goldLoans;
   const totals = {};
+  const mon = S.selectedMonth;
   for (const g of items) { if (g.closed) continue; const c=getCur(g); totals[c]=(totals[c]||0)+g.principal+computeGoldLoanInterest(g); }
-  const sorted = [...items].sort((a,b) => (a.closed?1:0) - (b.closed?1:0));
+  const visible = items.filter(l => !l.closed || mon <= (l.closedMonth || (l.closedDate||'').slice(0,7) || mon));
+  const sorted = [...visible].sort((a,b) => (a.closed?1:0) - (b.closed?1:0));
   const rows = sorted.map(loan => {
     const c = getCur(loan);
     if (S.editingId===loan.id && S.editSection==='goldLoan') return `<div class="add-form">${goldLoanForm(loan)}</div>`;
@@ -3962,14 +3965,14 @@ function handleClick(e) {
   }
   if (action==='close-loan') {
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.id); if (!loan) return;
-    loan.closed = true; loan.closedDate = new Date().toISOString();
+    loan.closed = true; loan.closedDate = new Date().toISOString(); loan.closedMonth = S.selectedMonth;
     const _lri = (S.recurring?.items||[]).find(i=>i.id===loan.linkedRecurringId); if (_lri) closeLinkedRec(_lri, loan.closedDate);
     const loanRec = S.recurring.items.find(r=>r.linkedLoanRecId===loan.id); if (loanRec) closeLinkedRec(loanRec, loan.closedDate);
     save(); renderPortfolio(); renderRecurring(); toast(loan.name + ' closed'); return;
   }
   if (action==='reopen-loan') {
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.id); if (!loan) return;
-    loan.closed = false; delete loan.closedDate;
+    loan.closed = false; delete loan.closedDate; delete loan.closedMonth;
     const _lri2 = (S.recurring?.items||[]).find(i=>i.id===loan.linkedRecurringId); if (_lri2 && (_lri2.closed||_lri2.endMonth)) reopenLinkedRec(_lri2);
     const loanRec2 = S.recurring.items.find(r=>r.linkedLoanRecId===loan.id&&(r.closed||r.endMonth)); if (loanRec2) reopenLinkedRec(loanRec2);
     save(); renderPortfolio(); renderRecurring(); toast(loan.name + ' reopened'); return;
@@ -4017,14 +4020,14 @@ function handleClick(e) {
   if (action==='edit-gold') { S.editingId=btn.dataset.id; S.editSection='goldLoan'; renderPortfolio(); return; }
   if (action==='close-gold') {
     const loan = S.portfolio.goldLoans.find(l=>l.id===btn.dataset.id); if (!loan) return;
-    loan.closed = true; loan.closedDate = new Date().toISOString();
+    loan.closed = true; loan.closedDate = new Date().toISOString(); loan.closedMonth = S.selectedMonth;
     const _gri = (S.recurring?.items||[]).find(i=>i.id===loan.linkedRecurringId); if (_gri) closeLinkedRec(_gri, loan.closedDate);
     const goldRec = S.recurring.items.find(r=>r.linkedGoldLoanRecId===loan.id); if (goldRec) closeLinkedRec(goldRec, loan.closedDate);
     save(); renderPortfolio(); renderRecurring(); toast(loan.name + ' closed'); return;
   }
   if (action==='reopen-gold') {
     const loan = S.portfolio.goldLoans.find(l=>l.id===btn.dataset.id); if (!loan) return;
-    loan.closed = false; delete loan.closedDate;
+    loan.closed = false; delete loan.closedDate; delete loan.closedMonth;
     const _gri2 = (S.recurring?.items||[]).find(i=>i.id===loan.linkedRecurringId); if (_gri2 && (_gri2.closed||_gri2.endMonth)) reopenLinkedRec(_gri2);
     const goldRec2 = S.recurring.items.find(r=>r.linkedGoldLoanRecId===loan.id&&(r.closed||r.endMonth)); if (goldRec2) reopenLinkedRec(goldRec2);
     save(); renderPortfolio(); renderRecurring(); toast(loan.name + ' reopened'); return;
