@@ -3672,7 +3672,7 @@ function handleSubmit(e) {
     if (!loan) return;
     if (!loan.partPayments) loan.partPayments = [];
     const txId = uid();
-    S.transactions.unshift({id:txId, type:'expense', amount, category:'Loans', note:(loan.name||'Loan')+' – Part Payment', date:d.date||todayISO(), currency:getCur(loan)});
+    S.transactions.unshift({id:txId, type:'expense', amount, category:'Loans', note:(loan.name||'Loan')+' – Part Payment', date:d.date||todayISO(), currency:loan.currency||S.txCurrency});
     loan.partPayments.unshift({id:uid(), date:d.date||todayISO(), amount, note:d.note||undefined, txId});
     S.showingPPForm=null; save(); renderPortfolio(); renderDashboard(); toast('Part payment recorded'); return;
   }
@@ -3682,7 +3682,7 @@ function handleSubmit(e) {
     if (!loan) return;
     if (!loan.payments) loan.payments = [];
     const txId = uid();
-    S.transactions.unshift({id:txId, type:'expense', amount, category:'Loans', note:(loan.name||'Gold Loan')+' – Payment', date:d.date||todayISO(), currency:getCur(loan)});
+    S.transactions.unshift({id:txId, type:'expense', amount, category:'Loans', note:(loan.name||'Gold Loan')+' – Payment', date:d.date||todayISO(), currency:loan.currency||S.txCurrency});
     loan.payments.unshift({id:uid(), date:d.date||todayISO(), amount, note:d.note||undefined, txId});
     loan.principal = Math.max(0, loan.principal - amount);
     S.showingGoldPayForm=null; save(); renderPortfolio(); renderDashboard(); toast('Payment recorded'); return;
