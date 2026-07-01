@@ -658,8 +658,10 @@ function computeOutstandingAsOf(loan, mon) {
   return bal;
 }
 function closeLinkedRec(item, closedDate) {
-  if (item.months?.[thisMonth()]?.paid) { item.endMonth = thisMonth(); }
-  else { item.closed = true; item.closedDate = closedDate; }
+  const mon = S.selectedMonth;
+  if (item.months?.[mon]?.paid) { item.endMonth = mon; }
+  else { item.endMonth = shiftMonth(mon, -1); }
+  item.closedDate = closedDate;
 }
 function reopenLinkedRec(item) {
   item.closed = false; delete item.closedDate; delete item.endMonth;
