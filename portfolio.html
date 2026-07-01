@@ -2294,7 +2294,7 @@ function renderHeroCards() {
     // Top 3 expense categories for this currency this month
     const catTotals = {};
     for (const t of S.transactions) {
-      if (!t.date || localTxMonth(t.date) !== mon || t.type !== 'expense' || getCur(t) !== cur) continue;
+      if (!t.date || localTxMonth(t.date) !== mon || t.type !== 'expense' || getCur(t) !== cur || recurTxIds.has(t.id)) continue;
       const cat = t.category || 'Other';
       catTotals[cat] = (catTotals[cat] || 0) + t.amount;
     }
