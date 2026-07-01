@@ -2253,16 +2253,6 @@ function renderHeroCards() {
     const c = getCur(t);
     prevBal[c] = (prevBal[c]||0) + (t.type==='income' ? t.amount : -t.amount);
   }
-  for (const loan of S.portfolio.loans) {
-    for (const p of (loan.partPayments||[])) { if (p.date && localTxMonth(p.date)===prevMon && !p.txId) { const c=getCur(loan); prevBal[c]=(prevBal[c]||0)-p.amount; } }
-  }
-  for (const loan of S.portfolio.goldLoans) {
-    for (const p of (loan.payments||[])) { if (p.date && localTxMonth(p.date)===prevMon && !p.txId) { const c=getCur(loan); prevBal[c]=(prevBal[c]||0)-p.amount; } }
-  }
-  for (const item of (S.recurring?.items||[])) {
-    const ms = item.months?.[prevMon];
-    if (ms?.paid && ms.amount>0 && !ms.txId) { const c=item.currency||'USD'; prevBal[c]=(prevBal[c]||0)+(item.type==='income'?ms.amount:-ms.amount); }
-  }
 
   for (const t of S.transactions) {
     if (!t.date || localTxMonth(t.date) !== mon) continue;
