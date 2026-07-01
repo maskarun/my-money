@@ -2780,8 +2780,8 @@ function renderSavings() {
           <button class="sb-edit" data-action="edit-saving" data-id="${item.id}" title="Edit">${svgEdit}</button>
           <button class="sb-del" data-action="del-saving" data-id="${item.id}" title="Delete">${svgTrash}</button>
         </div>
-        <div class="swipe-front"${recDep?` data-action="toggle-savings-rec" data-id="${item.id}"`:''}>
-          <div class="p-row" data-action="toggle-saving" data-id="${item.id}" style="cursor:pointer">
+        <div class="swipe-front">
+          <div class="p-row" data-action="${recDep?'toggle-savings-rec':'toggle-saving'}" data-id="${item.id}" style="cursor:pointer">
             <div class="p-row-icon sav">${svgBank.replace('stroke="currentColor"','stroke="#0284c7"')}</div>
             <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span>${recDep?'<span class="cur-pill purple">Monthly</span>':''}</div><div class="p-row-sub">${item.institution?'Institution: '+esc(item.institution):''}${item.interestRate?' · '+item.interestRate+'% p.a.':''}${recDep?' · '+formatMoney(recDepTotal,getCur(recDep))+' deposited':''}</div></div>
             <div class="p-row-right">
