@@ -2839,8 +2839,10 @@ function renderInvestmentsCard() {
   const rows = items.map(item => {
     const c = getCur(item);
     if (S.editingId===item.id && S.editSection==='investment') return `<div class="add-form">${investmentForm(item)}</div>`;
-    return `<div class="swipe-wrap" style="--swipe-w:-96px">
+    const sipLinked = S.recurring.items.some(r => r.linkedInvestmentId === item.id && !r.closed);
+    return `<div class="swipe-wrap" style="--swipe-w:-144px">
       <div class="swipe-back">
+        <button class="sb-add" data-action="add-sip-from-investment" data-id="${item.id}" title="${sipLinked?'SIP already set up':'Add as monthly SIP'}" style="background:${sipLinked?'var(--muted-fg)':'var(--accent)'}">+</button>
         <button class="sb-edit" data-action="edit-investment" data-id="${item.id}" title="Edit">${svgEdit}</button>
         <button class="sb-del" data-action="del-investment" data-id="${item.id}" title="Delete">${svgTrash}</button>
       </div>
@@ -2872,6 +2874,23 @@ function renderInvestmentsCard() {
       ${hasItems?`<div class="sec-totals"><div class="sec-total-lbl">Total Value</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt grn">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
     </div>
     ${isOpen?allRows:''}</div>`;
+}
+
+function renderInvestmentSIPSheet(inv) {
+  const cur = inv.currency || S.txCurrency;
+  return `<div style="padding:16px 16px 0">
+    <div style="font-size:15px;font-weight:700;margin-bottom:14px">Add Monthly SIP</div>
+    <form data-action="save-sip-from-investment" data-id="${inv.id}">
+      <div class="form-row"><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(cur)}</select></div></div>
+      <div class="form-row"><label class="form-label">Name</label><input class="input" type="text" name="name" value="${esc(inv.name)}" required></div>
+      <div class="form-row"><label class="form-label">Monthly Amount *</label><input class="input" type="number" name="amount" inputmode="decimal" min="0" step="0.01" placeholder="e.g. 5000" required></div>
+      <div class="form-row"><label class="form-label">Due Day (optional)</label><input class="input" type="number" name="dueDay" min="1" max="31" inputmode="numeric" placeholder="e.g. 5"></div>
+      <div class="add-form-btns" style="padding:4px 0 12px">
+        <button type="button" class="btn btn-outline" data-action="cancel-entry">Cancel</button>
+        <button type="submit" class="btn btn-accent">Add SIP</button>
+      </div>
+    </form>
+  </div>`;
 }
 
 function insuranceForm(item) {
@@ -3210,6 +3229,23 @@ function handleSubmit(e) {
   if (!action) return; e.preventDefault();
   const d = formData(form);
 
+  if (action==='save-sip-from-investment') {
+    const inv = S.portfolio.investments.find(i => i.id === form.dataset.id);
+    if (!inv) return;
+    S.recurring.items.push({
+      id: uid(), type: 'expense',
+      name: (d.name||'').trim() || inv.name,
+      amount: parseFloat(d.amount) || 0,
+      currency: d.currency || S.txCurrency,
+      dueDay: d.dueDay ? parseInt(d.dueDay) : null,
+      isVariable: false, category: 'Investment',
+      portfolioTag: 'investment', linkedInvestmentId: inv.id,
+      months: {}, createdAt: todayISO()
+    });
+    if (d.currency) { S.txCurrency = d.currency; localStorage.setItem('mmc.lastCurrency.v1', d.currency); }
+    document.getElementById('bottom-sheet').style.display = 'none';
+    save(); renderPortfolio(); renderRecurring(); toast('SIP added to Recurring'); return;
+  }
   if (action==='calc-whatif') {
     const itemId = d.itemId, val = parseFloat(d.value);
     if (!itemId || isNaN(val) || val < 0) return;
@@ -3646,6 +3682,14 @@ function handleClick(e) {
   }
   if (action==='toggle-add-investment') { S.addingInvestment=!S.addingInvestment; S.editingId=null; renderPortfolio(); return; }
   if (action==='cancel-investment') { S.addingInvestment=false; S.portfolioAddType=null; S.editingId=null; S.editSection=null; document.getElementById('bottom-sheet').style.display='none'; renderPortfolio(); return; }
+  if (action==='add-sip-from-investment') {
+    const inv = S.portfolio.investments.find(i => i.id === btn.dataset.id);
+    if (!inv) return;
+    if (S.recurring.items.some(r => r.linkedInvestmentId === inv.id && !r.closed)) { toast('SIP already set up for this investment'); return; }
+    const bs = document.getElementById('bottom-sheet');
+    document.getElementById('bottom-sheet-content').innerHTML = renderInvestmentSIPSheet(inv);
+    bs.style.display = ''; return;
+  }
   if (action==='edit-investment') { S.editingId=btn.dataset.id; S.editSection='investment'; S.addingInvestment=false; renderPortfolio(); return; }
   if (action==='del-investment') {
     if (!confirm('Delete this investment?')) return;
