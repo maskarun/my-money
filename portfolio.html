@@ -2845,9 +2845,6 @@ function renderInvestmentsCard() {
     const sipPaidMonths = sip ? Object.values(sip.months||{}).filter(m=>m.paid).length : 0;
     const sipExpanded = sip && S.expandedInvestmentSIP === item.id;
     const effectiveInvested = (item.amountInvested || 0) + sipTotal;
-    const investedLabel = sipTotal > 0
-      ? `${formatMoney(effectiveInvested,c)} invested (${formatMoney(item.amountInvested||0,c)} + ${formatMoney(sipTotal,getCur(sip))} SIP)`
-      : `${formatMoney(item.amountInvested||0,c)} invested`;
     const sipStrip = sipExpanded ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:11px;color:var(--muted-fg)"><span class="cur-pill purple" style="margin-right:4px">SIP</span>${formatMoney(sip.amount||0,getCur(sip))}/mo · ${sipPaidMonths} month${sipPaidMonths!==1?'s':''} paid</span>
       <span style="font-size:11px;font-weight:600;color:var(--income)">${formatMoney(sipTotal,getCur(sip))} total</span>
@@ -2864,7 +2861,7 @@ function renderInvestmentsCard() {
           <div class="p-row-icon inv">${svgChart.replace('stroke="currentColor"','stroke="#9333ea"')}</div>
           <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span>${sip?'<span class="cur-pill purple">SIP</span>':''}</div><div class="p-row-sub">${subText}</div></div>
           <div class="p-row-right">
-            <div><div class="p-row-amt-lbl">Current · Invested</div><div class="p-row-amt grn">${formatMoney(item.currentValue,c)}</div><div class="p-row-sub">${investedLabel}</div></div>
+            <div><div class="p-row-amt-lbl">Invested · Current</div><div class="p-row-amt grn">${formatMoney(effectiveInvested,c)}</div><div class="p-row-sub">${formatMoney(item.currentValue,c)} current</div></div>
           </div>
         </div>${sipStrip}
       </div>
@@ -3051,7 +3048,7 @@ function investmentForm(item) {
   <form data-action="${isEdit?'update-investment':'add-investment'}" data-id="${isEdit?item.id:''}">
     <div class="form-row"><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(isEdit?getCur(item):'USD')}</select></div></div>
     <div class="form-row"><label class="form-label">Name *</label><input class="input" type="text" name="name" value="${isEdit?esc(item.name):''}" placeholder="e.g. Nifty 50 Index Fund" required></div>
-    <div class="form-row"><label class="form-label">Type</label><div class="select-wrap"><select class="input" name="type">${['SIP','Mutual Fund','Fixed Deposit','Bonds','Stock','Other'].map(t=>`<option value="${t}"${isEdit&&item.type===t?' selected':''}>${t}</option>`).join('')}</select></div></div>
+    <div class="form-row"><label class="form-label">Type</label><div class="select-wrap"><select class="input" name="type">${['Mutual Fund','Fixed Deposit','Bonds','Stock','Other'].map(t=>`<option value="${t}"${isEdit&&item.type===t?' selected':''}>${t}</option>`).join('')}</select></div></div>
     <div class="form-row-2">
       <div><label class="form-label">Amount Invested *</label><input class="input" type="number" name="amountInvested" value="${isEdit?item.amountInvested:''}" inputmode="decimal" min="0" step="0.01" required></div>
       <div><label class="form-label">Current Value *</label><input class="input" type="number" name="currentValue" value="${isEdit?item.currentValue:''}" inputmode="decimal" min="0" step="0.01" required></div>
