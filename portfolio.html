@@ -366,6 +366,14 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 .cat-amt { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .cat-pct { font-size: 10px; color: var(--muted-fg); margin-left: 3px; }
 .bar-bg { height: 5px; background: var(--muted); border-radius: 3px; overflow: hidden; }
+.cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; padding:0 12px 12px; }
+.cal-day-hdr { text-align:center; font-size:10px; font-weight:600; color:var(--muted-fg); padding:6px 0 4px; }
+.cal-day { border-radius:8px; padding:5px 2px 4px; min-height:46px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:2px; transition:background .1s; }
+.cal-day:active { opacity:.7; }
+.cal-day-num { font-size:12px; font-weight:500; line-height:1; }
+.cal-dots { display:flex; gap:2px; flex-wrap:wrap; justify-content:center; align-items:center; }
+.cal-dot { width:5px; height:5px; border-radius:50%; flex-shrink:0; }
+.cal-dot-more { font-size:8px; color:var(--muted-fg); line-height:1; }
 .bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #0284c7, #38bdf8); }
 .bar-fill.inc { background: linear-gradient(90deg, var(--income), #34d399); }
 .cat-amt.grn { color: var(--income); }
@@ -507,7 +515,7 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 <input id="file-input" type="file" accept="application/json,.json" style="display:none">
 
 <script>
-const EXPENSE_CATS = ['Food','Transport','Housing','Bills','Shopping','Health','Entertainment','Other'];
+const EXPENSE_CATS = ['Food','Transport','Housing','Bills','Shopping','Health','Entertainment','Savings','Insurance','Investment','Loans','Other'];
 const INCOME_CATS  = ['Salary','Freelance','Investment','Gift','Other'];
 const CURRENCIES   = ['USD','INR'];
 
@@ -521,16 +529,18 @@ const S = {
   addEntryType: null, portfolioAddType: null, recurringAddType: null, activityCurFilter: null, activityCatFilter: null,
   reportRange: 'ytd', reportFrom: null, reportTo: null,
   editingId: null, editSection: null, expandedLoan: null, expandedGoldLoan: null, expandedSaving: null, showingPPForm: null, showingGoldPayForm: null, selectedMonth: null, parsedEntry: null, smartAddLoading: false,
-  secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, investments: true, insurance: true, projections: true, netWorth: false, aiInsights: true, smartAlerts: true, trendChart: true, categoryDonut: true, reports: true, anomalies: true, goals: true },
+  secOpen: { recIncome: true, bills: true, cards: true, tx: true, catBreak: false, savings: true, loans: true, goldLoans: true, investments: true, insurance: true, projections: true, netWorth: false, aiInsights: true, smartAlerts: true, trendChart: true, categoryDonut: true, reports: true, anomalies: true, goals: true, financialCalendar: true },
   addingGoal: false,
   updatingGoalId: null,
-  editingRecurringId: null,
+  editingRecurringId: null, editingCardId: null, expandedInvestmentSIP: null, expandedSavingsRec: null, expandedInsuranceRec: null, expandedLoanRec: null, expandedGoldLoanRec: null,
+  whatIfType: null, whatIfItemId: null,
+  calendarSelectedDay: null,
   monthPickerOpen: false,
   sectionOrder: {
-    dashboard: ['heroCards','anomalies','budgetAlerts','trendChart','netWorth','categoryDonut','reports','activity'],
+    dashboard: ['heroCards','anomalies','pendingBills','financialCalendar','budgetAlerts','trendChart','netWorth','categoryDonut','reports','activity'],
     portfolio: ['summary','savings','loans','goldLoans','investments','insurance'],
     recurring: ['recSummary','recIncome','bills','cards'],
-    insights: ['goals','projections','aiInsights']
+    insights: ['goals','projections','whatIf','aiInsights']
   },
 };
 
@@ -569,7 +579,7 @@ function load() {
     const ord = localStorage.getItem('mmc.sectionOrder.v1');
     if (ord) {
       const saved = JSON.parse(ord);
-      const defaults = { dashboard: ['heroCards','anomalies','budgetAlerts','trendChart','netWorth','categoryDonut','reports','activity'], portfolio: ['summary','savings','loans','goldLoans','investments','insurance'], recurring: ['recSummary','recIncome','bills','cards'], insights: ['goals','projections','aiInsights'] };
+      const defaults = { dashboard: ['heroCards','anomalies','pendingBills','financialCalendar','budgetAlerts','trendChart','netWorth','categoryDonut','reports','activity'], portfolio: ['summary','savings','loans','goldLoans','investments','insurance'], recurring: ['recSummary','recIncome','bills','cards'], insights: ['goals','projections','whatIf','aiInsights'] };
       for (const tab of Object.keys(defaults)) {
         const s = saved[tab] || [];
         const missing = defaults[tab].filter(k => !s.includes(k));
@@ -624,6 +634,39 @@ function computeOutstanding(loan) {
     }
   }
   return bal;
+}
+function computeOutstandingAsOf(loan, mon) {
+  const {principal, startDate, tenureYears, interestRate} = loan;
+  if (!startDate || !principal) return principal || 0;
+  const n = tenureYears * 12;
+  const [sy, sm] = startDate.split('-').map(Number);
+  const [ey, em] = mon.split('-').map(Number);
+  const elapsed = Math.min(Math.max(0, (ey - sy) * 12 + (em - sm)), n);
+  const emi = computeEmi(principal, interestRate, tenureYears), r = interestRate / 100 / 12;
+  const payments = (loan.partPayments || []).slice().sort((a, b) => a.date < b.date ? -1 : 1);
+  const start = new Date(startDate);
+  let bal = principal;
+  for (let i = 1; i <= elapsed; i++) {
+    const mDate = new Date(start); mDate.setMonth(mDate.getMonth() + i);
+    const interest = bal * r, princ = Math.min(emi - interest, bal);
+    bal = Math.max(0, bal - princ);
+    const mStr = mDate.toISOString().slice(0, 7);
+    for (const p of payments) {
+      if ((p.date || '').slice(0, 7) === mStr) bal = Math.max(0, bal - p.amount);
+    }
+  }
+  return bal;
+}
+function closeLinkedRec(item, closedDate) {
+  if (item.months?.[thisMonth()]?.paid) { item.endMonth = thisMonth(); }
+  else { item.closed = true; item.closedDate = closedDate; }
+}
+function reopenLinkedRec(item) {
+  item.closed = false; delete item.closedDate; delete item.endMonth;
+}
+function getRecurringPaidTotalAsOf(item, mon) {
+  const ms = item.months || {};
+  return Object.entries(ms).filter(([m, v]) => m <= mon && v.paid).reduce((s, [m, v]) => s + (v.amount || item.amount || 0), 0);
 }
 function computeScheduleToDate(loan) {
   const {principal,startDate,tenureYears,interestRate} = loan;
@@ -1256,12 +1299,13 @@ function renderQuickAdd() {
   const editTx = S.editingId ? S.transactions.find(t=>t.id===S.editingId) : null;
   const isEdit = !!editTx;
   const p = S.parsedEntry;
+  const defaultDate = S.selectedMonth === thisMonth() ? todayISO() : S.selectedMonth + '-01';
   let entryForm = '';
   if (S.addEntryType==='tx-expense'||S.addEntryType==='tx-income') {
     const cats = S.addEntryType==='tx-income' ? INCOME_CATS : EXPENSE_CATS;
     const eCur = isEdit ? getCur(editTx) : (p?.currency || S.txCurrency);
     const eAmt = isEdit ? editTx.amount : (p?.amount || '');
-    const eDate = isEdit ? editTx.date.slice(0,10) : (p?.date || todayISO());
+    const eDate = isEdit ? editTx.date.slice(0,10) : (p?.date || defaultDate);
     const eCat = isEdit ? (editTx.category||'Other') : (p?.category || '');
     const eNote = isEdit ? (editTx.note||'') : (p?.note || '');
     if (p) S.parsedEntry = null;
@@ -1282,7 +1326,7 @@ function renderQuickAdd() {
     const eFAmt = isEdit ? editTx.fromAmount : '';
     const eTCur = isEdit ? editTx.toCurrency : otherCur(S.txCurrency);
     const eTAmt = isEdit ? editTx.toAmount : '';
-    const eDate = isEdit ? editTx.date.slice(0,10) : todayISO();
+    const eDate = isEdit ? editTx.date.slice(0,10) : defaultDate;
     const eNote = isEdit ? (editTx.note||'') : '';
     entryForm = `<form data-action="${isEdit?'update-transfer':'add-transfer'}" data-id="${isEdit?editTx.id:''}">
       <div class="form-row-2">
@@ -1377,7 +1421,9 @@ function renderRecurringQuickAdd() {
         <div><label class="form-label">Type</label><div class="select-wrap"><select class="input" name="isVariable"><option value="0">Fixed</option><option value="1">Variable</option></select></div></div>
         <div><label class="form-label">Due day</label><input class="input" type="number" name="dayOfMonth" min="1" max="31" placeholder="1"></div>
       </div>
-      <div class="form-row"><label class="form-label">Portfolio Tag</label><div class="select-wrap"><select class="input" name="portfolioTag"><option value="">None</option><option value="investment">Investment (SIP, MF)</option><option value="savings">Savings (PPF, RD)</option></select></div></div>
+      <div class="form-row-2">
+        <div><label class="form-label">Category</label><div class="select-wrap"><select class="input" name="category">${catOptions('expense','Bills')}</select></div></div>
+      </div>
       <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-recurring-add">Cancel</button><button type="submit" class="btn btn-accent">Add</button></div>
     </form>`;
   } else if (S.recurringAddType==='card') {
@@ -1396,29 +1442,187 @@ function renderRecurringQuickAdd() {
 }
 
 function getDueBadge(dueDay, isPaid, mon) {
-  if (!dueDay || isPaid || mon !== thisMonth()) return '';
+  if (!dueDay || isPaid) return '';
+  const cur = thisMonth();
+  if (mon < cur) return '<span class="rec-badge overdue">Overdue</span>';
+  if (mon > cur) return '';
   const today = new Date().getDate();
   if (dueDay === today) return '<span class="rec-badge due-today">Due Today</span>';
   if (dueDay < today) return '<span class="rec-badge overdue">Overdue</span>';
-  if (dueDay > today && dueDay <= today + 3) return '<span class="rec-badge due-soon">Due Soon</span>';
+  if (dueDay <= today + 3) return '<span class="rec-badge due-soon">Due Soon</span>';
   return '';
+}
+
+function getCalendarEvents(mon) {
+  const events = new Map();
+  const add = (day, ev) => {
+    if (!day || day < 1 || day > 31) return;
+    if (!events.has(day)) events.set(day, []);
+    events.get(day).push(ev);
+  };
+  const inRange = i => (!i.startMonth || mon >= i.startMonth) && (!i.endMonth || mon <= i.endMonth);
+
+  for (const item of S.recurring.items) {
+    if (item.closed || !inRange(item)) continue;
+    const paid = item.months?.[mon]?.paid;
+    const amt = item.months?.[mon]?.amount ?? item.amount;
+    const cur = item.currency || S.txCurrency;
+    if (item.type === 'income') {
+      add(item.dayOfMonth, {type:'income', name:item.name, amount:amt, cur, paid, color:'var(--income)'});
+    } else {
+      add(item.dueDay, {type:'bill', name:item.name, amount:item.isVariable?(item.months?.[mon]?.amount||0):amt, cur, paid, color: paid ? 'var(--muted-fg)' : 'var(--expense)'});
+    }
+  }
+  for (const card of S.recurring.creditCards) {
+    if (card.closed || !inRange(card)) continue;
+    const paid = card.months?.[mon]?.paid;
+    const cur = card.currency || S.txCurrency;
+    add(card.dueDay, {type:'card', name:card.name, amount:card.months?.[mon]?.amount||0, cur, paid, color: paid ? 'var(--muted-fg)' : '#f59e0b'});
+  }
+  for (const loan of S.portfolio.loans || []) {
+    if (loan.closed || !loan.startDate) continue;
+    const emiDay = new Date(loan.startDate+'T00:00:00').getDate();
+    const cur = loan.currency || S.txCurrency;
+    add(emiDay, {type:'emi', name:loan.name+' EMI', amount:computeEmi(loan.principal,loan.interestRate,loan.tenureYears), cur, color:'#3b82f6'});
+  }
+  for (const tx of S.transactions) {
+    if (!tx.date || localTxMonth(tx.date) !== mon) continue;
+    const day = new Date(tx.date).getDate();
+    const isInc = tx.type === 'income';
+    add(day, {type:'tx', name:tx.note||tx.category||tx.type, amount:tx.amount, cur:tx.currency||S.txCurrency, color: isInc ? 'var(--income)' : 'var(--expense)'});
+  }
+  return events;
+}
+
+function renderFinancialCalendar() {
+  const mon = S.selectedMonth;
+  const [year, month] = mon.split('-').map(Number);
+  const firstDay = new Date(year, month-1, 1).getDay();
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const isCurrentMonth = mon === thisMonth();
+  const todayDay = isCurrentMonth ? new Date().getDate() : -1;
+  const sel = S.calendarSelectedDay;
+  const events = getCalendarEvents(mon);
+
+  const dayHdrs = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+    .map(d => `<div class="cal-day-hdr">${d}</div>`).join('');
+
+  const cells = [];
+  for (let i = 0; i < firstDay; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const cellsHtml = cells.map(d => {
+    if (!d) return `<div class="cal-day" style="cursor:default"></div>`;
+    const evs = events.get(d) || [];
+    const isToday = d === todayDay;
+    const isSel = d === sel;
+    const bgStyle = isToday ? 'background:var(--accent)' : isSel ? 'background:var(--muted)' : '';
+    const numStyle = isToday ? 'color:#fff;font-weight:700' : '';
+    const dotColors = evs.map(e => e.color);
+    const visibleDots = dotColors.slice(0,3).map(c => `<span class="cal-dot" style="background:${c}"></span>`).join('');
+    const moreHtml = evs.length > 3 ? `<span class="cal-dot-more">+${evs.length-3}</span>` : '';
+    return `<div class="cal-day" data-action="select-calendar-day" data-day="${d}" style="${bgStyle}">
+      <span class="cal-day-num" style="${numStyle}">${d}</span>
+      <div class="cal-dots">${visibleDots}${moreHtml}</div>
+    </div>`;
+  }).join('');
+
+  let detailHtml = '';
+  if (sel && sel >= 1 && sel <= daysInMonth) {
+    const evs = events.get(sel) || [];
+    const selDate = new Date(year, month-1, sel).toLocaleDateString('en-US',{month:'long',day:'numeric'});
+    const typeLabel = {income:'Income',bill:'Bill',card:'Credit Card',emi:'Loan EMI',tx:'Transaction'};
+    const rows = evs.length
+      ? evs.map(e => {
+          const status = e.paid ? '<span class="rec-badge" style="background:#d1fae5;color:#065f46">Paid</span>'
+            : e.type==='tx' ? '' : '<span class="rec-badge" style="background:#fee2e2;color:#991b1b">Unpaid</span>';
+          const amtStr = e.amount ? formatMoney(e.amount, e.cur) : '';
+          return `<div class="p-row" style="padding:8px 14px">
+            <div class="p-row-meta">
+              <div class="p-row-name" style="font-size:13px">${esc(e.name)}</div>
+              <div class="p-row-sub">${typeLabel[e.type]||e.type}${status?' · '+status:''}</div>
+            </div>
+            ${amtStr ? `<div class="p-row-right" style="color:${e.color};font-weight:600">${amtStr}</div>` : ''}
+          </div>`;
+        }).join('')
+      : `<div style="padding:14px;color:var(--muted-fg);font-size:12px;text-align:center">No events</div>`;
+    detailHtml = `<div style="margin:0 12px 12px;border-radius:10px;overflow:hidden;border:1px solid var(--border)">
+      <div style="padding:8px 14px;background:var(--accent);color:#fff;font-size:12px;font-weight:700">${selDate}</div>
+      ${rows}
+    </div>`;
+  }
+
+  const isOpen = S.secOpen.financialCalendar !== false;
+  return `<div class="card">
+    <div class="sec-hdr" data-action="toggle-section" data-sec="financialCalendar" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
+      <div><div class="sec-title-row"><span class="sec-dot" style="background:#6366f1"></span><span class="sec-title">Financial Calendar</span></div><div class="sec-sub">${fmtMonth(mon)} · ${events.size} day${events.size!==1?'s':''} with events</div></div>
+    </div>
+    ${isOpen ? `<div class="cal-grid">${dayHdrs}${cellsHtml}</div>${detailHtml}` : ''}
+  </div>`;
+}
+
+function renderPendingBills() {
+  const mon = thisMonth();
+  const pendingBills = S.recurring.items.filter(i =>
+    i.type === 'expense' && !i.closed &&
+    (!i.startMonth || mon >= i.startMonth) && (!i.endMonth || mon <= i.endMonth) &&
+    !i.months?.[mon]?.paid
+  );
+  const pendingCards = S.recurring.creditCards.filter(c =>
+    !c.closed &&
+    (!c.startMonth || mon >= c.startMonth) && (!c.endMonth || mon <= c.endMonth) &&
+    !c.months?.[mon]?.paid
+  );
+  if (!pendingBills.length && !pendingCards.length) return '';
+
+  const billRows = pendingBills.map(item => {
+    const cur = item.currency || S.txCurrency;
+    const badge = getDueBadge(item.dueDay, false, mon);
+    const amtStr = item.isVariable
+      ? '<span style="color:var(--muted-fg);font-size:11px">variable</span>'
+      : `<span style="color:var(--expense);font-weight:600">${formatMoney(item.amount, cur)}</span>`;
+    return `<div class="p-row" style="padding:8px 16px">
+      <div class="p-row-meta"><div class="p-row-name" style="font-size:13px">${esc(item.name)}${badge ? ' ' + badge : ''}</div></div>
+      <div class="p-row-right">${amtStr}</div>
+    </div>`;
+  }).join('');
+
+  const cardRows = pendingCards.map(card => {
+    const cur = card.currency || S.txCurrency;
+    const badge = getDueBadge(card.dueDay, false, mon);
+    const amt = card.months?.[mon]?.amount;
+    const amtStr = amt != null
+      ? `<span style="color:var(--expense);font-weight:600">${formatMoney(amt, cur)}</span>`
+      : '<span style="color:var(--muted-fg);font-size:11px">not set</span>';
+    return `<div class="p-row" style="padding:8px 16px">
+      <div class="p-row-meta"><div class="p-row-name" style="font-size:13px">${esc(card.name)}${badge ? ' ' + badge : ''}</div></div>
+      <div class="p-row-right">${amtStr}</div>
+    </div>`;
+  }).join('');
+
+  return `<div class="card">
+    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#f59e0b"></span><span class="sec-title">Pending This Month</span></div><div class="sec-sub">${pendingBills.length + pendingCards.length} unpaid item${pendingBills.length + pendingCards.length !== 1 ? 's' : ''}</div></div></div>
+    ${pendingBills.length ? `<div style="font-size:10px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.5px;padding:4px 16px 0">Bills</div>${billRows}` : ''}
+    ${pendingCards.length ? `<div style="font-size:10px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.5px;padding:4px 16px 0">Credit Cards</div>${cardRows}` : ''}
+  </div>`;
 }
 
 function renderRecurringSummary() {
   const mon = S.selectedMonth;
   const byCur = {};
-  const ensure = (cur) => { if (!byCur[cur]) byCur[cur] = {expectedIncome:0, expectedBills:0, expectedCC:0, totalCount:0, paidCount:0}; };
+  const ensure = (cur) => { if (!byCur[cur]) byCur[cur] = {expectedIncome:0, expectedBills:0, expectedCC:0, incomeCount:0, incomePaid:0, billsCount:0, billsPaid:0}; };
 
   // Income items
   for (const item of S.recurring.items) {
     if (item.type !== 'income' || item.closed) continue;
     if (item.startMonth && mon < item.startMonth) continue;
     if (item.endMonth && mon > item.endMonth) continue;
-    const cur = item.currency || 'USD';
+    const cur = item.currency || S.txCurrency;
     ensure(cur);
     byCur[cur].expectedIncome += (item.months?.[mon]?.amount ?? item.amount) || 0;
-    byCur[cur].totalCount++;
-    if (item.months?.[mon]?.paid) byCur[cur].paidCount++;
+    byCur[cur].incomeCount++;
+    if (item.months?.[mon]?.paid) byCur[cur].incomePaid++;
   }
 
   // Bill items
@@ -1426,7 +1630,7 @@ function renderRecurringSummary() {
     if (item.type !== 'expense' || item.closed) continue;
     if (item.startMonth && mon < item.startMonth) continue;
     if (item.endMonth && mon > item.endMonth) continue;
-    const cur = item.currency || 'USD';
+    const cur = item.currency || S.txCurrency;
     ensure(cur);
     if (item.isVariable) {
       let sum = 0, cnt = 0;
@@ -1439,8 +1643,8 @@ function renderRecurringSummary() {
     } else {
       byCur[cur].expectedBills += (item.months?.[mon]?.amount ?? item.amount) || 0;
     }
-    byCur[cur].totalCount++;
-    if (item.months?.[mon]?.paid) byCur[cur].paidCount++;
+    byCur[cur].billsCount++;
+    if (item.months?.[mon]?.paid) byCur[cur].billsPaid++;
   }
 
   // Credit cards
@@ -1448,35 +1652,44 @@ function renderRecurringSummary() {
     if (card.closed) continue;
     if (card.startMonth && mon < card.startMonth) continue;
     if (card.endMonth && mon > card.endMonth) continue;
-    const cur = card.currency || 'INR';
+    const cur = card.currency || S.txCurrency;
     ensure(cur);
     byCur[cur].expectedCC += card.months?.[mon]?.amount || 0;
-    byCur[cur].totalCount++;
-    if (card.months?.[mon]?.paid) byCur[cur].paidCount++;
+    byCur[cur].billsCount++;
+    if (card.months?.[mon]?.paid) byCur[cur].billsPaid++;
   }
 
   const curs = Object.keys(byCur);
   if (!curs.length) return '';
 
-  let totalPaid = 0, totalAll = 0;
-  for (const d of Object.values(byCur)) { totalPaid += d.paidCount; totalAll += d.totalCount; }
+  let totalIncomePaid = 0, totalIncomeAll = 0, totalBillsPaid = 0, totalBillsAll = 0;
+  for (const d of Object.values(byCur)) {
+    totalIncomePaid += d.incomePaid; totalIncomeAll += d.incomeCount;
+    totalBillsPaid += d.billsPaid; totalBillsAll += d.billsCount;
+  }
 
   const rows = curs.map(cur => {
     const d = byCur[cur];
     const expectedBills = d.expectedBills + d.expectedCC;
-    const pct = d.totalCount ? Math.round(d.paidCount / d.totalCount * 100) : 0;
+    const incPct = d.incomeCount ? Math.round(d.incomePaid / d.incomeCount * 100) : 0;
+    const billPct = d.billsCount ? Math.round(d.billsPaid / d.billsCount * 100) : 0;
     return `<div style="padding:4px 16px 10px">
       ${curs.length > 1 ? `<div style="font-size:10px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">${cur}</div>` : ''}
-      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
         <span style="color:var(--income);font-weight:700">Income ${formatMoney(d.expectedIncome,cur)}</span>
-        <span style="color:var(--expense);font-weight:700">Bills ${formatMoney(expectedBills,cur)}</span>
+        <span style="color:var(--muted-fg);font-size:10px">${d.incomePaid}/${d.incomeCount} done</span>
       </div>
-      <div class="bar-bg" style="height:6px;border-radius:3px"><div class="bar-fill" style="width:${pct}%;border-radius:3px"></div></div>
+      <div class="bar-bg" style="height:5px;border-radius:3px;margin-bottom:8px"><div class="bar-fill inc" style="width:${incPct}%;border-radius:3px"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+        <span style="color:var(--expense);font-weight:700">Bills ${formatMoney(expectedBills,cur)}</span>
+        <span style="color:var(--muted-fg);font-size:10px">${d.billsPaid}/${d.billsCount} done</span>
+      </div>
+      <div class="bar-bg" style="height:5px;border-radius:3px"><div class="bar-fill" style="width:${billPct}%;border-radius:3px"></div></div>
     </div>`;
   }).join('');
 
   return `<div class="card">
-    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">Monthly Overview</span></div><div class="sec-sub">${fmtMonth(mon)} · ${totalPaid} of ${totalAll} done</div></div></div>
+    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">Monthly Overview</span></div><div class="sec-sub">${fmtMonth(mon)} · Income ${totalIncomePaid}/${totalIncomeAll} · Bills ${totalBillsPaid}/${totalBillsAll}</div></div></div>
     ${rows}
   </div>`;
 }
@@ -1487,7 +1700,7 @@ function renderRecurringIncome() {
     .sort((a,b)=>{
       const ap = a.months?.[mon]?.paid ? 1 : 0, bp = b.months?.[mon]?.paid ? 1 : 0;
       if (ap !== bp) return ap - bp;
-      return (a.currency||'USD').localeCompare(b.currency||'USD') || (a.dayOfMonth||1)-(b.dayOfMonth||1);
+      return (a.currency||'USD').localeCompare(b.currency||'USD') || ((a.dayOfMonth??a.dueDay)||1)-((b.dayOfMonth??b.dueDay)||1);
     });
 
   const paidCount = incomeItems.filter(i=>i.months?.[mon]?.paid).length;
@@ -1496,10 +1709,10 @@ function renderRecurringIncome() {
 
   const incomeRows = incomeItems.map(item => {
     const ms = item.months||{}, paid = ms[mon]?.paid;
-    const c = item.currency||'USD';
+    const c = item.currency||S.txCurrency;
     const effAmt = ms[mon]?.amount ?? item.amount;
     const isOverride = ms[mon]?.amount !== undefined && ms[mon]?.amount !== item.amount;
-    const badge = getDueBadge(item.dayOfMonth, paid, mon);
+    const badge = getDueBadge(item.dayOfMonth ?? item.dueDay, paid, mon);
     if (S.editingRecurringId === item.id) {
       return `<div class="p-row" style="flex-direction:column;align-items:stretch">
         <form data-action="save-recurring-edit" data-id="${item.id}" style="display:flex;flex-direction:column;gap:8px;padding:4px 0">
@@ -1510,7 +1723,6 @@ function renderRecurringIncome() {
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
             <select class="input" name="category" style="width:auto">${INCOME_CATS.map(c=>`<option${c===(item.category||'Salary')?' selected':''}>${c}</option>`).join('')}</select>
-            <label style="font-size:11px;display:flex;align-items:center;gap:4px;color:var(--muted-fg)"><input type="checkbox" name="thisMonthOnly"${isOverride?' checked':''}>This month only</label>
             <div style="margin-left:auto;display:flex;gap:4px">
               <button type="submit" class="btn btn-accent" style="font-size:11px;padding:4px 10px">Save</button>
               <button type="button" class="btn" data-action="cancel-recurring-edit" style="font-size:11px;padding:4px 10px">Cancel</button>
@@ -1530,7 +1742,7 @@ function renderRecurringIncome() {
         <div class="p-row-icon sav">${svgArrowUp.replace('stroke="currentColor"','stroke="#059669"')}</div>
         <div class="p-row-meta">
           <div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span>${isOverride?'<span class="cur-pill" style="background:#dbeafe;color:#1d4ed8">This month</span>':''}</div>
-          <div class="p-row-sub">${item.category||'Salary'}${item.dayOfMonth?' · '+ordinal(item.dayOfMonth)+' of month':''}${badge?' '+badge:''}</div>
+          <div class="p-row-sub">${item.category||'Salary'}${(item.dayOfMonth??item.dueDay)?' · '+ordinal(item.dayOfMonth??item.dueDay)+' of month':''}${badge?' '+badge:''}</div>
         </div>
         <div class="p-row-right">
           <div class="p-row-btns">
@@ -1543,9 +1755,12 @@ function renderRecurringIncome() {
     </div>`;
   }).join('');
 
+  const incTotByCur = {};
+  for (const item of incomeItems) { const c=item.currency||S.txCurrency; incTotByCur[c]=(incTotByCur[c]||0)+(item.months?.[mon]?.amount??item.amount??0); }
+  const incTotalStr = Object.entries(incTotByCur).map(([c,v])=>formatMoney(v,c)).join(' · ');
   const isOpen = S.secOpen.recIncome;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="recIncome" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
-      <div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Recurring Income</span></div><div class="sec-sub">${monthLabel} · ${paidCount} of ${totalCount} confirmed</div></div>
+      <div><div class="sec-title-row"><span class="sec-dot green"></span><span class="sec-title">Recurring Income</span></div><div class="sec-sub">${monthLabel} · ${paidCount} of ${totalCount} confirmed${incTotalStr?' · '+incTotalStr:''}</div></div>
     </div>`;
 
   if (!isOpen) return `<div class="card">${hdr}</div>`;
@@ -1559,7 +1774,7 @@ function renderBills() {
     .sort((a,b)=>{
       const ap = a.months?.[mon]?.paid ? 1 : 0, bp = b.months?.[mon]?.paid ? 1 : 0;
       if (ap !== bp) return ap - bp;
-      return (a.currency||'USD').localeCompare(b.currency||'USD') || (a.dayOfMonth||1)-(b.dayOfMonth||1);
+      return (a.currency||'USD').localeCompare(b.currency||'USD') || ((a.dayOfMonth??a.dueDay)||1)-((b.dayOfMonth??b.dueDay)||1);
     });
 
   const paidCount = billItems.filter(i=>i.months?.[mon]?.paid).length;
@@ -1568,10 +1783,10 @@ function renderBills() {
 
   const billRows = billItems.map(item => {
     const ms = item.months||{}, paid = ms[mon]?.paid, amountSaved = ms[mon]?.amountSaved;
-    const c = item.currency||'USD';
+    const c = item.currency||S.txCurrency;
     const lastAmt = ms[mon]?.amount ?? item.amount ?? 0;
-    const isOverride = ms[mon]?.amount !== undefined && ms[mon]?.amount !== item.amount;
-    const badge = getDueBadge(item.dayOfMonth, paid, mon);
+    const isOverride = !item.isVariable && ms[mon]?.amount !== undefined && ms[mon]?.amount !== item.amount;
+    const badge = getDueBadge(item.dayOfMonth ?? item.dueDay, paid, mon);
     if (S.editingRecurringId === item.id) {
       return `<div class="p-row" style="flex-direction:column;align-items:stretch">
         <form data-action="save-recurring-edit" data-id="${item.id}" style="display:flex;flex-direction:column;gap:8px;padding:4px 0">
@@ -1581,7 +1796,7 @@ function renderBills() {
             <input class="input" type="number" name="dayOfMonth" value="${item.dayOfMonth||''}" placeholder="Day" min="1" max="31" style="width:60px">
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            ${!item.isVariable?`<label style="font-size:11px;display:flex;align-items:center;gap:4px;color:var(--muted-fg)"><input type="checkbox" name="thisMonthOnly"${isOverride?' checked':''}>This month only</label>`:''}
+            <div class="select-wrap" style="width:130px"><select class="input" name="category" style="font-size:11px">${catOptions('expense',item.category||'Bills')}</select></div>
             <div style="margin-left:auto;display:flex;gap:4px">
               <button type="submit" class="btn btn-accent" style="font-size:11px;padding:4px 10px">Save</button>
               <button type="button" class="btn" data-action="cancel-recurring-edit" style="font-size:11px;padding:4px 10px">Cancel</button>
@@ -1590,11 +1805,10 @@ function renderBills() {
         </form>
       </div>`;
     }
-    return `<div class="swipe-wrap" style="--swipe-w:-${paid?192:144}px${(item.isVariable?(amountSaved&&!paid):(!paid&&!item.isVariable))?';--swipe-wl:72px':''}">
+    return `<div class="swipe-wrap" style="--swipe-w:-${(paid||(item.isVariable&&amountSaved))?144:96}px${(item.isVariable?(amountSaved&&!paid):(!paid&&!item.isVariable))?';--swipe-wl:72px':''}">
       <div class="swipe-back">
         ${paid?`<button class="sb-undo" data-action="unmark-recurring-item" data-id="${item.id}" title="Undo">${svgUndo}</button>`:item.isVariable&&amountSaved?`<button class="sb-undo" data-action="undo-variable-bill-amount" data-id="${item.id}" title="Undo">${svgUndo}</button>`:``}
         <button class="sb-edit" data-action="edit-recurring-item" data-id="${item.id}" title="Edit">${svgEdit}</button>
-        <button class="sb-tag" data-action="cycle-portfolio-tag" data-id="${item.id}" title="Tag">${svgTag}</button>
         <button class="sb-del" data-action="del-recurring-item" data-id="${item.id}" title="Delete">${svgTrash}</button>
       </div>
       ${item.isVariable
@@ -1603,8 +1817,8 @@ function renderBills() {
       <div class="swipe-front"><div class="p-row"${paid?' style="opacity:.55"':''}>
         <div class="p-row-icon loan">${svgArrowDown.replace('stroke="currentColor"','stroke="#e11d48"')}</div>
         <div class="p-row-meta">
-          <div class="p-row-name">${esc(item.name)}<span class="cur-pill red">${c}</span>${isOverride?'<span class="cur-pill" style="background:#dbeafe;color:#1d4ed8">This month</span>':''}${item.portfolioTag==='investment'?'<span class="cur-pill purple">Investment</span>':item.portfolioTag==='savings'?'<span class="cur-pill green">Savings</span>':''}</div>
-          <div class="p-row-sub">${item.isVariable?'Variable':'Fixed · '+formatMoney(item.amount,c)}${item.dayOfMonth?' · Due '+ordinal(item.dayOfMonth):''}${badge?' '+badge:''}</div>
+          <div class="p-row-name">${esc(item.name)}<span class="cur-pill red">${c}</span>${isOverride?'<span class="cur-pill" style="background:#dbeafe;color:#1d4ed8">This month</span>':''}</div>
+          <div class="p-row-sub">${item.isVariable?'Variable':'Fixed · '+formatMoney(item.amount,c)}${(item.dayOfMonth??item.dueDay)?' · Due '+ordinal(item.dayOfMonth??item.dueDay):''}${badge?' '+badge:''}</div>
         </div>
         <div class="p-row-right">
           <div class="p-row-btns">
@@ -1624,9 +1838,12 @@ function renderBills() {
     </div>`;
   }).join('');
 
+  const billTotByCur = {};
+  for (const item of billItems) { const c=item.currency||S.txCurrency; billTotByCur[c]=(billTotByCur[c]||0)+(item.months?.[mon]?.amount??item.amount??0); }
+  const billTotalStr = Object.entries(billTotByCur).map(([c,v])=>formatMoney(v,c)).join(' · ');
   const isOpen = S.secOpen.bills;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="bills" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
-      <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Bills</span></div><div class="sec-sub">${monthLabel} · ${paidCount} of ${totalCount} paid</div></div>
+      <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Bills</span></div><div class="sec-sub">${monthLabel} · ${paidCount} of ${totalCount} paid${billTotalStr?' · '+billTotalStr:''}</div></div>
     </div>`;
 
   if (!isOpen) return `<div class="card">${hdr}</div>`;
@@ -1649,11 +1866,30 @@ function renderCreditCards() {
 
   const cardRows = cards.map(card => {
     const ms = card.months||{}, paid = ms[mon]?.paid, billAmt = ms[mon]?.amount, amountSaved = ms[mon]?.amountSaved;
-    const c = card.currency||'INR';
+    const prefillAmt = billAmt != null ? billAmt : (ms[shiftMonth(mon,-1)]?.amount ?? '');
+    const c = card.currency||S.txCurrency;
     const badge = getDueBadge(card.dueDay, paid, mon);
-    return `<div class="swipe-wrap" style="--swipe-w:-${paid||amountSaved?96:48}px${amountSaved&&!paid?';--swipe-wl:72px':''}">
+    if (S.editingCardId === card.id) {
+      return `<div class="p-row" style="flex-direction:column;align-items:stretch">
+        <form data-action="save-card-edit" data-id="${card.id}" style="display:flex;flex-direction:column;gap:8px;padding:4px 0">
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <input class="input" type="text" name="name" value="${esc(card.name)}" placeholder="Card name" required style="flex:1;min-width:120px">
+            <input class="input" type="number" name="dueDay" value="${card.dueDay||''}" placeholder="Due day" min="1" max="31" style="width:80px">
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <div class="select-wrap" style="width:110px"><select class="input" name="currency">${curOptions(c)}</select></div>
+            <div style="margin-left:auto;display:flex;gap:4px">
+              <button type="submit" class="btn btn-accent" style="font-size:11px;padding:4px 10px">Save</button>
+              <button type="button" class="btn" data-action="cancel-card-edit" style="font-size:11px;padding:4px 10px">Cancel</button>
+            </div>
+          </div>
+        </form>
+      </div>`;
+    }
+    return `<div class="swipe-wrap" style="--swipe-w:-${paid||amountSaved?144:96}px${amountSaved&&!paid?';--swipe-wl:72px':''}">
       <div class="swipe-back">
         ${paid?`<button class="sb-undo" data-action="unmark-card" data-id="${card.id}" title="Undo">${svgUndo}</button>`:amountSaved?`<button class="sb-undo" data-action="undo-card-amount" data-id="${card.id}" title="Undo">${svgUndo}</button>`:''}
+        <button class="sb-edit" data-action="edit-credit-card" data-id="${card.id}" title="Edit">${svgEdit}</button>
         <button class="sb-del" data-action="del-credit-card" data-id="${card.id}" title="Delete">${svgTrash}</button>
       </div>
       ${amountSaved&&!paid?`<div class="swipe-back-left"><button class="sb-confirm" data-action="pay-card-bill" data-id="${card.id}">✓ Pay</button></div>`:''}
@@ -1670,7 +1906,7 @@ function renderCreditCards() {
               : amountSaved
                 ? `<span class="rec-badge" style="background:#fef3c7;color:#92400e">${formatMoney(billAmt||0,c)}</span>`
                 : `<form data-action="save-card-amount" data-id="${card.id}" style="display:flex;gap:6px;align-items:center">
-                    <input class="input rec-amt-input" type="number" name="amount" inputmode="decimal" placeholder="Bill amt" value="${billAmt!=null?billAmt:''}" min="0" step="0.01">
+                    <input class="input rec-amt-input" type="number" name="amount" inputmode="decimal" placeholder="Bill amt" value="${prefillAmt}" min="0" step="0.01">
                     <button type="submit" class="btn btn-outline rec-btn">Save</button>
                    </form>`}
           </div>
@@ -1679,9 +1915,12 @@ function renderCreditCards() {
     </div>`;
   }).join('');
 
+  const cardTotByCur = {};
+  for (const card of cards) { const c=card.currency||'INR'; cardTotByCur[c]=(cardTotByCur[c]||0)+(card.months?.[mon]?.amount??card.amount??0); }
+  const cardTotalStr = Object.entries(cardTotByCur).map(([c,v])=>formatMoney(v,c)).join(' · ');
   const isOpen = S.secOpen.cards;
   const hdr = `<div class="sec-hdr" data-action="toggle-section" data-sec="cards" style="cursor:pointer${isOpen?'':';padding-bottom:14px'}">
-      <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Credit Cards</span></div><div class="sec-sub">${monthLabel} · ${paidCount} of ${totalCount} paid</div></div>
+      <div><div class="sec-title-row"><span class="sec-dot amber"></span><span class="sec-title">Credit Cards</span></div><div class="sec-sub">${monthLabel} · ${paidCount} of ${totalCount} paid${cardTotalStr?' · '+cardTotalStr:''}</div></div>
     </div>`;
 
   if (!isOpen) return `<div class="card">${hdr}</div>`;
@@ -1716,7 +1955,7 @@ function updateHeaderMonthNav() {
   if (!el) return;
   const label = fmtMonth(S.selectedMonth);
   const isCurrent = S.selectedMonth === thisMonth();
-  const showPicker = ['dashboard','recurring'].includes(S.tab);
+  const showPicker = ['dashboard','recurring','portfolio'].includes(S.tab);
   if (showPicker) {
     el.innerHTML = `<span class="month-label" data-action="toggle-month-picker">${label}</span>${isCurrent ? '' : '<button class="link-btn" data-action="goto-current-month">Today</button>'}`;
     if (S.monthPickerOpen) el.innerHTML += renderMonthPicker();
@@ -1746,13 +1985,13 @@ function switchTab(tab) {
 }
 
 const SECTION_RENDERERS = {
-  heroCards: () => renderHeroCards(), anomalies: () => renderAnomalyAlerts(), budgetAlerts: () => renderBudgetAlerts(),
+  heroCards: () => renderHeroCards(), anomalies: () => renderAnomalyAlerts(), pendingBills: () => renderPendingBills(), financialCalendar: () => renderFinancialCalendar(), budgetAlerts: () => renderBudgetAlerts(),
   trendChart: () => renderTrendChart(), netWorth: () => renderOverviewCards(), projections: () => renderProjections(), categoryDonut: () => renderCategoryDonut(),
   reports: () => renderReports(), activity: () => renderActivity(),
   summary: () => renderPortfolioSummary(), savings: () => renderSavings(), loans: () => renderLoans(),
   goldLoans: () => renderGoldLoans(), investments: () => renderInvestmentsCard(), insurance: () => renderInsuranceCard(),
   recSummary: () => renderRecurringSummary(), recIncome: () => renderRecurringIncome(), bills: () => renderBills(), cards: () => renderCreditCards(),
-  goals: () => renderGoals(), aiInsights: () => buildInsightsCards()
+  goals: () => renderGoals(), whatIf: () => renderWhatIf(), aiInsights: () => buildInsightsCards()
 };
 
 function renderOrderedSections(tabKey) {
@@ -2001,10 +2240,11 @@ function renderHeroCards() {
   const byCur = {};
   const add = (cur, type, amt) => { if (!byCur[cur]) byCur[cur]={income:0,expense:0}; byCur[cur][type]+=amt; };
 
-  // Outstanding balance from all past months (closing balance up to previous month)
+  // Previous month's net (income − expenses for the month directly before selected)
+  const prevMon = shiftMonth(mon, -1);
   const prevBal = {};
   for (const t of S.transactions) {
-    if (!t.date || localTxMonth(t.date) >= mon) continue;
+    if (!t.date || localTxMonth(t.date) !== prevMon) continue;
     if (t.type==='transfer') {
       prevBal[t.fromCurrency] = (prevBal[t.fromCurrency]||0) - t.fromAmount;
       prevBal[t.toCurrency] = (prevBal[t.toCurrency]||0) + t.toAmount;
@@ -2013,40 +2253,11 @@ function renderHeroCards() {
     const c = getCur(t);
     prevBal[c] = (prevBal[c]||0) + (t.type==='income' ? t.amount : -t.amount);
   }
-  for (const loan of S.portfolio.loans) {
-    for (const p of (loan.partPayments || [])) { if (p.date && localTxMonth(p.date) < mon) { const c=getCur(loan); prevBal[c]=(prevBal[c]||0)-p.amount; } }
-  }
-  for (const loan of S.portfolio.goldLoans) {
-    for (const p of (loan.payments || [])) { if (p.date && localTxMonth(p.date) < mon) { const c=getCur(loan); prevBal[c]=(prevBal[c]||0)-p.amount; } }
-  }
-
-  // recurring-linked txIds for this month (avoid double counting with S.transactions)
-  const recurTxIds = new Set();
-  for (const item of (S.recurring?.items||[])) { const ms=item.months?.[mon]; if (ms?.txId) recurTxIds.add(ms.txId); }
-  for (const card of (S.recurring?.creditCards||[])) { const ms=card.months?.[mon]; if (ms?.txId) recurTxIds.add(ms.txId); }
 
   for (const t of S.transactions) {
     if (!t.date || localTxMonth(t.date) !== mon) continue;
-    if (recurTxIds.has(t.id)) continue;
     if (t.type==='transfer') { add(t.fromCurrency,'expense',t.fromAmount); add(t.toCurrency,'income',t.toAmount); continue; }
     add(getCur(t), t.type==='income'?'income':'expense', t.amount);
-  }
-  // confirmed recurring income / paid bills for this month
-  for (const item of (S.recurring?.items||[])) {
-    const ms = item.months?.[mon];
-    if (ms?.paid && ms.amount>0) add(item.currency||'USD', item.type==='income'?'income':'expense', ms.amount);
-  }
-  // paid credit card bills for this month
-  for (const card of (S.recurring?.creditCards||[])) {
-    const ms = card.months?.[mon];
-    if (ms?.paid && ms.amount>0) add(card.currency||'USD', 'expense', ms.amount);
-  }
-  // portfolio activity for this month
-  for (const loan of S.portfolio.loans) {
-    for (const p of (loan.partPayments || [])) { if (p.date && localTxMonth(p.date) === mon) add(getCur(loan), 'expense', p.amount); }
-  }
-  for (const loan of S.portfolio.goldLoans) {
-    for (const p of (loan.payments || [])) { if (p.date && localTxMonth(p.date) === mon) add(getCur(loan), 'expense', p.amount); }
   }
 
   // Ensure currencies with prior balance but no current-month activity show up
@@ -2159,6 +2370,160 @@ function renderCatBreakdown() {
   }
 
   return `<div class="card">${hdr}<div class="cat-wrap">${sections}${transferSection}</div></div>`;
+}
+
+function monthsUntil(isoDate) {
+  if (!isoDate) return 0;
+  const d = new Date(isoDate+'T00:00:00'), now = new Date();
+  return Math.max(0, (d.getFullYear()-now.getFullYear())*12 + d.getMonth()-now.getMonth());
+}
+
+function simulateLoanPrepayment(loan, extraMonthly) {
+  const {principal, startDate, tenureYears, interestRate} = loan;
+  if (!principal || !startDate) return null;
+  const r = (interestRate || 0) / 100 / 12;
+  const emi = computeEmi(principal, interestRate, tenureYears);
+  const outstanding = computeOutstanding(loan);
+  if (outstanding <= 0) return null;
+
+  // Original: months remaining at standard EMI
+  let bal = outstanding, origMonths = 0, origInterest = 0;
+  while (bal > 0 && origMonths < 1200) {
+    const interest = bal * r;
+    const princ = Math.min(emi - interest, bal);
+    origInterest += interest;
+    bal = Math.max(0, bal - princ);
+    origMonths++;
+  }
+
+  // With extra payment
+  bal = outstanding;
+  let newMonths = 0, newInterest = 0;
+  const totalPayment = emi + extraMonthly;
+  while (bal > 0 && newMonths < 1200) {
+    const interest = bal * r;
+    const princ = Math.min(totalPayment - interest, bal);
+    newInterest += interest;
+    bal = Math.max(0, bal - princ);
+    newMonths++;
+  }
+
+  const cur = loan.currency || 'USD';
+  const now = new Date();
+  const origPayoff = new Date(now); origPayoff.setMonth(origPayoff.getMonth() + origMonths);
+  const newPayoff = new Date(now); newPayoff.setMonth(newPayoff.getMonth() + newMonths);
+  return {
+    origMonths, newMonths,
+    monthsSaved: Math.max(0, origMonths - newMonths),
+    interestSaved: Math.max(0, origInterest - newInterest),
+    origPayoff: origPayoff.toLocaleDateString('en-US',{month:'short',year:'numeric'}),
+    newPayoff: newPayoff.toLocaleDateString('en-US',{month:'short',year:'numeric'}),
+    cur
+  };
+}
+
+function simulateGoalTopup(goal, extraMonthly) {
+  const remaining = Math.max(0, (goal.targetAmount || 0) - (goal.savedSoFar || 0));
+  const origMonths = monthsUntil(goal.deadline);
+  const currentPerMonth = origMonths > 0 ? remaining / origMonths : remaining;
+  const newPerMonth = currentPerMonth + extraMonthly;
+  const newMonths = newPerMonth > 0 ? Math.ceil(remaining / newPerMonth) : origMonths;
+  return {
+    origMonths, newMonths,
+    monthsSaved: Math.max(0, origMonths - newMonths),
+    currentPerMonth, newPerMonth,
+    remaining, cur: goal.currency || 'USD'
+  };
+}
+
+function simulateSIPGrowth(currentValue, monthlyAdd, annualRatePct, years) {
+  const r = annualRatePct / 100 / 12;
+  const n = years * 12;
+  const fvLump = currentValue * Math.pow(1 + r, n);
+  const fvSIP = monthlyAdd > 0
+    ? (r > 0 ? monthlyAdd * ((Math.pow(1 + r, n) - 1) / r) : monthlyAdd * n)
+    : 0;
+  return fvLump + fvSIP;
+}
+
+let whatIfResult = null;
+
+function renderWhatIfSheet() {
+  const type = S.whatIfType;
+  const titles = {loan:'💳 Loan Prepayment', goal:'🎯 Goal Top-up', sip:'📈 SIP / Investment Growth'};
+  let itemOptions = '';
+  if (type === 'loan') {
+    const loans = (S.portfolio.loans || []).filter(l => !l.closed);
+    if (!loans.length) return `<div style="padding:24px 16px;text-align:center;color:var(--muted-fg)">No active loans found</div>`;
+    itemOptions = loans.map(l => `<option value="${l.id}"${S.whatIfItemId===l.id?' selected':''}>${esc(l.name)}</option>`).join('');
+  } else if (type === 'goal') {
+    const goals = S.goals || [];
+    if (!goals.length) return `<div style="padding:24px 16px;text-align:center;color:var(--muted-fg)">No goals found</div>`;
+    itemOptions = goals.map(g => `<option value="${g.id}"${S.whatIfItemId===g.id?' selected':''}>${esc(g.name)}</option>`).join('');
+  } else {
+    const invs = (S.portfolio.investments || []);
+    if (!invs.length) return `<div style="padding:24px 16px;text-align:center;color:var(--muted-fg)">No investments found</div>`;
+    itemOptions = invs.map(i => `<option value="${i.id}"${S.whatIfItemId===i.id?' selected':''}>${esc(i.name)}</option>`).join('');
+  }
+
+  const inputLabel = type === 'sip' ? 'Expected CAGR (% per year)' : 'Extra monthly payment';
+  const inputPlaceholder = type === 'sip' ? 'e.g. 12' : 'e.g. 5000';
+  const inputType = 'number';
+
+  let resultsHtml = '';
+  if (whatIfResult) {
+    const r = whatIfResult;
+    if (type === 'loan' && r.monthsSaved !== undefined) {
+      const saved = r.monthsSaved;
+      resultsHtml = `<div style="margin:16px;background:var(--bg-card);border-radius:12px;overflow:hidden;border:1px solid var(--border)">
+        <div style="padding:10px 14px;background:var(--accent);color:#fff;font-size:12px;font-weight:700">Result</div>
+        <div class="p-row" style="padding:10px 14px"><div class="p-row-meta"><div class="p-row-name" style="font-size:12px">Payoff date (current)</div></div><div class="p-row-right" style="font-size:12px">${r.origPayoff}</div></div>
+        <div class="p-row" style="padding:10px 14px"><div class="p-row-meta"><div class="p-row-name" style="font-size:12px">Payoff date (with extra)</div></div><div class="p-row-right" style="font-size:12px;color:var(--income);font-weight:700">${r.newPayoff}</div></div>
+        <div class="p-row" style="padding:10px 14px"><div class="p-row-meta"><div class="p-row-name" style="font-size:12px">Months saved</div></div><div class="p-row-right" style="font-size:14px;color:var(--income);font-weight:700">${saved} month${saved!==1?'s':''}</div></div>
+        <div class="p-row" style="padding:10px 14px"><div class="p-row-meta"><div class="p-row-name" style="font-size:12px">Interest saved</div></div><div class="p-row-right" style="font-size:14px;color:var(--income);font-weight:700">${formatMoney(r.interestSaved, r.cur)}</div></div>
+      </div>`;
+    } else if (type === 'goal' && r.monthsSaved !== undefined) {
+      resultsHtml = `<div style="margin:16px;background:var(--bg-card);border-radius:12px;overflow:hidden;border:1px solid var(--border)">
+        <div style="padding:10px 14px;background:var(--accent);color:#fff;font-size:12px;font-weight:700">Result</div>
+        <div class="p-row" style="padding:10px 14px"><div class="p-row-meta"><div class="p-row-name" style="font-size:12px">Current monthly savings needed</div></div><div class="p-row-right" style="font-size:12px">${formatMoney(r.currentPerMonth, r.cur)}</div></div>
+        <div class="p-row" style="padding:10px 14px"><div class="p-row-meta"><div class="p-row-name" style="font-size:12px">New monthly savings needed</div></div><div class="p-row-right" style="font-size:12px;color:var(--income);font-weight:700">${formatMoney(r.newPerMonth, r.cur)}</div></div>
+        <div class="p-row" style="padding:10px 14px"><div class="p-row-meta"><div class="p-row-name" style="font-size:12px">Months saved</div></div><div class="p-row-right" style="font-size:14px;color:var(--income);font-weight:700">${r.monthsSaved} month${r.monthsSaved!==1?'s':''} earlier</div></div>
+      </div>`;
+    } else if (type === 'sip' && r.rows) {
+      const rowsHtml = r.rows.map(row => `<div class="p-row" style="padding:10px 14px">
+        <div class="p-row-meta"><div class="p-row-name" style="font-size:12px">${row.years} year${row.years!==1?'s':''}</div></div>
+        <div style="text-align:right"><div style="font-size:13px;font-weight:700;color:var(--income)">${formatMoney(row.value, r.cur)}</div><div style="font-size:10px;color:var(--muted-fg)">gain: ${formatMoney(row.value - row.invested, r.cur)}</div></div>
+      </div>`).join('');
+      resultsHtml = `<div style="margin:16px;background:var(--bg-card);border-radius:12px;overflow:hidden;border:1px solid var(--border)">
+        <div style="padding:10px 14px;background:var(--accent);color:#fff;font-size:12px;font-weight:700">Projected Value at ${r.cagr}% CAGR</div>
+        ${rowsHtml}
+      </div>`;
+    }
+  }
+
+  return `<div style="padding:16px 16px 0">
+    <div style="font-size:15px;font-weight:700;margin-bottom:14px">${titles[type]||''}</div>
+    <form data-action="calc-whatif">
+      <div class="form-row"><label class="form-label">${type==='loan'?'Loan':type==='goal'?'Goal':'Investment'}</label>
+        <div class="select-wrap"><select class="input" name="itemId">${itemOptions}</select></div>
+      </div>
+      <div class="form-row"><label class="form-label">${inputLabel}</label>
+        <input class="input" type="${inputType}" name="value" inputmode="decimal" placeholder="${inputPlaceholder}" min="0" step="0.01" required>
+      </div>
+      <div class="add-form-btns" style="padding:0 0 12px"><button type="submit" class="btn btn-accent" style="flex:1">Calculate</button></div>
+    </form>
+  </div>${resultsHtml}`;
+}
+
+function renderWhatIf() {
+  return `<div class="card">
+    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#f59e0b"></span><span class="sec-title">What-If Simulator</span></div><div class="sec-sub">Explore financial decisions before committing</div></div></div>
+    <div style="padding:8px 16px 14px;display:flex;flex-direction:column;gap:8px">
+      <button class="btn btn-outline" data-action="open-whatif" data-type="loan" style="text-align:left">💳 Loan Prepayment — see months &amp; interest saved</button>
+      <button class="btn btn-outline" data-action="open-whatif" data-type="goal" style="text-align:left">🎯 Goal Top-up — reach your goal earlier</button>
+      <button class="btn btn-outline" data-action="open-whatif" data-type="sip" style="text-align:left">📈 SIP / Investment Growth — project at any CAGR</button>
+    </div>
+  </div>`;
 }
 
 function computeProjections() {
@@ -2374,7 +2739,9 @@ function renderPortfolioQuickAdd() {
 }
 
 function renderPortfolio() {
-  document.getElementById('tab-portfolio').innerHTML = renderOrderedSections('portfolio');
+  const mon = S.selectedMonth;
+  const banner = mon !== thisMonth() ? `<div style="text-align:center;padding:6px 16px;font-size:11px;color:var(--muted-fg);background:var(--surface2);border-radius:8px;margin:8px 12px 0">Viewing ${fmtMonth(mon)} — loan balances as of end of month</div>` : '';
+  document.getElementById('tab-portfolio').innerHTML = banner + renderOrderedSections('portfolio');
 }
 
 function getPortfolioCurrencies() {
@@ -2389,9 +2756,10 @@ function renderPortfolioSummary() {
   const hasRecTagged = S.recurring.items.some(i=>i.portfolioTag&&!i.closed);
   if (!S.portfolio.savings.length && !S.portfolio.loans.length && !S.portfolio.goldLoans.length && !hasRecTagged) return '';
   return getPortfolioCurrencies().map(cur => {
+    const mon = S.selectedMonth;
     const sav = S.portfolio.savings.filter(i=>getCur(i)===cur).reduce((a,i)=>a+i.amount,0)
-      + getTaggedRecurring('savings').filter(i=>getCur(i)===cur).reduce((a,i)=>a+getRecurringPaidTotal(i),0);
-    const loans = S.portfolio.loans.filter(i=>getCur(i)===cur&&!i.closed).reduce((a,i)=>a+computeOutstanding(i),0);
+      + getTaggedRecurring('savings').filter(i=>getCur(i)===cur).reduce((a,i)=>a+getRecurringPaidTotalAsOf(i,mon),0);
+    const loans = S.portfolio.loans.filter(i=>getCur(i)===cur&&!i.closed).reduce((a,i)=>a+computeOutstandingAsOf(i,mon),0);
     const gold = S.portfolio.goldLoans.filter(i=>getCur(i)===cur&&!i.closed).reduce((a,i)=>a+i.principal+computeGoldLoanInterest(i),0);
     return `<div class="cards-row">
       <div class="stat-card"><div class="sc-label"><span class="sc-dot" style="background:#10b981;display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:4px;vertical-align:middle"></span>Savings · ${cur}</div><div class="sc-amount income">${formatMoney(sav,cur)}</div></div>
@@ -2404,8 +2772,12 @@ function renderSavings() {
   const items = S.portfolio.savings;
   const recItems = getTaggedRecurring('savings');
   const totals = {};
-  for (const i of items) { const c=getCur(i); totals[c]=(totals[c]||0)+(i.amount||0); }
-  for (const i of recItems) { const c=getCur(i); totals[c]=(totals[c]||0)+getRecurringPaidTotal(i); }
+  for (const i of items) {
+    const c=getCur(i);
+    const linked = S.recurring.items.find(r => r.linkedSavingsId === i.id && !r.closed);
+    totals[c]=(totals[c]||0)+(i.amount||0)+(linked?getRecurringPaidTotalAsOf(linked,S.selectedMonth):0);
+  }
+  for (const i of recItems) { const c=getCur(i); totals[c]=(totals[c]||0)+getRecurringPaidTotalAsOf(i,S.selectedMonth); }
   const rows = items.map(item => {
     const c = getCur(item);
     if (S.editingId===item.id && S.editSection==='saving') return `<div class="add-form">${savingForm(item)}</div>`;
@@ -2415,24 +2787,36 @@ function renderSavings() {
       <div class="pp-hdr-row"><span class="pp-hdr-title">Payments${payments.length?` <span class="pp-count">${payments.length}</span>`:''}</span></div>
       ${payments.length?`<div class="pp-tbl-wrap"><table class="pp-tbl"><thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Note</th><th></th></tr></thead><tbody>${payments.map(p=>`<tr><td>${p.date}</td><td>${p.type==='deposit'?'<span class="ledger-src inc">Deposit</span>':'<span class="ledger-src exp">Withdrawal</span>'}</td><td class="pp-tbl-amt ${p.type==='deposit'?'grn':'red'}">${p.type==='deposit'?'+':'−'}${formatMoney(p.amount,c)}</td><td>${p.note?esc(p.note):''}</td><td><button class="ibtn del" data-action="del-saving-payment" data-saving-id="${item.id}" data-payment-id="${p.id}" title="Delete">${svgTrash}</button></td></tr>`).join('')}</tbody></table></div>`:`<div class="text-sm text-muted" style="padding:4px 0">No payments yet. Use Dashboard → Add Entry → Savings.</div>`}
     </div></div>` : '';
+    const recDep = S.recurring.items.find(r => r.linkedSavingsId === item.id && !r.closed);
+    const recDepTotal = recDep ? getRecurringPaidTotalAsOf(recDep, S.selectedMonth) : 0;
+    const recDepMonths = recDep ? Object.entries(recDep.months||{}).filter(([m,v])=>m<=S.selectedMonth&&v.paid).length : 0;
+    const recDepStrip = (recDep && isExpanded) ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:11px;color:var(--muted-fg)"><span class="cur-pill purple" style="margin-right:4px">Monthly</span>${formatMoney(recDep.amount||0,getCur(recDep))}/mo · ${recDepMonths} month${recDepMonths!==1?'s':''} paid</span>
+      <span style="font-size:11px;font-weight:600;color:var(--income)">${formatMoney(recDepTotal,getCur(recDep))} total</span>
+    </div>` : '';
     return `<div>
-      <div class="swipe-wrap" style="--swipe-w:-96px">
+      <div class="swipe-wrap" style="--swipe-w:-144px">
         <div class="swipe-back">
+          <button class="sb-add" data-action="add-recurring-from-savings" data-id="${item.id}" title="${recDep?'Recurring deposit already set up':'Add recurring deposit'}" style="background:${recDep?'var(--muted-fg)':'var(--accent)'}">+</button>
           <button class="sb-edit" data-action="edit-saving" data-id="${item.id}" title="Edit">${svgEdit}</button>
           <button class="sb-del" data-action="del-saving" data-id="${item.id}" title="Delete">${svgTrash}</button>
         </div>
-        <div class="swipe-front"><div class="p-row" data-action="toggle-saving" data-id="${item.id}" style="cursor:pointer">
-          <div class="p-row-icon sav">${svgBank.replace('stroke="currentColor"','stroke="#0284c7"')}</div>
-          <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span></div><div class="p-row-sub">${item.institution?'Institution: '+esc(item.institution):''}${item.interestRate?' · '+item.interestRate+'% p.a.':''}</div></div>
-          <div class="p-row-right">
-            <div><div class="p-row-amt-lbl">Balance</div><div class="p-row-amt grn">${formatMoney(item.amount,c)}</div></div>
-          </div>
-        </div></div>
+        <div class="swipe-front">
+          <div class="p-row" data-action="toggle-saving" data-id="${item.id}" style="cursor:pointer">
+            <div class="p-row-icon sav">${svgBank.replace('stroke="currentColor"','stroke="#0284c7"')}</div>
+            <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span>${recDep?`<span class="cur-pill purple">Monthly</span>`:''}</div><div class="p-row-sub">${item.institution?'Institution: '+esc(item.institution):''}${item.interestRate?' · '+item.interestRate+'% p.a.':''}${recDep?' · '+formatMoney(recDepTotal,getCur(recDep))+' deposited':''}</div></div>
+            <div class="p-row-right">
+              <div><div class="p-row-amt-lbl">Balance</div><div class="p-row-amt grn">${formatMoney((item.amount||0)+recDepTotal,c)}</div></div>
+            </div>
+          </div>${recDepStrip}
+        </div>
       </div>
       ${payHtml}
     </div>`;
   }).join('');
-  const recRows = recItems.map(item => {
+  const savingsIds = new Set(items.map(i => i.id));
+  const orphanedRec = recItems.filter(r => !r.linkedSavingsId || !savingsIds.has(r.linkedSavingsId));
+  const recRows = orphanedRec.map(item => {
     const c = getCur(item), total = getRecurringPaidTotal(item), paidMonths = Object.values(item.months||{}).filter(m=>m.paid).length;
     return `<div class="p-row">
       <div class="p-row-icon sav">${svgTag.replace('stroke="currentColor"','stroke="#0284c7"')}</div>
@@ -2483,25 +2867,41 @@ function renderInvestmentsCard() {
   const recItems = getTaggedRecurring('investment');
   const totals = {};
   for (const i of items) { const c=getCur(i); totals[c]=(totals[c]||0)+(i.currentValue||0); }
-  for (const i of recItems) { const c=getCur(i); totals[c]=(totals[c]||0)+getRecurringPaidTotal(i); }
+  for (const i of recItems) { const c=getCur(i); totals[c]=(totals[c]||0)+getRecurringPaidTotalAsOf(i,S.selectedMonth); }
   const rows = items.map(item => {
     const c = getCur(item);
     if (S.editingId===item.id && S.editSection==='investment') return `<div class="add-form">${investmentForm(item)}</div>`;
-    return `<div class="swipe-wrap" style="--swipe-w:-96px">
+    const sip = S.recurring.items.find(r => r.linkedInvestmentId === item.id && !r.closed);
+    const sipLinked = !!sip;
+    const sipTotal = sip ? getRecurringPaidTotalAsOf(sip, S.selectedMonth) : 0;
+    const sipPaidMonths = sip ? Object.entries(sip.months||{}).filter(([m,v])=>m<=S.selectedMonth&&v.paid).length : 0;
+    const isExpanded = S.expandedInvestmentSIP === item.id;
+    const effectiveInvested = (item.amountInvested || 0) + sipTotal;
+    const sipStrip = (sip && isExpanded) ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:11px;color:var(--muted-fg)"><span class="cur-pill purple" style="margin-right:4px">SIP</span>${formatMoney(sip.amount||0,getCur(sip))}/mo · ${sipPaidMonths} month${sipPaidMonths!==1?'s':''} paid</span>
+      <span style="font-size:11px;font-weight:600;color:var(--income)">${formatMoney(sipTotal,getCur(sip))} total</span>
+    </div>` : '';
+    const subText = [item.type?esc(item.type):'', item.note?esc(item.note):'', sip?`${formatMoney(sipTotal,getCur(sip))} via SIP`:''].filter(Boolean).join(' · ');
+    return `<div class="swipe-wrap" style="--swipe-w:-144px">
       <div class="swipe-back">
+        <button class="sb-add" data-action="add-sip-from-investment" data-id="${item.id}" title="${sipLinked?'SIP already set up':'Add as monthly SIP'}" style="background:${sipLinked?'var(--muted-fg)':'var(--accent)'}">+</button>
         <button class="sb-edit" data-action="edit-investment" data-id="${item.id}" title="Edit">${svgEdit}</button>
         <button class="sb-del" data-action="del-investment" data-id="${item.id}" title="Delete">${svgTrash}</button>
       </div>
-      <div class="swipe-front"><div class="p-row">
-        <div class="p-row-icon inv">${svgChart.replace('stroke="currentColor"','stroke="#9333ea"')}</div>
-        <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span></div><div class="p-row-sub">${item.type?esc(item.type):''}${item.note?' · '+esc(item.note):''}</div></div>
-        <div class="p-row-right">
-          <div><div class="p-row-amt-lbl">Current · Invested</div><div class="p-row-amt grn">${formatMoney(item.currentValue,c)}</div><div class="p-row-sub">${formatMoney(item.amountInvested,c)} invested</div></div>
-        </div>
-      </div></div>
+      <div class="swipe-front">
+        <div class="p-row" data-action="toggle-investment-sip" data-id="${item.id}" style="cursor:pointer">
+          <div class="p-row-icon inv">${svgChart.replace('stroke="currentColor"','stroke="#9333ea"')}</div>
+          <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span>${sip?`<span class="cur-pill purple">SIP</span>`:''}</div><div class="p-row-sub">${subText}</div></div>
+          <div class="p-row-right">
+            <div><div class="p-row-amt-lbl">Invested · Current</div><div class="p-row-amt grn">${formatMoney(effectiveInvested,c)}</div><div class="p-row-sub">${formatMoney(item.currentValue,c)} current</div></div>
+          </div>
+        </div>${sipStrip}
+      </div>
     </div>`;
   }).join('');
-  const recRows = recItems.map(item => {
+  const linkedIds = new Set(items.map(i => i.id));
+  const orphanedSIPs = recItems.filter(r => !r.linkedInvestmentId || !linkedIds.has(r.linkedInvestmentId));
+  const recRows = orphanedSIPs.map(item => {
     const c = getCur(item), total = getRecurringPaidTotal(item), paidMonths = Object.values(item.months||{}).filter(m=>m.paid).length;
     return `<div class="p-row">
       <div class="p-row-icon inv">${svgTag.replace('stroke="currentColor"','stroke="#9333ea"')}</div>
@@ -2520,6 +2920,89 @@ function renderInvestmentsCard() {
       ${hasItems?`<div class="sec-totals"><div class="sec-total-lbl">Total Value</div>${Object.entries(totals).map(([c,v])=>`<div class="sec-total-amt grn">${formatMoney(v,c)}</div>`).join('')}</div>`:''}
     </div>
     ${isOpen?allRows:''}</div>`;
+}
+
+function renderSavingsRecSheet(saving) {
+  const cur = saving.currency || S.txCurrency;
+  return `<div style="padding:16px 16px 0">
+    <div style="font-size:15px;font-weight:700;margin-bottom:14px">Add Recurring Deposit</div>
+    <form data-action="save-recurring-from-savings" data-id="${saving.id}">
+      <div class="form-row"><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(cur)}</select></div></div>
+      <div class="form-row"><label class="form-label">Name</label><input class="input" type="text" name="name" value="${esc(saving.name)}" required></div>
+      <div class="form-row"><label class="form-label">Monthly Amount *</label><input class="input" type="number" name="amount" inputmode="decimal" min="0" step="0.01" placeholder="e.g. 5000" required></div>
+      <div class="form-row"><label class="form-label">Due Day (optional)</label><input class="input" type="number" name="dueDay" min="1" max="31" inputmode="numeric" placeholder="e.g. 5"></div>
+      <div class="add-form-btns" style="padding:4px 0 12px">
+        <button type="button" class="btn btn-outline" data-action="cancel-entry">Cancel</button>
+        <button type="submit" class="btn btn-accent">Add Deposit</button>
+      </div>
+    </form>
+  </div>`;
+}
+
+function renderLoanRecSheet(loan) {
+  const cur = loan.currency || S.txCurrency;
+  const emi = Math.round(computeEmi(loan.principal, loan.interestRate, loan.tenureYears) * 100) / 100;
+  return `<div style="padding:16px 16px 0">
+    <div style="font-size:15px;font-weight:700;margin-bottom:14px">Add Recurring EMI</div>
+    <form data-action="save-recurring-from-loan" data-id="${loan.id}">
+      <div class="form-row"><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(cur)}</select></div></div>
+      <div class="form-row"><label class="form-label">Name</label><input class="input" type="text" name="name" value="${esc(loan.name)}" required></div>
+      <div class="form-row"><label class="form-label">Monthly Amount *</label><input class="input" type="number" name="amount" inputmode="decimal" min="0.01" step="0.01" value="${emi||''}" placeholder="0.00" required></div>
+      <div class="form-row"><label class="form-label">Due Day (optional)</label><input class="input" type="number" name="dueDay" min="1" max="31" placeholder="e.g. 5"></div>
+      <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="close-bottom-sheet">Cancel</button><button type="submit" class="btn btn-accent">Add</button></div>
+    </form>
+  </div>`;
+}
+
+function renderGoldLoanRecSheet(loan) {
+  const cur = loan.currency || S.txCurrency;
+  const monthlyInterest = Math.round(loan.principal * loan.interestRate / 100 / 12 * 100) / 100;
+  const dueDay = loan.startDate ? new Date(loan.startDate+'T00:00:00').getDate() : '';
+  return `<div style="padding:16px 16px 0">
+    <div style="font-size:15px;font-weight:700;margin-bottom:14px">Add Recurring Payment</div>
+    <form data-action="save-recurring-from-gold" data-id="${loan.id}">
+      <div class="form-row"><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(cur)}</select></div></div>
+      <div class="form-row"><label class="form-label">Name</label><input class="input" type="text" name="name" value="${esc(loan.name)}" required></div>
+      <div class="form-row"><label class="form-label">Monthly Amount *</label><input class="input" type="number" name="amount" inputmode="decimal" min="0.01" step="0.01" value="${monthlyInterest||''}" placeholder="0.00" required></div>
+      <div class="form-row"><label class="form-label">Due Day (optional)</label><input class="input" type="number" name="dueDay" min="1" max="31" placeholder="e.g. 5" value="${dueDay}"></div>
+      <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="close-bottom-sheet">Cancel</button><button type="submit" class="btn btn-accent">Add</button></div>
+    </form>
+  </div>`;
+}
+
+function renderInsuranceRecSheet(ins) {
+  const cur = ins.currency || S.txCurrency;
+  const dueDay = ins.startDate ? new Date(ins.startDate+'T00:00:00').getDate() : '';
+  return `<div style="padding:16px 16px 0">
+    <div style="font-size:15px;font-weight:700;margin-bottom:14px">Add Recurring Premium</div>
+    <form data-action="save-recurring-from-insurance" data-id="${ins.id}">
+      <div class="form-row"><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(cur)}</select></div></div>
+      <div class="form-row"><label class="form-label">Name</label><input class="input" type="text" name="name" value="${esc(ins.name)}" required></div>
+      <div class="form-row"><label class="form-label">Amount *</label><input class="input" type="number" name="amount" value="${ins.premium||''}" inputmode="decimal" min="0" step="0.01" placeholder="e.g. 1200" required></div>
+      <div class="form-row"><label class="form-label">Due Day (optional)</label><input class="input" type="number" name="dueDay" value="${dueDay}" min="1" max="31" inputmode="numeric" placeholder="e.g. 1"></div>
+      <div class="add-form-btns" style="padding:4px 0 12px">
+        <button type="button" class="btn btn-outline" data-action="cancel-entry">Cancel</button>
+        <button type="submit" class="btn btn-accent">Add Premium</button>
+      </div>
+    </form>
+  </div>`;
+}
+
+function renderInvestmentSIPSheet(inv) {
+  const cur = inv.currency || S.txCurrency;
+  return `<div style="padding:16px 16px 0">
+    <div style="font-size:15px;font-weight:700;margin-bottom:14px">Add Monthly SIP</div>
+    <form data-action="save-sip-from-investment" data-id="${inv.id}">
+      <div class="form-row"><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(cur)}</select></div></div>
+      <div class="form-row"><label class="form-label">Name</label><input class="input" type="text" name="name" value="${esc(inv.name)}" required></div>
+      <div class="form-row"><label class="form-label">Monthly Amount *</label><input class="input" type="number" name="amount" inputmode="decimal" min="0" step="0.01" placeholder="e.g. 5000" required></div>
+      <div class="form-row"><label class="form-label">Due Day (optional)</label><input class="input" type="number" name="dueDay" min="1" max="31" inputmode="numeric" placeholder="e.g. 5"></div>
+      <div class="add-form-btns" style="padding:4px 0 12px">
+        <button type="button" class="btn btn-outline" data-action="cancel-entry">Cancel</button>
+        <button type="submit" class="btn btn-accent">Add SIP</button>
+      </div>
+    </form>
+  </div>`;
 }
 
 function insuranceForm(item) {
@@ -2553,18 +3036,29 @@ function renderInsuranceCard() {
     if (S.editingId===item.id && S.editSection==='insurance') return `<div class="add-form">${insuranceForm(item)}</div>`;
     const dateRange = fmtD(item.startDate) + (item.endDate ? ' – '+fmtD(item.endDate) : ' – ongoing');
     const sub = [item.type, dateRange, item.premium?`${formatMoney(item.premium,c)} ${(item.premiumFreq||'Yearly').toLowerCase()}`:''].filter(Boolean).join(' · ');
-    return `<div class="swipe-wrap" style="--swipe-w:-96px">
+    const insRec = S.recurring.items.find(r => r.linkedInsuranceId === item.id && !r.closed);
+    const insRecTotal = insRec ? getRecurringPaidTotalAsOf(insRec, S.selectedMonth) : 0;
+    const insRecMonths = insRec ? Object.entries(insRec.months||{}).filter(([m,v])=>m<=S.selectedMonth&&v.paid).length : 0;
+    const isExpanded = S.expandedInsuranceRec === item.id;
+    const insRecStrip = (insRec && isExpanded) ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:11px;color:var(--muted-fg)"><span class="cur-pill purple" style="margin-right:4px">Recurring</span>${formatMoney(insRec.amount||0,getCur(insRec))}/mo · ${insRecMonths} month${insRecMonths!==1?'s':''} paid</span>
+      <span style="font-size:11px;font-weight:600;color:var(--income)">${formatMoney(insRecTotal,getCur(insRec))} total</span>
+    </div>` : '';
+    return `<div class="swipe-wrap" style="--swipe-w:-144px">
       <div class="swipe-back">
+        <button class="sb-add" data-action="add-recurring-from-insurance" data-id="${item.id}" title="${insRec?'Already added as recurring bill':'Add as recurring bill'}" style="background:${insRec?'var(--muted-fg)':'var(--accent)'}">+</button>
         <button class="sb-edit" data-action="edit-insurance" data-id="${item.id}" title="Edit">${svgEdit}</button>
         <button class="sb-del" data-action="del-insurance" data-id="${item.id}" title="Delete">${svgTrash}</button>
       </div>
-      <div class="swipe-front"><div class="p-row">
-        <div class="p-row-icon" style="background:#eff6ff;color:#3b82f6">${svgShield.replace('stroke="currentColor"','stroke="#3b82f6"')}</div>
-        <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span></div><div class="p-row-sub" style="max-width:none">${sub}</div></div>
-        <div class="p-row-right">
-          <div><div class="p-row-amt-lbl">Sum Assured</div><div class="p-row-amt grn">${formatMoney(item.sumAssured,c)}</div></div>
-        </div>
-      </div></div>
+      <div class="swipe-front">
+        <div class="p-row" data-action="toggle-insurance-rec" data-id="${item.id}" style="cursor:pointer">
+          <div class="p-row-icon" style="background:#eff6ff;color:#3b82f6">${svgShield.replace('stroke="currentColor"','stroke="#3b82f6"')}</div>
+          <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span>${insRec?`<span class="cur-pill purple">Recurring</span>`:''}</div><div class="p-row-sub" style="max-width:none">${sub}</div></div>
+          <div class="p-row-right">
+            <div><div class="p-row-amt-lbl">Sum Assured</div><div class="p-row-amt grn">${formatMoney(item.sumAssured,c)}</div></div>
+          </div>
+        </div>${insRecStrip}
+      </div>
     </div>`;
   }).join('');
   const isOpen = S.secOpen.insurance;
@@ -2661,7 +3155,7 @@ function investmentForm(item) {
   <form data-action="${isEdit?'update-investment':'add-investment'}" data-id="${isEdit?item.id:''}">
     <div class="form-row"><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(isEdit?getCur(item):'USD')}</select></div></div>
     <div class="form-row"><label class="form-label">Name *</label><input class="input" type="text" name="name" value="${isEdit?esc(item.name):''}" placeholder="e.g. Nifty 50 Index Fund" required></div>
-    <div class="form-row"><label class="form-label">Type</label><div class="select-wrap"><select class="input" name="type">${['SIP','Mutual Fund','Fixed Deposit','Bonds','Stock','Other'].map(t=>`<option value="${t}"${isEdit&&item.type===t?' selected':''}>${t}</option>`).join('')}</select></div></div>
+    <div class="form-row"><label class="form-label">Type</label><div class="select-wrap"><select class="input" name="type">${['Mutual Fund','Fixed Deposit','Bonds','Stock','Other'].map(t=>`<option value="${t}"${isEdit&&item.type===t?' selected':''}>${t}</option>`).join('')}</select></div></div>
     <div class="form-row-2">
       <div><label class="form-label">Amount Invested *</label><input class="input" type="number" name="amountInvested" value="${isEdit?item.amountInvested:''}" inputmode="decimal" min="0" step="0.01" required></div>
       <div><label class="form-label">Current Value *</label><input class="input" type="number" name="currentValue" value="${isEdit?item.currentValue:''}" inputmode="decimal" min="0" step="0.01" required></div>
@@ -2674,17 +3168,25 @@ function investmentForm(item) {
 function renderLoans() {
   const items = S.portfolio.loans;
   const totals = {};
-  for (const l of items) { if (l.closed) continue; const c=getCur(l); totals[c]=(totals[c]||0)+computeOutstanding(l); }
+  const mon = S.selectedMonth;
+  for (const l of items) { if (l.closed) continue; const c=getCur(l); totals[c]=(totals[c]||0)+computeOutstandingAsOf(l,mon); }
   const rows = items.map(loan => {
     const c = getCur(loan);
     if (S.editingId===loan.id && S.editSection==='loan') return `<div class="add-form">${loanForm(loan)}</div>`;
     const emi = computeEmi(loan.principal,loan.interestRate,loan.tenureYears);
-    const outstanding = computeOutstanding(loan);
+    const outstanding = computeOutstandingAsOf(loan, mon);
     const payoff = new Date(loan.startDate); payoff.setFullYear(payoff.getFullYear()+loan.tenureYears);
     const isExpanded = S.expandedLoan===loan.id;
     const schedule = isExpanded ? computeScheduleToDate(loan) : [];
     const partPayments = loan.partPayments||[];
     const ppFormOpen = S.showingPPForm===loan.id;
+    const loanRec = S.recurring.items.find(r => r.linkedLoanRecId === loan.id && !r.closed);
+    const loanRecTotal = loanRec ? getRecurringPaidTotalAsOf(loanRec, mon) : 0;
+    const loanRecMonths = loanRec ? Object.entries(loanRec.months||{}).filter(([m,v])=>m<=mon&&v.paid).length : 0;
+    const loanRecStrip = (loanRec && isExpanded) ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:11px;color:var(--muted-fg)"><span class="cur-pill red" style="margin-right:4px">EMI</span>${formatMoney(loanRec.amount||0,getCur(loanRec))}/mo · ${loanRecMonths} month${loanRecMonths!==1?'s':''} paid</span>
+      <span style="font-size:11px;font-weight:600;color:var(--income)">${formatMoney(loanRecTotal,getCur(loanRec))} total</span>
+    </div>` : '';
     const partHtml = `<div class="pp-section">
       <div class="pp-hdr-row">
         <span class="pp-hdr-title">Part Payments${partPayments.length?` <span class="pp-count">${partPayments.length}</span>`:''}</span>
@@ -2699,6 +3201,7 @@ function renderLoans() {
         <div class="form-row" style="margin-top:6px"><label class="form-label">Note</label><input class="input" type="text" name="note" placeholder="Optional"></div>
         <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="toggle-pp-form" data-id="${loan.id}">Cancel</button><button type="submit" class="btn btn-accent">Record</button></div>
       </form>`:`<button class="add-row-btn" data-action="toggle-pp-form" data-id="${loan.id}">${svgPlus} Record Part Payment</button>`}
+      ${!loan.closed?`<button class="add-row-btn" style="color:var(--expense)" data-action="close-loan" data-id="${loan.id}">✓ Mark as Closed</button>`:''}
     </div>`;
     const schedHtml = isExpanded ? `<div class="schedule-wrap">
       <div class="text-sm text-muted" style="margin-bottom:6px">${schedule.length} months amortised · Interest: ${formatMoney(schedule.reduce((a,r)=>a+r.interest,0),c)}</div>
@@ -2711,19 +3214,21 @@ function renderLoans() {
         <div class="swipe-back">
           ${loan.closed
             ? `<button class="sb-undo" data-action="reopen-loan" data-id="${loan.id}" title="Reopen">${svgUndo}</button>`
-            : `<button class="sb-tag" data-action="close-loan" data-id="${loan.id}" title="Close Loan">✓</button>`}
+            : `<button class="sb-add" data-action="add-recurring-from-loan" data-id="${loan.id}" title="${loanRec?'Recurring EMI already set up':'Add as recurring EMI'}" style="background:${loanRec?'var(--muted-fg)':'var(--accent)'}">+</button>`}
           <button class="sb-edit" data-action="edit-loan" data-id="${loan.id}" title="Edit">${svgEdit}</button>
           <button class="sb-del" data-action="del-loan" data-id="${loan.id}" title="Delete">${svgTrash}</button>
         </div>
-        <div class="swipe-front"><div class="p-row" data-action="toggle-loan" data-id="${loan.id}" style="cursor:pointer${loan.closed?';opacity:0.5':''}">
-          <div class="p-row-icon loan">${svgHome.replace('stroke="currentColor"','stroke="#e11d48"')}</div>
-          <div class="p-row-meta"><div class="p-row-name">${esc(loan.name)}<span class="cur-pill red">${c}</span></div><div class="p-row-sub">${loan.lender?esc(loan.lender)+' · ':''}${formatMoney(loan.principal,c)} · ${loan.tenureYears}yr · ${loan.interestRate}% · EMI ${formatMoney(emi,c)}</div></div>
-          <div class="p-row-right">
-            ${loan.closed
-              ? `<span class="rec-badge paid">✓ Closed</span>`
-              : `<div><div class="p-row-amt-lbl">Outstanding</div><div class="p-row-amt red">${formatMoney(outstanding,c)}</div></div>`}
-          </div>
-        </div></div>
+        <div class="swipe-front">
+          <div class="p-row" data-action="toggle-loan" data-id="${loan.id}" style="cursor:pointer${loan.closed?';opacity:0.5':''}">
+            <div class="p-row-icon loan">${svgHome.replace('stroke="currentColor"','stroke="#e11d48"')}</div>
+            <div class="p-row-meta"><div class="p-row-name">${esc(loan.name)}<span class="cur-pill red">${c}</span>${loanRec?`<span class="cur-pill red">EMI</span>`:''}</div><div class="p-row-sub">${loan.lender?esc(loan.lender)+' · ':''}${formatMoney(loan.principal,c)} · ${loan.tenureYears}yr · ${loan.interestRate}% · EMI ${formatMoney(emi,c)}</div></div>
+            <div class="p-row-right">
+              ${loan.closed
+                ? `<span class="rec-badge paid">✓ Closed</span>`
+                : `<div><div class="p-row-amt-lbl">Outstanding</div><div class="p-row-amt red">${formatMoney(outstanding,c)}</div></div>`}
+            </div>
+          </div>${loanRecStrip}
+        </div>
       </div>
       ${loan.closed?'':schedHtml}
     </div>`;
@@ -2777,6 +3282,13 @@ function renderGoldLoans() {
     const schedule = isExpanded ? computeGoldSchedule(loan) : [];
     const goldPayments = loan.payments||[];
     const goldPayFormOpen = S.showingGoldPayForm===loan.id;
+    const goldRec = S.recurring.items.find(r => r.linkedGoldLoanRecId === loan.id && !r.closed);
+    const goldRecTotal = goldRec ? getRecurringPaidTotalAsOf(goldRec, S.selectedMonth) : 0;
+    const goldRecMonths = goldRec ? Object.entries(goldRec.months||{}).filter(([m,v])=>m<=S.selectedMonth&&v.paid).length : 0;
+    const goldRecStrip = (goldRec && isExpanded) ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:11px;color:var(--muted-fg)"><span class="cur-pill amb" style="margin-right:4px">Monthly</span>${formatMoney(goldRec.amount||0,getCur(goldRec))}/mo · ${goldRecMonths} month${goldRecMonths!==1?'s':''} paid</span>
+      <span style="font-size:11px;font-weight:600;color:var(--income)">${formatMoney(goldRecTotal,getCur(goldRec))} total</span>
+    </div>` : '';
     const goldPayHtml = `<div class="pp-section">
       <div class="pp-hdr-row"><span class="pp-hdr-title">Payments${goldPayments.length?` <span class="pp-count">${goldPayments.length}</span>`:''}</span></div>
       ${goldPayments.length?`<div class="pp-tbl-wrap"><table class="pp-tbl"><thead><tr><th>Date</th><th>Amount</th><th>Note</th><th></th></tr></thead><tbody>${goldPayments.map(p=>`<tr><td>${p.date}</td><td class="pp-tbl-amt">${formatMoney(p.amount,c)}</td><td>${p.note?esc(p.note):''}</td><td><button class="ibtn del" data-action="del-gold-payment" data-gold-id="${loan.id}" data-payment-id="${p.id}" title="Delete">${svgTrash}</button></td></tr>`).join('')}</tbody><tfoot><tr><td colspan="4" class="pp-tbl-footer">Total paid: <strong>${formatMoney(goldPayments.reduce((s,p)=>s+p.amount,0),c)}</strong></td></tr></tfoot></table></div>`:''}
@@ -2789,6 +3301,7 @@ function renderGoldLoans() {
         <div class="form-row" style="margin-top:6px"><label class="form-label">Note</label><input class="input" type="text" name="note" placeholder="Optional"></div>
         <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="toggle-gold-pay-form" data-id="${loan.id}">Cancel</button><button type="submit" class="btn btn-accent">Record</button></div>
       </form>`:`<button class="add-row-btn" data-action="toggle-gold-pay-form" data-id="${loan.id}">${svgPlus} Record Payment</button>`}
+      ${!loan.closed?`<button class="add-row-btn" style="color:var(--expense)" data-action="close-gold" data-id="${loan.id}">✓ Mark as Closed</button>`:''}
     </div>`;
     const schedHtml = isExpanded ? `<div class="schedule-wrap">
       <div class="text-sm text-muted" style="margin-bottom:6px">Interest accrued: ${formatMoney(interest,c)}</div>
@@ -2800,19 +3313,21 @@ function renderGoldLoans() {
         <div class="swipe-back">
           ${loan.closed
             ? `<button class="sb-undo" data-action="reopen-gold" data-id="${loan.id}" title="Reopen">${svgUndo}</button>`
-            : `<button class="sb-tag" data-action="close-gold" data-id="${loan.id}" title="Close Loan">✓</button>`}
+            : `<button class="sb-add" data-action="add-recurring-from-gold" data-id="${loan.id}" title="${goldRec?'Recurring payment already set up':'Add as recurring payment'}" style="background:${goldRec?'var(--muted-fg)':'var(--accent)'}">+</button>`}
           <button class="sb-edit" data-action="edit-gold" data-id="${loan.id}" title="Edit">${svgEdit}</button>
           <button class="sb-del" data-action="del-gold" data-id="${loan.id}" title="Delete">${svgTrash}</button>
         </div>
-        <div class="swipe-front"><div class="p-row" data-action="toggle-gold" data-id="${loan.id}" style="cursor:pointer${loan.closed?';opacity:0.5':''}">
-          <div class="p-row-icon gold">${svgGold.replace('stroke="currentColor"','stroke="#d97706"')}</div>
-          <div class="p-row-meta"><div class="p-row-name">${esc(loan.name)}<span class="cur-pill amb">${c}</span></div><div class="p-row-sub">${loan.lender?esc(loan.lender)+' · ':''}${formatMoney(loan.principal,c)} · ${loan.interestRate}% p.a.${loan.startDate?' · Started '+fmtDate(loan.startDate):''}</div></div>
-          <div class="p-row-right">
-            ${loan.closed
-              ? `<span class="rec-badge paid">✓ Closed</span>`
-              : `<div><div class="p-row-amt-lbl">${payoff?'Payoff '+fmtDate(payoff.toISOString()):'Total Owed'}</div><div class="p-row-amt amb">${formatMoney(totalOwed,c)}</div></div>`}
-          </div>
-        </div></div>
+        <div class="swipe-front">
+          <div class="p-row" data-action="toggle-gold" data-id="${loan.id}" style="cursor:pointer${loan.closed?';opacity:0.5':''}">
+            <div class="p-row-icon gold">${svgGold.replace('stroke="currentColor"','stroke="#d97706"')}</div>
+            <div class="p-row-meta"><div class="p-row-name">${esc(loan.name)}<span class="cur-pill amb">${c}</span>${goldRec?`<span class="cur-pill amb">Monthly</span>`:''}</div><div class="p-row-sub">${loan.lender?esc(loan.lender)+' · ':''}${formatMoney(loan.principal,c)} · ${loan.interestRate}% p.a.${loan.startDate?' · Started '+fmtDate(loan.startDate):''}</div></div>
+            <div class="p-row-right">
+              ${loan.closed
+                ? `<span class="rec-badge paid">✓ Closed</span>`
+                : `<div><div class="p-row-amt-lbl">${payoff?'Payoff '+fmtDate(payoff.toISOString()):'Total Owed'}</div><div class="p-row-amt amb">${formatMoney(totalOwed,c)}</div></div>`}
+            </div>
+          </div>${goldRecStrip}
+        </div>
       </div>
       ${schedHtml}
     </div>`;
@@ -2856,6 +3371,106 @@ function handleSubmit(e) {
   if (!action) return; e.preventDefault();
   const d = formData(form);
 
+  if (action==='save-recurring-from-savings') {
+    const saving = S.portfolio.savings.find(i => i.id === form.dataset.id);
+    if (!saving) return;
+    S.recurring.items.push({
+      id: uid(), type: 'expense', name: (d.name||'').trim() || saving.name,
+      amount: parseFloat(d.amount) || 0, currency: d.currency || S.txCurrency,
+      dueDay: d.dueDay ? parseInt(d.dueDay) : null,
+      isVariable: false, category: 'Savings', portfolioTag: 'savings',
+      linkedSavingsId: saving.id, months: {}, createdAt: todayISO()
+    });
+    if (d.currency) { S.txCurrency = d.currency; localStorage.setItem('mmc.lastCurrency.v1', d.currency); }
+    document.getElementById('bottom-sheet').style.display = 'none';
+    save(); renderPortfolio(); renderRecurring(); toast('Recurring deposit added'); return;
+  }
+  if (action==='save-recurring-from-insurance') {
+    const ins = S.portfolio.insurance.find(i => i.id === form.dataset.id);
+    if (!ins) return;
+    S.recurring.items.push({
+      id: uid(), type: 'expense', name: (d.name||'').trim() || ins.name,
+      amount: parseFloat(d.amount) || 0, currency: d.currency || S.txCurrency,
+      dueDay: d.dueDay ? parseInt(d.dueDay) : null,
+      isVariable: false, category: 'Insurance', linkedInsuranceId: ins.id,
+      months: {}, createdAt: todayISO()
+    });
+    if (d.currency) { S.txCurrency = d.currency; localStorage.setItem('mmc.lastCurrency.v1', d.currency); }
+    document.getElementById('bottom-sheet').style.display = 'none';
+    save(); renderPortfolio(); renderRecurring(); toast('Added as recurring bill'); return;
+  }
+  if (action==='save-recurring-from-loan') {
+    const loan = S.portfolio.loans.find(i => i.id === form.dataset.id); if (!loan) return;
+    S.recurring.items.push({
+      id: uid(), type: 'expense', name: (d.name||'').trim() || loan.name,
+      amount: parseFloat(d.amount) || 0, currency: d.currency || S.txCurrency,
+      dueDay: d.dueDay ? parseInt(d.dueDay) : null,
+      isVariable: false, category: 'Loans', linkedLoanRecId: loan.id,
+      months: {}, createdAt: todayISO()
+    });
+    if (d.currency) { S.txCurrency = d.currency; localStorage.setItem('mmc.lastCurrency.v1', d.currency); }
+    document.getElementById('bottom-sheet').style.display = 'none';
+    save(); renderPortfolio(); renderRecurring(); toast('Recurring EMI added'); return;
+  }
+  if (action==='save-recurring-from-gold') {
+    const loan = S.portfolio.goldLoans.find(i => i.id === form.dataset.id); if (!loan) return;
+    S.recurring.items.push({
+      id: uid(), type: 'expense', name: (d.name||'').trim() || loan.name,
+      amount: parseFloat(d.amount) || 0, currency: d.currency || S.txCurrency,
+      dueDay: d.dueDay ? parseInt(d.dueDay) : null,
+      isVariable: false, category: 'Gold Loans', linkedGoldLoanRecId: loan.id,
+      months: {}, createdAt: todayISO()
+    });
+    if (d.currency) { S.txCurrency = d.currency; localStorage.setItem('mmc.lastCurrency.v1', d.currency); }
+    document.getElementById('bottom-sheet').style.display = 'none';
+    save(); renderPortfolio(); renderRecurring(); toast('Recurring payment added'); return;
+  }
+  if (action==='save-sip-from-investment') {
+    const inv = S.portfolio.investments.find(i => i.id === form.dataset.id);
+    if (!inv) return;
+    S.recurring.items.push({
+      id: uid(), type: 'expense',
+      name: (d.name||'').trim() || inv.name,
+      amount: parseFloat(d.amount) || 0,
+      currency: d.currency || S.txCurrency,
+      dueDay: d.dueDay ? parseInt(d.dueDay) : null,
+      isVariable: false, category: 'Investment',
+      portfolioTag: 'investment', linkedInvestmentId: inv.id,
+      months: {}, createdAt: todayISO()
+    });
+    if (d.currency) { S.txCurrency = d.currency; localStorage.setItem('mmc.lastCurrency.v1', d.currency); }
+    document.getElementById('bottom-sheet').style.display = 'none';
+    save(); renderPortfolio(); renderRecurring(); toast('SIP added to Recurring'); return;
+  }
+  if (action==='calc-whatif') {
+    const itemId = d.itemId, val = parseFloat(d.value);
+    if (!itemId || isNaN(val) || val < 0) return;
+    S.whatIfItemId = itemId;
+    const type = S.whatIfType;
+    if (type === 'loan') {
+      const loan = (S.portfolio.loans || []).find(l => l.id === itemId);
+      whatIfResult = loan ? simulateLoanPrepayment(loan, val) : null;
+    } else if (type === 'goal') {
+      const goal = (S.goals || []).find(g => g.id === itemId);
+      whatIfResult = goal ? simulateGoalTopup(goal, val) : null;
+    } else if (type === 'sip') {
+      const inv = (S.portfolio.investments || []).find(i => i.id === itemId);
+      if (inv) {
+        const cur = inv.currency || S.txCurrency;
+        const cv = inv.currentValue || 0;
+        const sipItems = S.recurring.items.filter(r => r.portfolioTag === 'investment' && r.name === inv.name);
+        const monthlyAdd = sipItems.reduce((s, r) => s + (r.amount || 0), 0);
+        const rows = [1,3,5,10].map(years => ({
+          years,
+          value: simulateSIPGrowth(cv, monthlyAdd, val, years),
+          invested: cv + monthlyAdd * years * 12
+        }));
+        whatIfResult = {rows, cur, cagr: val};
+      }
+    }
+    document.getElementById('bottom-sheet-content').innerHTML = renderWhatIfSheet();
+    return;
+  }
   if (action==='save-budgets') {
     const budgets = { overall: {} };
     for (const [k,v] of Object.entries(d)) {
@@ -2931,7 +3546,7 @@ function handleSubmit(e) {
     if (!d.name.trim()) return toast('Name is required');
     const isVariable = d.isVariable==='1';
     const amount = isVariable ? 0 : (parseFloat(d.amount)||0);
-    S.recurring.items.push({id:uid(),name:d.name.trim(),type:'expense',isVariable,amount,currency:d.currency,dayOfMonth:d.dayOfMonth?parseInt(d.dayOfMonth):undefined,portfolioTag:d.portfolioTag||null,months:{},createdAt:todayISO()});
+    S.recurring.items.push({id:uid(),name:d.name.trim(),type:'expense',isVariable,amount,currency:d.currency,category:d.category||'Bills',dayOfMonth:d.dayOfMonth?parseInt(d.dayOfMonth):undefined,portfolioTag:d.portfolioTag||null,months:{},createdAt:todayISO()});
     if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
     S.recurringAddType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderDashboard(); renderRecurring(); toast('Bill added'); return;
   }
@@ -2981,12 +3596,8 @@ function handleSubmit(e) {
       const amount = parseFloat(d.amount); if (isNaN(amount)||amount<0) return toast('Enter a valid amount');
       if (!item.months) item.months = {};
       if (!item.months[mon]) item.months[mon] = {};
-      if (d.thisMonthOnly) {
-        item.months[mon].amount = amount;
-      } else {
-        item.amount = amount;
-        delete item.months[mon].amount;
-      }
+      item.amount = amount;
+      delete item.months[mon].amount;
       if (item.months[mon]?.paid && item.months[mon]?.txId) {
         const tx = S.transactions.find(t=>t.id===item.months[mon].txId);
         if (tx) tx.amount = amount;
@@ -3060,15 +3671,19 @@ function handleSubmit(e) {
     const loan = S.portfolio.loans.find(l=>l.id===form.dataset.id);
     if (!loan) return;
     if (!loan.partPayments) loan.partPayments = [];
-    loan.partPayments.unshift({id:uid(), date:d.date||todayISO(), amount, note:d.note||undefined});
-    S.showingPPForm=null; save(); renderPortfolio(); toast('Part payment recorded'); return;
+    const txId = uid();
+    S.transactions.unshift({id:txId, type:'expense', amount, category:'Loans', note:(loan.name||'Loan')+' – Part Payment', date:d.date||todayISO(), currency:getCur(loan)});
+    loan.partPayments.unshift({id:uid(), date:d.date||todayISO(), amount, note:d.note||undefined, txId});
+    S.showingPPForm=null; save(); renderPortfolio(); renderDashboard(); toast('Part payment recorded'); return;
   }
   if (action==='add-gold-payment') {
     const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
     const loan = S.portfolio.goldLoans.find(l=>l.id===form.dataset.id);
     if (!loan) return;
     if (!loan.payments) loan.payments = [];
-    loan.payments.unshift({id:uid(), date:d.date||todayISO(), amount, note:d.note||undefined});
+    const txId = uid();
+    S.transactions.unshift({id:txId, type:'expense', amount, category:'Loans', note:(loan.name||'Gold Loan')+' – Payment', date:d.date||todayISO(), currency:getCur(loan)});
+    loan.payments.unshift({id:uid(), date:d.date||todayISO(), amount, note:d.note||undefined, txId});
     loan.principal = Math.max(0, loan.principal - amount);
     S.showingGoldPayForm=null; save(); renderPortfolio(); renderDashboard(); toast('Payment recorded'); return;
   }
@@ -3099,10 +3714,17 @@ function handleClick(e) {
   const action = btn.dataset.action;
 
   if (action==='switch-tab') { switchTab(btn.dataset.tab); return; }
-  if (action==='goto-current-month') { S.selectedMonth = thisMonth(); S.monthPickerOpen = false; renderDashboard(); renderRecurring(); return; }
+  if (action==='goto-current-month') { S.selectedMonth = thisMonth(); S.monthPickerOpen = false; S.calendarSelectedDay = null; renderDashboard(); renderRecurring(); renderPortfolio(); return; }
   if (action==='toggle-month-picker') { S.monthPickerOpen = !S.monthPickerOpen; updateHeaderMonthNav(); return; }
   if (action==='close-month-picker') { S.monthPickerOpen = false; updateHeaderMonthNav(); return; }
-  if (action==='select-month') { S.selectedMonth = btn.dataset.month; S.monthPickerOpen = false; renderDashboard(); renderRecurring(); return; }
+  if (action==='select-month') { S.selectedMonth = btn.dataset.month; S.monthPickerOpen = false; S.calendarSelectedDay = null; renderDashboard(); renderRecurring(); renderPortfolio(); return; }
+  if (action==='select-calendar-day') {
+    const day = parseInt(btn.dataset.day);
+    S.calendarSelectedDay = S.calendarSelectedDay === day ? null : day;
+    const sec = document.querySelector('[data-drag-key="financialCalendar"]');
+    if (sec) sec.innerHTML = '<span class="drag-handle" data-drag-grip="1">⠿</span>' + renderFinancialCalendar();
+    return;
+  }
   if (action==='filter-activity-cur') { S.activityCurFilter = btn.dataset.cur || null; renderDashboard(); return; }
   if (action==='filter-activity-cat') { S.activityCatFilter = btn.dataset.cat || null; renderDashboard(); return; }
   if (action==='toggle-theme') { document.body.classList.toggle('dark'); localStorage.setItem('mmc.theme', document.body.classList.contains('dark')?'dark':'light'); renderSettings(); return; }
@@ -3126,7 +3748,7 @@ function handleClick(e) {
     else { if(!S.addEntryType && !localStorage.getItem('mmc.apiKey')) S.addEntryType='tx-expense'; bsc.innerHTML=renderQuickAdd(); }
     bs.style.display=''; return;
   }
-  if (action==='close-fab-backdrop') { if (btn.id==='bottom-sheet') { S.addEntryType=null; S.editingId=null; btn.style.display='none'; } return; }
+  if (action==='close-fab-backdrop') { if (btn.id==='bottom-sheet') { S.addEntryType=null; S.editingId=null; S.whatIfType=null; whatIfResult=null; btn.style.display='none'; } return; }
   if (action==='toggle-recurring-add') { S.recurringAddType = S.recurringAddType ? null : 'recurring-income'; renderRecurring(); return; }
   if (action==='set-recurring-add-type') { S.recurringAddType=btn.dataset.type; const bs=document.getElementById('bottom-sheet'); if(bs.style.display!=='none'){document.getElementById('bottom-sheet-content').innerHTML=renderRecurringQuickAdd();}else{renderRecurring();} return; }
   if (action==='cancel-recurring-add') { S.recurringAddType=null; document.getElementById('bottom-sheet').style.display='none'; renderRecurring(); return; }
@@ -3142,7 +3764,7 @@ function handleClick(e) {
     if (!item.months) item.months = {};
     const effAmt = item.months[mon]?.amount ?? item.amount;
     const txId = uid();
-    S.transactions.unshift({id:txId,type:'income',amount:effAmt,category:item.category||'Salary',note:item.name,date:dateInMonth(mon),currency:item.currency||'USD'});
+    S.transactions.unshift({id:txId,type:'income',amount:effAmt,category:item.category||'Salary',note:item.name,date:dateInMonth(mon),currency:item.currency||S.txCurrency});
     item.months[mon] = {...(item.months[mon]||{}), paid:true, amount:effAmt, txId};
     save(); renderDashboard(); renderRecurring(); toast(item.name+' credited'); return;
   }
@@ -3159,7 +3781,7 @@ function handleClick(e) {
     const amount = item.months[mon]?.amount || 0;
     if (!amount) return toast('No amount saved');
     const txId = uid();
-    S.transactions.unshift({id:txId,type:'expense',amount,category:'Bills',note:item.name,date:dateInMonth(mon),currency:item.currency||'INR'});
+    S.transactions.unshift({id:txId,type:'expense',amount,category:item.category||'Bills',note:item.name,date:dateInMonth(mon),currency:item.currency||S.txCurrency});
     item.months[mon].paid = true; item.months[mon].txId = txId;
     save(); renderDashboard(); renderRecurring(); toast(item.name+' marked paid'); return;
   }
@@ -3175,7 +3797,7 @@ function handleClick(e) {
     const amount = card.months[mon]?.amount || 0;
     if (!amount) return toast('No amount saved');
     const txId = uid();
-    S.transactions.unshift({id:txId,type:'expense',amount,category:'Bills',note:card.name+' CC Bill',date:dateInMonth(mon),currency:card.currency||'INR'});
+    S.transactions.unshift({id:txId,type:'expense',amount,category:'Bills',note:card.name+' CC Bill',date:dateInMonth(mon),currency:card.currency||S.txCurrency});
     card.months[mon].paid = true; card.months[mon].txId = txId;
     save(); renderDashboard(); renderRecurring(); toast(card.name+' bill paid'); return;
   }
@@ -3191,14 +3813,6 @@ function handleClick(e) {
     if (ms.txId) S.transactions = S.transactions.filter(t=>t.id!==ms.txId);
     ms.paid = false; ms.txId = undefined;
     save(); renderDashboard(); renderRecurring(); toast(card.name+' marked unpaid'); return;
-  }
-  if (action==='cycle-portfolio-tag') {
-    const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
-    const cycle = [null,'investment','savings'];
-    item.portfolioTag = cycle[(cycle.indexOf(item.portfolioTag)+1)%3];
-    save(); renderRecurring(); renderPortfolio();
-    toast(item.portfolioTag ? `Tagged as ${item.portfolioTag}` : 'Tag removed');
-    return;
   }
   if (action==='del-recurring-item') {
     const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
@@ -3220,11 +3834,26 @@ function handleClick(e) {
     if (!item.months) item.months = {};
     const effAmt = item.months[mon]?.amount ?? item.amount;
     const txId = uid();
-    S.transactions.unshift({id:txId,type:'expense',amount:effAmt,category:'Bills',note:item.name,date:dateInMonth(mon),currency:item.currency||'INR'});
+    S.transactions.unshift({id:txId,type:'expense',amount:effAmt,category:item.category||'Bills',note:item.name,date:dateInMonth(mon),currency:item.currency||S.txCurrency});
     item.months[mon] = {...(item.months[mon]||{}), paid:true, amount:effAmt, txId};
     save(); renderDashboard(); renderRecurring(); toast(item.name+' marked paid'); return;
   }
 
+  if (action==='edit-credit-card') {
+    S.editingCardId = btn.dataset.id; renderRecurring(); return;
+  }
+  if (action==='cancel-card-edit') {
+    S.editingCardId = null; renderRecurring(); return;
+  }
+  if (action==='save-card-edit') {
+    const card = S.recurring.creditCards.find(c=>c.id===form.dataset.id); if (!card) return;
+    if (!d.name?.trim()) return toast('Name is required');
+    card.name = d.name.trim();
+    if (d.dueDay) card.dueDay = parseInt(d.dueDay);
+    if (d.currency) card.currency = d.currency;
+    S.editingCardId = null;
+    save(); renderRecurring(); toast(card.name+' updated'); return;
+  }
   if (action==='del-credit-card') {
     const card = S.recurring.creditCards.find(c=>c.id===btn.dataset.id); if (!card) return;
     const mon = S.selectedMonth;
@@ -3245,6 +3874,18 @@ function handleClick(e) {
   }
   if (action==='toggle-add-investment') { S.addingInvestment=!S.addingInvestment; S.editingId=null; renderPortfolio(); return; }
   if (action==='cancel-investment') { S.addingInvestment=false; S.portfolioAddType=null; S.editingId=null; S.editSection=null; document.getElementById('bottom-sheet').style.display='none'; renderPortfolio(); return; }
+  if (action==='toggle-investment-sip') {
+    S.expandedInvestmentSIP = S.expandedInvestmentSIP === btn.dataset.id ? null : btn.dataset.id;
+    renderPortfolio(); return;
+  }
+  if (action==='add-sip-from-investment') {
+    const inv = S.portfolio.investments.find(i => i.id === btn.dataset.id);
+    if (!inv) return;
+    if (S.recurring.items.some(r => r.linkedInvestmentId === inv.id && !r.closed)) { toast('SIP already set up for this investment'); return; }
+    const bs = document.getElementById('bottom-sheet');
+    document.getElementById('bottom-sheet-content').innerHTML = renderInvestmentSIPSheet(inv);
+    bs.style.display = ''; return;
+  }
   if (action==='edit-investment') { S.editingId=btn.dataset.id; S.editSection='investment'; S.addingInvestment=false; renderPortfolio(); return; }
   if (action==='del-investment') {
     if (!confirm('Delete this investment?')) return;
@@ -3252,6 +3893,32 @@ function handleClick(e) {
   }
   if (action==='toggle-add-insurance') { S.addingInsurance=!S.addingInsurance; S.editingId=null; renderPortfolio(); return; }
   if (action==='cancel-insurance') { S.addingInsurance=false; S.portfolioAddType=null; S.editingId=null; S.editSection=null; document.getElementById('bottom-sheet').style.display='none'; renderPortfolio(); return; }
+  if (action==='add-recurring-from-savings') {
+    const saving = S.portfolio.savings.find(i => i.id === btn.dataset.id);
+    if (!saving) return;
+    if (S.recurring.items.some(r => r.linkedSavingsId === saving.id && !r.closed)) { toast('Recurring deposit already set up'); return; }
+    document.getElementById('bottom-sheet-content').innerHTML = renderSavingsRecSheet(saving);
+    document.getElementById('bottom-sheet').style.display = ''; return;
+  }
+  if (action==='add-recurring-from-loan') {
+    const loan = S.portfolio.loans.find(i => i.id === btn.dataset.id); if (!loan) return;
+    if (S.recurring.items.some(r => r.linkedLoanRecId === loan.id && !r.closed)) { toast('Recurring EMI already set up'); return; }
+    document.getElementById('bottom-sheet-content').innerHTML = renderLoanRecSheet(loan);
+    document.getElementById('bottom-sheet').style.display = ''; return;
+  }
+  if (action==='add-recurring-from-gold') {
+    const loan = S.portfolio.goldLoans.find(i => i.id === btn.dataset.id); if (!loan) return;
+    if (S.recurring.items.some(r => r.linkedGoldLoanRecId === loan.id && !r.closed)) { toast('Recurring payment already set up'); return; }
+    document.getElementById('bottom-sheet-content').innerHTML = renderGoldLoanRecSheet(loan);
+    document.getElementById('bottom-sheet').style.display = ''; return;
+  }
+  if (action==='add-recurring-from-insurance') {
+    const ins = S.portfolio.insurance.find(i => i.id === btn.dataset.id);
+    if (!ins) return;
+    if (S.recurring.items.some(r => r.linkedInsuranceId === ins.id && !r.closed)) { toast('Already added as recurring bill'); return; }
+    document.getElementById('bottom-sheet-content').innerHTML = renderInsuranceRecSheet(ins);
+    document.getElementById('bottom-sheet').style.display = ''; return;
+  }
   if (action==='edit-insurance') { S.editingId=btn.dataset.id; S.editSection='insurance'; S.addingInsurance=false; renderPortfolio(); return; }
   if (action==='del-insurance') {
     if (!confirm('Delete this policy?')) return;
@@ -3276,13 +3943,15 @@ function handleClick(e) {
   if (action==='close-loan') {
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.id); if (!loan) return;
     loan.closed = true; loan.closedDate = new Date().toISOString();
-    if (loan.linkedRecurringId) { const item = (S.recurring?.items||[]).find(i=>i.id===loan.linkedRecurringId); if (item && !item.closed) { item.closed=true; item.closedDate=loan.closedDate; } }
+    const _lri = (S.recurring?.items||[]).find(i=>i.id===loan.linkedRecurringId); if (_lri && !_lri.closed && !_lri.endMonth) closeLinkedRec(_lri, loan.closedDate);
+    const loanRec = S.recurring.items.find(r=>r.linkedLoanRecId===loan.id&&!r.closed&&!r.endMonth); if (loanRec) closeLinkedRec(loanRec, loan.closedDate);
     save(); renderPortfolio(); renderRecurring(); toast(loan.name + ' closed'); return;
   }
   if (action==='reopen-loan') {
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.id); if (!loan) return;
     loan.closed = false; delete loan.closedDate;
-    if (loan.linkedRecurringId) { const item = (S.recurring?.items||[]).find(i=>i.id===loan.linkedRecurringId); if (item && item.closed) { item.closed=false; delete item.closedDate; } }
+    const _lri2 = (S.recurring?.items||[]).find(i=>i.id===loan.linkedRecurringId); if (_lri2 && (_lri2.closed||_lri2.endMonth)) reopenLinkedRec(_lri2);
+    const loanRec2 = S.recurring.items.find(r=>r.linkedLoanRecId===loan.id&&(r.closed||r.endMonth)); if (loanRec2) reopenLinkedRec(loanRec2);
     save(); renderPortfolio(); renderRecurring(); toast(loan.name + ' reopened'); return;
   }
   if (action==='toggle-loan') { S.expandedLoan=S.expandedLoan===btn.dataset.id?null:btn.dataset.id; S.showingPPForm=null; renderPortfolio(); return; }
@@ -3295,7 +3964,11 @@ function handleClick(e) {
   if (action==='del-part-payment') {
     if (!confirm('Delete this payment?')) return;
     const loan = S.portfolio.loans.find(l=>l.id===btn.dataset.loanId);
-    if (loan) { loan.partPayments=(loan.partPayments||[]).filter(p=>p.id!==btn.dataset.paymentId); save(); renderPortfolio(); }
+    if (loan) {
+      const pay = (loan.partPayments||[]).find(p=>p.id===btn.dataset.paymentId);
+      if (pay?.txId) S.transactions = S.transactions.filter(t=>t.id!==pay.txId);
+      loan.partPayments=(loan.partPayments||[]).filter(p=>p.id!==btn.dataset.paymentId); save(); renderPortfolio(); renderDashboard();
+    }
     return;
   }
   if (action==='del-saving-payment') {
@@ -3314,7 +3987,7 @@ function handleClick(e) {
     const loan = S.portfolio.goldLoans.find(l=>l.id===btn.dataset.goldId);
     if (loan) {
       const pay = (loan.payments||[]).find(p=>p.id===btn.dataset.paymentId);
-      if (pay) loan.principal += pay.amount;
+      if (pay) { loan.principal += pay.amount; if (pay.txId) S.transactions = S.transactions.filter(t=>t.id!==pay.txId); }
       loan.payments = (loan.payments||[]).filter(p=>p.id!==btn.dataset.paymentId);
       save(); renderPortfolio(); renderDashboard();
     }
@@ -3325,13 +3998,15 @@ function handleClick(e) {
   if (action==='close-gold') {
     const loan = S.portfolio.goldLoans.find(l=>l.id===btn.dataset.id); if (!loan) return;
     loan.closed = true; loan.closedDate = new Date().toISOString();
-    if (loan.linkedRecurringId) { const item = (S.recurring?.items||[]).find(i=>i.id===loan.linkedRecurringId); if (item && !item.closed) { item.closed=true; item.closedDate=loan.closedDate; } }
+    const _gri = (S.recurring?.items||[]).find(i=>i.id===loan.linkedRecurringId); if (_gri && !_gri.closed && !_gri.endMonth) closeLinkedRec(_gri, loan.closedDate);
+    const goldRec = S.recurring.items.find(r=>r.linkedGoldLoanRecId===loan.id&&!r.closed&&!r.endMonth); if (goldRec) closeLinkedRec(goldRec, loan.closedDate);
     save(); renderPortfolio(); renderRecurring(); toast(loan.name + ' closed'); return;
   }
   if (action==='reopen-gold') {
     const loan = S.portfolio.goldLoans.find(l=>l.id===btn.dataset.id); if (!loan) return;
     loan.closed = false; delete loan.closedDate;
-    if (loan.linkedRecurringId) { const item = (S.recurring?.items||[]).find(i=>i.id===loan.linkedRecurringId); if (item && item.closed) { item.closed=false; delete item.closedDate; } }
+    const _gri2 = (S.recurring?.items||[]).find(i=>i.id===loan.linkedRecurringId); if (_gri2 && (_gri2.closed||_gri2.endMonth)) reopenLinkedRec(_gri2);
+    const goldRec2 = S.recurring.items.find(r=>r.linkedGoldLoanRecId===loan.id&&(r.closed||r.endMonth)); if (goldRec2) reopenLinkedRec(goldRec2);
     save(); renderPortfolio(); renderRecurring(); toast(loan.name + ' reopened'); return;
   }
   if (action==='del-gold') {
@@ -3345,6 +4020,12 @@ function handleClick(e) {
   if (action==='copy-sync-code') { copySyncCode(); return; }
   if (action==='paste-sync-code') { pasteSyncCode(); return; }
   if (action==='close-sync-modal') { document.getElementById('sync-modal')?.remove(); return; }
+  if (action==='open-whatif') {
+    S.whatIfType = btn.dataset.type; S.whatIfItemId = null; whatIfResult = null;
+    const bs = document.getElementById('bottom-sheet');
+    document.getElementById('bottom-sheet-content').innerHTML = renderWhatIfSheet();
+    bs.style.display = ''; return;
+  }
   if (action==='get-insights') { getInsights(); return; }
   if (action==='get-smart-alerts') { getSmartAlerts(); return; }
   if (action==='get-ai-projections') { getAIProjections(); return; }
