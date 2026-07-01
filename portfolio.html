@@ -3670,9 +3670,10 @@ function handleSubmit(e) {
     const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
     const loan = S.portfolio.loans.find(l=>l.id===form.dataset.id);
     if (!loan) return;
+    if (!loan.currency) return toast('Loan has no currency set — edit the loan to add one');
     if (!loan.partPayments) loan.partPayments = [];
     const txId = uid();
-    S.transactions.unshift({id:txId, type:'expense', amount, category:'Loans', note:(loan.name||'Loan')+' – Part Payment', date:d.date||todayISO(), currency:loan.currency||S.txCurrency});
+    S.transactions.unshift({id:txId, type:'expense', amount, category:'Loans', note:(loan.name||'Loan')+' – Part Payment', date:d.date||todayISO(), currency:loan.currency});
     loan.partPayments.unshift({id:uid(), date:d.date||todayISO(), amount, note:d.note||undefined, txId});
     S.showingPPForm=null; save(); renderPortfolio(); renderDashboard(); toast('Part payment recorded'); return;
   }
@@ -3680,9 +3681,10 @@ function handleSubmit(e) {
     const amount = parseFloat(d.amount); if (!amount||amount<=0) return toast('Enter a valid amount');
     const loan = S.portfolio.goldLoans.find(l=>l.id===form.dataset.id);
     if (!loan) return;
+    if (!loan.currency) return toast('Loan has no currency set — edit the loan to add one');
     if (!loan.payments) loan.payments = [];
     const txId = uid();
-    S.transactions.unshift({id:txId, type:'expense', amount, category:'Loans', note:(loan.name||'Gold Loan')+' – Payment', date:d.date||todayISO(), currency:loan.currency||S.txCurrency});
+    S.transactions.unshift({id:txId, type:'expense', amount, category:'Loans', note:(loan.name||'Gold Loan')+' – Payment', date:d.date||todayISO(), currency:loan.currency});
     loan.payments.unshift({id:uid(), date:d.date||todayISO(), amount, note:d.note||undefined, txId});
     loan.principal = Math.max(0, loan.principal - amount);
     S.showingGoldPayForm=null; save(); renderPortfolio(); renderDashboard(); toast('Payment recorded'); return;
