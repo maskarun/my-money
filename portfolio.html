@@ -2772,7 +2772,8 @@ function renderSavings() {
     const recDep = S.recurring.items.find(r => r.linkedSavingsId === item.id && !r.closed);
     const recDepTotal = recDep ? getRecurringPaidTotal(recDep) : 0;
     const recDepMonths = recDep ? Object.values(recDep.months||{}).filter(m=>m.paid).length : 0;
-    const recDepStrip = recDep ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
+    const recDepExpanded = recDep && S.expandedSavingsRec === item.id;
+    const recDepStrip = recDepExpanded ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:11px;color:var(--muted-fg)"><span class="cur-pill purple" style="margin-right:4px">Monthly</span>${formatMoney(recDep.amount||0,getCur(recDep))}/mo · ${recDepMonths} month${recDepMonths!==1?'s':''} paid</span>
       <span style="font-size:11px;font-weight:600;color:var(--income)">${formatMoney(recDepTotal,getCur(recDep))} total</span>
     </div>` : '';
@@ -2786,7 +2787,7 @@ function renderSavings() {
         <div class="swipe-front">
           <div class="p-row" data-action="toggle-saving" data-id="${item.id}" style="cursor:pointer">
             <div class="p-row-icon sav">${svgBank.replace('stroke="currentColor"','stroke="#0284c7"')}</div>
-            <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span>${recDep?'<span class="cur-pill purple">Monthly</span>':''}</div><div class="p-row-sub">${item.institution?'Institution: '+esc(item.institution):''}${item.interestRate?' · '+item.interestRate+'% p.a.':''}${recDep?' · '+formatMoney(recDepTotal,getCur(recDep))+' deposited':''}</div></div>
+            <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span>${recDep?`<span class="cur-pill purple" style="cursor:pointer" data-action="toggle-savings-rec" data-id="${item.id}">Monthly${recDepExpanded?'▲':'▼'}</span>`:''}</div><div class="p-row-sub">${item.institution?'Institution: '+esc(item.institution):''}${item.interestRate?' · '+item.interestRate+'% p.a.':''}${recDep?' · '+formatMoney(recDepTotal,getCur(recDep))+' deposited':''}</div></div>
             <div class="p-row-right">
               <div><div class="p-row-amt-lbl">Balance</div><div class="p-row-amt grn">${formatMoney((item.amount||0)+recDepTotal,c)}</div></div>
             </div>
@@ -2857,8 +2858,9 @@ function renderInvestmentsCard() {
     const sipLinked = !!sip;
     const sipTotal = sip ? getRecurringPaidTotal(sip) : 0;
     const sipPaidMonths = sip ? Object.values(sip.months||{}).filter(m=>m.paid).length : 0;
+    const sipExpanded = sip && S.expandedInvestmentSIP === item.id;
     const effectiveInvested = (item.amountInvested || 0) + sipTotal;
-    const sipStrip = sip ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
+    const sipStrip = sipExpanded ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:11px;color:var(--muted-fg)"><span class="cur-pill purple" style="margin-right:4px">SIP</span>${formatMoney(sip.amount||0,getCur(sip))}/mo · ${sipPaidMonths} month${sipPaidMonths!==1?'s':''} paid</span>
       <span style="font-size:11px;font-weight:600;color:var(--income)">${formatMoney(sipTotal,getCur(sip))} total</span>
     </div>` : '';
@@ -2872,7 +2874,7 @@ function renderInvestmentsCard() {
       <div class="swipe-front">
         <div class="p-row">
           <div class="p-row-icon inv">${svgChart.replace('stroke="currentColor"','stroke="#9333ea"')}</div>
-          <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span>${sip?'<span class="cur-pill purple">SIP</span>':''}</div><div class="p-row-sub">${subText}</div></div>
+          <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span>${sip?`<span class="cur-pill purple" style="cursor:pointer" data-action="toggle-investment-sip" data-id="${item.id}">SIP${sipExpanded?'▲':'▼'}</span>`:''}</div><div class="p-row-sub">${subText}</div></div>
           <div class="p-row-right">
             <div><div class="p-row-amt-lbl">Invested · Current</div><div class="p-row-amt grn">${formatMoney(effectiveInvested,c)}</div><div class="p-row-sub">${formatMoney(item.currentValue,c)} current</div></div>
           </div>
@@ -3020,7 +3022,8 @@ function renderInsuranceCard() {
     const insRec = S.recurring.items.find(r => r.linkedInsuranceId === item.id && !r.closed);
     const insRecTotal = insRec ? getRecurringPaidTotal(insRec) : 0;
     const insRecMonths = insRec ? Object.values(insRec.months||{}).filter(m=>m.paid).length : 0;
-    const insRecStrip = insRec ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
+    const insRecExpanded = insRec && S.expandedInsuranceRec === item.id;
+    const insRecStrip = insRecExpanded ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:11px;color:var(--muted-fg)"><span class="cur-pill purple" style="margin-right:4px">Recurring</span>${formatMoney(insRec.amount||0,getCur(insRec))}/mo · ${insRecMonths} month${insRecMonths!==1?'s':''} paid</span>
       <span style="font-size:11px;font-weight:600;color:var(--income)">${formatMoney(insRecTotal,getCur(insRec))} total</span>
     </div>` : '';
@@ -3033,7 +3036,7 @@ function renderInsuranceCard() {
       <div class="swipe-front">
         <div class="p-row">
           <div class="p-row-icon" style="background:#eff6ff;color:#3b82f6">${svgShield.replace('stroke="currentColor"','stroke="#3b82f6"')}</div>
-          <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span>${insRec?'<span class="cur-pill purple">Recurring</span>':''}</div><div class="p-row-sub" style="max-width:none">${sub}</div></div>
+          <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span>${insRec?`<span class="cur-pill purple" style="cursor:pointer" data-action="toggle-insurance-rec" data-id="${item.id}">Recurring${insRecExpanded?'▲':'▼'}</span>`:''}</div><div class="p-row-sub" style="max-width:none">${sub}</div></div>
           <div class="p-row-right">
             <div><div class="p-row-amt-lbl">Sum Assured</div><div class="p-row-amt grn">${formatMoney(item.sumAssured,c)}</div></div>
           </div>
@@ -3162,7 +3165,8 @@ function renderLoans() {
     const loanRec = S.recurring.items.find(r => r.linkedLoanRecId === loan.id && !r.closed);
     const loanRecTotal = loanRec ? getRecurringPaidTotal(loanRec) : 0;
     const loanRecMonths = loanRec ? Object.values(loanRec.months||{}).filter(m=>m.paid).length : 0;
-    const loanRecStrip = loanRec ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
+    const loanRecExpanded = loanRec && S.expandedLoanRec === loan.id;
+    const loanRecStrip = loanRecExpanded ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:11px;color:var(--muted-fg)"><span class="cur-pill red" style="margin-right:4px">EMI</span>${formatMoney(loanRec.amount||0,getCur(loanRec))}/mo · ${loanRecMonths} month${loanRecMonths!==1?'s':''} paid</span>
       <span style="font-size:11px;font-weight:600;color:var(--income)">${formatMoney(loanRecTotal,getCur(loanRec))} total</span>
     </div>` : '';
@@ -3200,7 +3204,7 @@ function renderLoans() {
         <div class="swipe-front">
           <div class="p-row" data-action="toggle-loan" data-id="${loan.id}" style="cursor:pointer${loan.closed?';opacity:0.5':''}">
             <div class="p-row-icon loan">${svgHome.replace('stroke="currentColor"','stroke="#e11d48"')}</div>
-            <div class="p-row-meta"><div class="p-row-name">${esc(loan.name)}<span class="cur-pill red">${c}</span>${loanRec?'<span class="cur-pill red">EMI</span>':''}</div><div class="p-row-sub">${loan.lender?esc(loan.lender)+' · ':''}${formatMoney(loan.principal,c)} · ${loan.tenureYears}yr · ${loan.interestRate}% · EMI ${formatMoney(emi,c)}</div></div>
+            <div class="p-row-meta"><div class="p-row-name">${esc(loan.name)}<span class="cur-pill red">${c}</span>${loanRec?`<span class="cur-pill red" style="cursor:pointer" data-action="toggle-loan-rec" data-id="${loan.id}">EMI${loanRecExpanded?'▲':'▼'}</span>`:''}</div><div class="p-row-sub">${loan.lender?esc(loan.lender)+' · ':''}${formatMoney(loan.principal,c)} · ${loan.tenureYears}yr · ${loan.interestRate}% · EMI ${formatMoney(emi,c)}</div></div>
             <div class="p-row-right">
               ${loan.closed
                 ? `<span class="rec-badge paid">✓ Closed</span>`
@@ -3264,7 +3268,8 @@ function renderGoldLoans() {
     const goldRec = S.recurring.items.find(r => r.linkedGoldLoanRecId === loan.id && !r.closed);
     const goldRecTotal = goldRec ? getRecurringPaidTotal(goldRec) : 0;
     const goldRecMonths = goldRec ? Object.values(goldRec.months||{}).filter(m=>m.paid).length : 0;
-    const goldRecStrip = goldRec ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
+    const goldRecExpanded = goldRec && S.expandedGoldLoanRec === loan.id;
+    const goldRecStrip = goldRecExpanded ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:11px;color:var(--muted-fg)"><span class="cur-pill amb" style="margin-right:4px">Monthly</span>${formatMoney(goldRec.amount||0,getCur(goldRec))}/mo · ${goldRecMonths} month${goldRecMonths!==1?'s':''} paid</span>
       <span style="font-size:11px;font-weight:600;color:var(--income)">${formatMoney(goldRecTotal,getCur(goldRec))} total</span>
     </div>` : '';
@@ -3299,7 +3304,7 @@ function renderGoldLoans() {
         <div class="swipe-front">
           <div class="p-row" data-action="toggle-gold" data-id="${loan.id}" style="cursor:pointer${loan.closed?';opacity:0.5':''}">
             <div class="p-row-icon gold">${svgGold.replace('stroke="currentColor"','stroke="#d97706"')}</div>
-            <div class="p-row-meta"><div class="p-row-name">${esc(loan.name)}<span class="cur-pill amb">${c}</span>${goldRec?'<span class="cur-pill amb">Monthly</span>':''}</div><div class="p-row-sub">${loan.lender?esc(loan.lender)+' · ':''}${formatMoney(loan.principal,c)} · ${loan.interestRate}% p.a.${loan.startDate?' · Started '+fmtDate(loan.startDate):''}</div></div>
+            <div class="p-row-meta"><div class="p-row-name">${esc(loan.name)}<span class="cur-pill amb">${c}</span>${goldRec?`<span class="cur-pill amb" style="cursor:pointer" data-action="toggle-gold-rec" data-id="${loan.id}">Monthly${goldRecExpanded?'▲':'▼'}</span>`:''}</div><div class="p-row-sub">${loan.lender?esc(loan.lender)+' · ':''}${formatMoney(loan.principal,c)} · ${loan.interestRate}% p.a.${loan.startDate?' · Started '+fmtDate(loan.startDate):''}</div></div>
             <div class="p-row-right">
               ${loan.closed
                 ? `<span class="rec-badge paid">✓ Closed</span>`
