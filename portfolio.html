@@ -2844,6 +2844,10 @@ function renderInvestmentsCard() {
     const sipTotal = sip ? getRecurringPaidTotal(sip) : 0;
     const sipPaidMonths = sip ? Object.values(sip.months||{}).filter(m=>m.paid).length : 0;
     const sipExpanded = sip && S.expandedInvestmentSIP === item.id;
+    const effectiveInvested = (item.amountInvested || 0) + sipTotal;
+    const investedLabel = sipTotal > 0
+      ? `${formatMoney(effectiveInvested,c)} invested (${formatMoney(item.amountInvested||0,c)} + ${formatMoney(sipTotal,getCur(sip))} SIP)`
+      : `${formatMoney(item.amountInvested||0,c)} invested`;
     const sipStrip = sipExpanded ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:11px;color:var(--muted-fg)"><span class="cur-pill purple" style="margin-right:4px">SIP</span>${formatMoney(sip.amount||0,getCur(sip))}/mo · ${sipPaidMonths} month${sipPaidMonths!==1?'s':''} paid</span>
       <span style="font-size:11px;font-weight:600;color:var(--income)">${formatMoney(sipTotal,getCur(sip))} total</span>
@@ -2860,7 +2864,7 @@ function renderInvestmentsCard() {
           <div class="p-row-icon inv">${svgChart.replace('stroke="currentColor"','stroke="#9333ea"')}</div>
           <div class="p-row-meta"><div class="p-row-name">${esc(item.name)}<span class="cur-pill">${c}</span>${sip?'<span class="cur-pill purple">SIP</span>':''}</div><div class="p-row-sub">${subText}</div></div>
           <div class="p-row-right">
-            <div><div class="p-row-amt-lbl">Current · Invested</div><div class="p-row-amt grn">${formatMoney(item.currentValue,c)}</div><div class="p-row-sub">${formatMoney(item.amountInvested,c)} invested</div></div>
+            <div><div class="p-row-amt-lbl">Current · Invested</div><div class="p-row-amt grn">${formatMoney(item.currentValue,c)}</div><div class="p-row-sub">${investedLabel}</div></div>
           </div>
         </div>${sipStrip}
       </div>
