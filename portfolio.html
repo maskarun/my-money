@@ -2240,11 +2240,10 @@ function renderHeroCards() {
   const byCur = {};
   const add = (cur, type, amt) => { if (!byCur[cur]) byCur[cur]={income:0,expense:0}; byCur[cur][type]+=amt; };
 
-  // Previous month's net (income − expenses for the month directly before selected)
-  const prevMon = shiftMonth(mon, -1);
+  // Carry-forward balance: net of all activity before the selected month
   const prevBal = {};
   for (const t of S.transactions) {
-    if (!t.date || localTxMonth(t.date) !== prevMon) continue;
+    if (!t.date || localTxMonth(t.date) >= mon) continue;
     if (t.type==='transfer') {
       prevBal[t.fromCurrency] = (prevBal[t.fromCurrency]||0) - t.fromAmount;
       prevBal[t.toCurrency] = (prevBal[t.toCurrency]||0) + t.toAmount;
