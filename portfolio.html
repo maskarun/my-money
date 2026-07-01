@@ -3165,8 +3165,7 @@ function renderLoans() {
     const loanRec = S.recurring.items.find(r => r.linkedLoanRecId === loan.id && !r.closed);
     const loanRecTotal = loanRec ? getRecurringPaidTotal(loanRec) : 0;
     const loanRecMonths = loanRec ? Object.values(loanRec.months||{}).filter(m=>m.paid).length : 0;
-    const loanRecExpanded = loanRec && S.expandedLoanRec === loan.id;
-    const loanRecStrip = loanRecExpanded ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
+    const loanRecStrip = loanRec ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:11px;color:var(--muted-fg)"><span class="cur-pill red" style="margin-right:4px">EMI</span>${formatMoney(loanRec.amount||0,getCur(loanRec))}/mo · ${loanRecMonths} month${loanRecMonths!==1?'s':''} paid</span>
       <span style="font-size:11px;font-weight:600;color:var(--income)">${formatMoney(loanRecTotal,getCur(loanRec))} total</span>
     </div>` : '';
@@ -3202,7 +3201,7 @@ function renderLoans() {
           <button class="sb-del" data-action="del-loan" data-id="${loan.id}" title="Delete">${svgTrash}</button>
         </div>
         <div class="swipe-front">
-          <div class="p-row" data-action="${loanRec?'toggle-loan-rec':'toggle-loan'}" data-id="${loan.id}" style="cursor:pointer${loan.closed?';opacity:0.5':''}">
+          <div class="p-row" data-action="toggle-loan" data-id="${loan.id}" style="cursor:pointer${loan.closed?';opacity:0.5':''}">
             <div class="p-row-icon loan">${svgHome.replace('stroke="currentColor"','stroke="#e11d48"')}</div>
             <div class="p-row-meta"><div class="p-row-name">${esc(loan.name)}<span class="cur-pill red">${c}</span>${loanRec?'<span class="cur-pill red">EMI</span>':''}</div><div class="p-row-sub">${loan.lender?esc(loan.lender)+' · ':''}${formatMoney(loan.principal,c)} · ${loan.tenureYears}yr · ${loan.interestRate}% · EMI ${formatMoney(emi,c)}</div></div>
             <div class="p-row-right">
@@ -3268,8 +3267,7 @@ function renderGoldLoans() {
     const goldRec = S.recurring.items.find(r => r.linkedGoldLoanRecId === loan.id && !r.closed);
     const goldRecTotal = goldRec ? getRecurringPaidTotal(goldRec) : 0;
     const goldRecMonths = goldRec ? Object.values(goldRec.months||{}).filter(m=>m.paid).length : 0;
-    const goldRecExpanded = goldRec && S.expandedGoldLoanRec === loan.id;
-    const goldRecStrip = goldRecExpanded ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
+    const goldRecStrip = goldRec ? `<div style="border-top:1px solid var(--border);margin:0 12px;padding:6px 4px 6px;display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:11px;color:var(--muted-fg)"><span class="cur-pill amb" style="margin-right:4px">Monthly</span>${formatMoney(goldRec.amount||0,getCur(goldRec))}/mo · ${goldRecMonths} month${goldRecMonths!==1?'s':''} paid</span>
       <span style="font-size:11px;font-weight:600;color:var(--income)">${formatMoney(goldRecTotal,getCur(goldRec))} total</span>
     </div>` : '';
@@ -3302,7 +3300,7 @@ function renderGoldLoans() {
           <button class="sb-del" data-action="del-gold" data-id="${loan.id}" title="Delete">${svgTrash}</button>
         </div>
         <div class="swipe-front">
-          <div class="p-row" data-action="${goldRec?'toggle-gold-rec':'toggle-gold'}" data-id="${loan.id}" style="cursor:pointer${loan.closed?';opacity:0.5':''}">
+          <div class="p-row" data-action="toggle-gold" data-id="${loan.id}" style="cursor:pointer${loan.closed?';opacity:0.5':''}">
             <div class="p-row-icon gold">${svgGold.replace('stroke="currentColor"','stroke="#d97706"')}</div>
             <div class="p-row-meta"><div class="p-row-name">${esc(loan.name)}<span class="cur-pill amb">${c}</span>${goldRec?'<span class="cur-pill amb">Monthly</span>':''}</div><div class="p-row-sub">${loan.lender?esc(loan.lender)+' · ':''}${formatMoney(loan.principal,c)} · ${loan.interestRate}% p.a.${loan.startDate?' · Started '+fmtDate(loan.startDate):''}</div></div>
             <div class="p-row-right">
