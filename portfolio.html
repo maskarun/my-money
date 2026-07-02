@@ -2254,12 +2254,26 @@ function renderHeroCards() {
     if (!t.currency) continue;
     prevBal[t.currency] = (prevBal[t.currency]||0) + (t.type==='income' ? t.amount : -t.amount);
   }
+  // legacy part payments (recorded before payments created transactions)
+  for (const loan of S.portfolio.loans) {
+    for (const p of (loan.partPayments||[])) { if (!p.txId && p.date && localTxMonth(p.date) < mon && loan.currency) prevBal[loan.currency]=(prevBal[loan.currency]||0)-p.amount; }
+  }
+  for (const loan of S.portfolio.goldLoans) {
+    for (const p of (loan.payments||[])) { if (!p.txId && p.date && localTxMonth(p.date) < mon && loan.currency) prevBal[loan.currency]=(prevBal[loan.currency]||0)-p.amount; }
+  }
 
   for (const t of S.transactions) {
     if (!t.date || localTxMonth(t.date) !== mon) continue;
     if (t.type==='transfer') { add(t.fromCurrency,'expense',t.fromAmount); add(t.toCurrency,'income',t.toAmount); continue; }
     if (!t.currency) continue;
     add(t.currency, t.type==='income'?'income':'expense', t.amount);
+  }
+  // legacy part payments this month (no linked transaction)
+  for (const loan of S.portfolio.loans) {
+    for (const p of (loan.partPayments||[])) { if (!p.txId && p.date && localTxMonth(p.date)===mon && loan.currency) add(loan.currency,'expense',p.amount); }
+  }
+  for (const loan of S.portfolio.goldLoans) {
+    for (const p of (loan.payments||[])) { if (!p.txId && p.date && localTxMonth(p.date)===mon && loan.currency) add(loan.currency,'expense',p.amount); }
   }
 
   // Ensure currencies with prior balance but no current-month activity show up
@@ -2652,14 +2666,14 @@ function renderActivity() {
 
   for (const loan of S.portfolio.loans) {
     for (const p of (loan.partPayments || [])) {
-      if (localTxMonth(p.date) !== mon) continue;
+      if (p.txId || localTxMonth(p.date) !== mon) continue;
       entries.push({ date: p.date, icon: 'expense', iconSvg: svgArrowDown, name: 'Part Payment: ' + loan.name, meta: (p.note ? esc(p.note) + ' · ' : '') + fmtDate(p.date), amtHtml: `<span class="tx-amount expense">−${formatMoney(p.amount, getCur(loan))}</span>`, delBtn: '', badge: getCur(loan), source: 'loan' });
     }
   }
 
   for (const loan of S.portfolio.goldLoans) {
     for (const p of (loan.payments || [])) {
-      if (localTxMonth(p.date) !== mon) continue;
+      if (p.txId || localTxMonth(p.date) !== mon) continue;
       entries.push({ date: p.date, icon: 'expense', iconSvg: svgArrowDown, name: 'Gold Loan Payment: ' + loan.name, meta: (p.note ? esc(p.note) + ' · ' : '') + fmtDate(p.date), amtHtml: `<span class="tx-amount expense">−${formatMoney(p.amount, getCur(loan))}</span>`, delBtn: '', badge: getCur(loan), source: 'gold' });
     }
   }
@@ -3893,7 +3907,22 @@ function handleClick(e) {
   }
   if (action==='del-tx') {
     if (!confirm('Delete this transaction?')) return;
-    S.transactions=S.transactions.filter(t=>t.id!==btn.dataset.id); save(); renderDashboard(); return;
+    const txId = btn.dataset.id;
+    for (const loan of S.portfolio.loans) {
+      if ((loan.partPayments||[]).some(p=>p.txId===txId)) loan.partPayments = loan.partPayments.filter(p=>p.txId!==txId);
+    }
+    for (const loan of S.portfolio.goldLoans) {
+      const p = (loan.payments||[]).find(p=>p.txId===txId);
+      if (p) { loan.principal += p.amount; loan.payments = loan.payments.filter(x=>x.txId!==txId); }
+    }
+    for (const item of (S.recurring?.items||[])) {
+      for (const ms of Object.values(item.months||{})) { if (ms.txId===txId) { ms.paid=false; ms.txId=undefined; } }
+    }
+    for (const card of (S.recurring?.creditCards||[])) {
+      for (const ms of Object.values(card.months||{})) { if (ms.txId===txId) { ms.paid=false; ms.txId=undefined; } }
+    }
+    S.transactions=S.transactions.filter(t=>t.id!==txId);
+    save(); renderDashboard(); renderRecurring(); renderPortfolio(); return;
   }
   if (action==='toggle-add-investment') { S.addingInvestment=!S.addingInvestment; S.editingId=null; renderPortfolio(); return; }
   if (action==='cancel-investment') { S.addingInvestment=false; S.portfolioAddType=null; S.editingId=null; S.editSection=null; document.getElementById('bottom-sheet').style.display='none'; renderPortfolio(); return; }
