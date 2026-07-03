@@ -3811,13 +3811,17 @@ function handleClick(e) {
   }
   if (action==='pay-variable-bill') {
     const item = S.recurring.items.find(i=>i.id===btn.dataset.id); if (!item) return;
-    if (!item.currency) return toast('Recurring item has no currency — edit it first');
     const mon = S.selectedMonth; if (!item.months) item.months = {};
-    const amount = item.months[mon]?.amount || 0;
-    if (!amount) return toast('No amount saved');
-    const txId = uid();
-    S.transactions.unshift({id:txId,type:'expense',amount,category:item.category||'Bills',note:item.name,date:dateInMonth(mon),currency:item.currency});
-    item.months[mon].paid = true; item.months[mon].txId = txId;
+    const ms0 = item.months[mon] || {};
+    const amount = ms0.amount ?? 0;
+    if (!ms0.amountSaved && !amount) return toast('No amount saved');
+    let txId;
+    if (amount > 0) {
+      if (!item.currency) return toast('Recurring item has no currency — edit it first');
+      txId = uid();
+      S.transactions.unshift({id:txId,type:'expense',amount,category:item.category||'Bills',note:item.name,date:dateInMonth(mon),currency:item.currency});
+    }
+    item.months[mon] = {...ms0, paid:true, txId};
     save(); renderDashboard(); renderRecurring(); toast(item.name+' marked paid'); return;
   }
   if (action==='undo-variable-bill-amount') {
@@ -3828,13 +3832,17 @@ function handleClick(e) {
   }
   if (action==='pay-card-bill') {
     const card = S.recurring.creditCards.find(c=>c.id===btn.dataset.id); if (!card) return;
-    if (!card.currency) return toast('Credit card has no currency — edit it first');
     const mon = S.selectedMonth; if (!card.months) card.months = {};
-    const amount = card.months[mon]?.amount || 0;
-    if (!amount) return toast('No amount saved');
-    const txId = uid();
-    S.transactions.unshift({id:txId,type:'expense',amount,category:'Bills',note:card.name+' CC Bill',date:dateInMonth(mon),currency:card.currency});
-    card.months[mon].paid = true; card.months[mon].txId = txId;
+    const ms0 = card.months[mon] || {};
+    const amount = ms0.amount ?? 0;
+    if (!ms0.amountSaved && !amount) return toast('No amount saved');
+    let txId;
+    if (amount > 0) {
+      if (!card.currency) return toast('Credit card has no currency — edit it first');
+      txId = uid();
+      S.transactions.unshift({id:txId,type:'expense',amount,category:'Bills',note:card.name+' CC Bill',date:dateInMonth(mon),currency:card.currency});
+    }
+    card.months[mon] = {...ms0, paid:true, txId};
     save(); renderDashboard(); renderRecurring(); toast(card.name+' bill paid'); return;
   }
   if (action==='undo-card-amount') {
