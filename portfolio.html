@@ -592,10 +592,14 @@ function applyBackupData(data) {
 
 function save() {
   try {
+    localStorage.setItem('mmc.lastCurrency.v1', S.txCurrency);
+    if (localStorage.getItem('mmc.lock.enabled') === '1' && localStorage.getItem('mmc.lock.dekPin')) {
+      if (encDek) persistEncrypted();
+      return;
+    }
     localStorage.setItem('mmc.tx.v1', JSON.stringify(S.transactions));
     localStorage.setItem('mmc.portfolio.v1', JSON.stringify(S.portfolio));
     localStorage.setItem('mmc.recurring.v1', JSON.stringify(S.recurring));
-    localStorage.setItem('mmc.lastCurrency.v1', S.txCurrency);
     localStorage.setItem('mmc.goals.v1', JSON.stringify(S.goals));
     localStorage.setItem('mmc.backup', JSON.stringify(buildBackupPayload()));
     localStorage.setItem('mmc.backup.time', new Date().toISOString());
@@ -652,6 +656,54 @@ const bytesToB64 = b => btoa(String.fromCharCode(...new Uint8Array(b)));
 const b64ToBytes = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 const biometricAvailable = () => !!(window.PublicKeyCredential && navigator.credentials);
 
+// ---- Encryption at rest (AES-GCM, key derived from PIN via PBKDF2; DEK wrapped for PIN and optionally biometric PRF) ----
+let encDek = null, encDekRaw = null;   // in-memory after unlock
+const encStored = () => !!localStorage.getItem('mmc.lock.encData');
+
+async function kekFromPin(pin) {
+  let salt = localStorage.getItem('mmc.lock.kdfSalt');
+  if (!salt) { salt = bytesToB64(crypto.getRandomValues(new Uint8Array(16))); localStorage.setItem('mmc.lock.kdfSalt', salt); }
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pin), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2', salt: b64ToBytes(salt), iterations: 150000, hash:'SHA-256'}, base, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+}
+async function aesEncrypt(key, bytes) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, bytes);
+  return bytesToB64(iv) + '.' + bytesToB64(ct);
+}
+async function aesDecrypt(key, packed) {
+  const [iv, ct] = packed.split('.').map(b64ToBytes);
+  return new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM', iv}, key, ct));
+}
+async function importDek(raw) { return crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt','decrypt']); }
+
+async function persistEncrypted() {
+  if (!encDek) return;
+  const payload = JSON.stringify({transactions:S.transactions, portfolio:S.portfolio, recurring:S.recurring, goals:S.goals});
+  localStorage.setItem('mmc.lock.encData', await aesEncrypt(encDek, new TextEncoder().encode(payload)));
+}
+async function setupEncryption(pin) {
+  encDekRaw = crypto.getRandomValues(new Uint8Array(32));
+  encDek = await importDek(encDekRaw);
+  const kek = await kekFromPin(pin);
+  localStorage.setItem('mmc.lock.dekPin', await aesEncrypt(kek, encDekRaw));
+  await persistEncrypted();
+  ['mmc.tx.v1','mmc.portfolio.v1','mmc.recurring.v1','mmc.goals.v1','mmc.backup','mmc.backup.time'].forEach(k => localStorage.removeItem(k));
+}
+async function unlockWithRawDek(raw) {
+  const key = await importDek(raw);
+  const plain = new TextDecoder().decode(await aesDecrypt(key, localStorage.getItem('mmc.lock.encData')));
+  const data = JSON.parse(plain);
+  encDekRaw = raw; encDek = key;
+  S.transactions = data.transactions || [];
+  S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[],insurance:[]}, data.portfolio || {});
+  S.recurring = Object.assign({items:[],creditCards:[]}, data.recurring || {});
+  S.goals = data.goals || [];
+  renderDashboard(); renderPortfolio(); renderRecurring(); renderInsights();
+  hideLockScreen();
+  setTimeout(getMarketBrief, 500);
+}
+
 function showLockScreen() {
   const cfg = lockCfg();
   const el = document.getElementById('lock-screen');
@@ -670,30 +722,53 @@ function showLockScreen() {
   if (cfg.credId && biometricAvailable()) tryBiometricUnlock();
 }
 function hideLockScreen() { document.getElementById('lock-screen').style.display = 'none'; }
+function getPrfSalt() {
+  let s = localStorage.getItem('mmc.lock.prfSalt');
+  if (!s) { s = bytesToB64(crypto.getRandomValues(new Uint8Array(32))); localStorage.setItem('mmc.lock.prfSalt', s); }
+  return b64ToBytes(s);
+}
 async function tryBiometricUnlock() {
   const cfg = lockCfg();
-  if (!cfg.credId || !biometricAvailable()) return;
+  if (!cfg.credId || !biometricAvailable() || !localStorage.getItem('mmc.lock.dekBio')) return;
   try {
-    const challenge = crypto.getRandomValues(new Uint8Array(32));
     const cred = await navigator.credentials.get({ publicKey: {
-      challenge, allowCredentials: [{ type: 'public-key', id: b64ToBytes(cfg.credId) }],
-      userVerification: 'required', timeout: 60000
+      challenge: crypto.getRandomValues(new Uint8Array(32)),
+      allowCredentials: [{ type: 'public-key', id: b64ToBytes(cfg.credId) }],
+      userVerification: 'required', timeout: 60000,
+      extensions: { prf: { eval: { first: getPrfSalt() } } }
     }});
-    if (cred) hideLockScreen();
-  } catch(e) { /* user cancelled or not available — PIN remains */ }
+    const secret = cred?.getClientExtensionResults?.().prf?.results?.first;
+    if (!secret) return;
+    const bioKey = await importDek(new Uint8Array(secret));
+    const raw = await aesDecrypt(bioKey, localStorage.getItem('mmc.lock.dekBio'));
+    await unlockWithRawDek(raw);
+  } catch(e) { /* cancelled or wrong device — PIN remains */ }
 }
 async function enrollBiometric() {
+  if (!encDekRaw) { toast('Unlock with your PIN first'); return; }
   try {
-    const challenge = crypto.getRandomValues(new Uint8Array(32));
-    const userId = crypto.getRandomValues(new Uint8Array(16));
     const cred = await navigator.credentials.create({ publicKey: {
-      challenge, rp: { name: 'My Money' },
-      user: { id: userId, name: 'my-money-user', displayName: 'My Money' },
+      challenge: crypto.getRandomValues(new Uint8Array(32)), rp: { name: 'My Money' },
+      user: { id: crypto.getRandomValues(new Uint8Array(16)), name: 'my-money-user', displayName: 'My Money' },
       pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
       authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
-      timeout: 60000
+      timeout: 60000, extensions: { prf: {} }
     }});
-    if (cred) { localStorage.setItem('mmc.lock.credId', bytesToB64(cred.rawId)); toast('Biometric unlock enabled'); renderSettings(); }
+    if (!cred) return;
+    if (!cred.getClientExtensionResults?.().prf?.enabled) { toast('This browser cannot use biometrics with encryption'); return; }
+    // one authentication to obtain the PRF secret, then wrap the data key with it
+    const assertion = await navigator.credentials.get({ publicKey: {
+      challenge: crypto.getRandomValues(new Uint8Array(32)),
+      allowCredentials: [{ type: 'public-key', id: cred.rawId }],
+      userVerification: 'required', timeout: 60000,
+      extensions: { prf: { eval: { first: getPrfSalt() } } }
+    }});
+    const secret = assertion?.getClientExtensionResults?.().prf?.results?.first;
+    if (!secret) { toast('Biometric setup failed'); return; }
+    const bioKey = await importDek(new Uint8Array(secret));
+    localStorage.setItem('mmc.lock.dekBio', await aesEncrypt(bioKey, encDekRaw));
+    localStorage.setItem('mmc.lock.credId', bytesToB64(cred.rawId));
+    toast('Biometric unlock enabled'); renderSettings();
   } catch(e) { toast('Biometric setup failed: ' + (e.name === 'NotAllowedError' ? 'cancelled' : (e.message || e))); }
 }
 const todayISO = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
@@ -1128,6 +1203,7 @@ async function getInsights() {
 let marketBriefLoading = false;
 async function getMarketBrief(force) {
   if (localStorage.getItem('mmc.marketBriefEnabled') !== '1') return;
+  if (encStored() && !encDek) return; // app still locked — portfolio not decrypted yet
   const apiKey = localStorage.getItem('mmc.apiKey');
   if (!apiKey || marketBriefLoading) return;
   let stored = {};
@@ -3648,9 +3724,20 @@ function handleSubmit(e) {
   if (action==='unlock-pin') {
     (async () => {
       const cfg = lockCfg();
-      const h = await pinHash(d.pin || '', cfg.salt);
-      if (h === cfg.hash) hideLockScreen();
-      else { const err = document.getElementById('lock-error'); if (err) err.textContent = 'Wrong PIN'; form.reset(); }
+      const showErr = msg => { const err = document.getElementById('lock-error'); if (err) err.textContent = msg; form.reset(); };
+      if (await pinHash(d.pin || '', cfg.salt) !== cfg.hash) return showErr('Wrong PIN');
+      if (encStored()) {
+        try {
+          const kek = await kekFromPin(d.pin);
+          const raw = await aesDecrypt(kek, localStorage.getItem('mmc.lock.dekPin'));
+          await unlockWithRawDek(raw);
+        } catch(e) { showErr('Could not decrypt data'); }
+      } else {
+        // legacy: lock was set before encryption existed — migrate now
+        await setupEncryption(d.pin);
+        hideLockScreen();
+        setTimeout(getMarketBrief, 500);
+      }
     })();
     return;
   }
@@ -3662,7 +3749,8 @@ function handleSubmit(e) {
       localStorage.setItem('mmc.lock.salt', salt);
       localStorage.setItem('mmc.lock.pinHash', await pinHash(d.pin, salt));
       localStorage.setItem('mmc.lock.enabled', '1');
-      toast('App lock enabled'); renderSettings();
+      await setupEncryption(d.pin);
+      toast('App lock enabled — data encrypted'); renderSettings();
     })();
     return;
   }
@@ -3671,9 +3759,13 @@ function handleSubmit(e) {
       const cfg = lockCfg();
       if (await pinHash(d.cur||'', cfg.salt) !== cfg.hash) return toast('Current PIN is wrong');
       if ((d.pin||'').length < 4) return toast('New PIN must be at least 4 digits');
+      if (!encDekRaw) return toast('Unlock the app first');
       const salt = uid();
       localStorage.setItem('mmc.lock.salt', salt);
       localStorage.setItem('mmc.lock.pinHash', await pinHash(d.pin, salt));
+      localStorage.removeItem('mmc.lock.kdfSalt');
+      const kek = await kekFromPin(d.pin);
+      localStorage.setItem('mmc.lock.dekPin', await aesEncrypt(kek, encDekRaw));
       toast('PIN changed'); renderSettings();
     })();
     return;
@@ -3682,11 +3774,10 @@ function handleSubmit(e) {
     (async () => {
       const cfg = lockCfg();
       if (await pinHash(d.cur||'', cfg.salt) !== cfg.hash) return toast('Current PIN is wrong');
-      localStorage.removeItem('mmc.lock.enabled');
-      localStorage.removeItem('mmc.lock.pinHash');
-      localStorage.removeItem('mmc.lock.salt');
-      localStorage.removeItem('mmc.lock.credId');
-      toast('App lock disabled'); renderSettings();
+      ['mmc.lock.enabled','mmc.lock.pinHash','mmc.lock.salt','mmc.lock.credId','mmc.lock.encData','mmc.lock.dekPin','mmc.lock.dekBio','mmc.lock.kdfSalt','mmc.lock.prfSalt'].forEach(k => localStorage.removeItem(k));
+      encDek = null; encDekRaw = null;
+      save();   // lock disabled → writes plaintext back
+      toast('App lock disabled — data decrypted'); renderSettings();
     })();
     return;
   }
@@ -4057,7 +4148,7 @@ function handleClick(e) {
   if (action==='filter-activity-cat') { S.activityCatFilter = btn.dataset.cat || null; renderDashboard(); return; }
   if (action==='unlock-bio') { tryBiometricUnlock(); return; }
   if (action==='enroll-biometric') { enrollBiometric(); return; }
-  if (action==='remove-biometric') { localStorage.removeItem('mmc.lock.credId'); toast('Biometric unlock removed'); renderSettings(); return; }
+  if (action==='remove-biometric') { localStorage.removeItem('mmc.lock.credId'); localStorage.removeItem('mmc.lock.dekBio'); toast('Biometric unlock removed'); renderSettings(); return; }
   if (action==='toggle-market-brief') {
     const on = localStorage.getItem('mmc.marketBriefEnabled') === '1';
     if (on) localStorage.removeItem('mmc.marketBriefEnabled'); else localStorage.setItem('mmc.marketBriefEnabled','1');
