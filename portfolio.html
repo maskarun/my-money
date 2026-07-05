@@ -868,10 +868,6 @@ function renderOverviewCards() {
 
 let insightsResult = localStorage.getItem('mmc.insights') || '';
 let insightsLoading = false;
-let smartAlertsResult = localStorage.getItem('mmc.smartAlerts') || '';
-let smartAlertsLoading = false;
-let projectionAIResult = localStorage.getItem('mmc.aiProjections') || '';
-let projectionAILoading = false;
 
 function formatInsights(txt) {
   const lines = txt.split('\n');
@@ -1014,19 +1010,13 @@ async function callAI(prompt, setResult, setLoading, cacheKey) {
 
 async function getInsights() {
   const summary = buildPortfolioSummary();
-  const prompt = `You are a personal finance advisor. Analyze this portfolio and provide **Top 5 Portfolio Insights** - key observations about spending patterns, savings health, debt exposure, and overall financial health. Be specific to the numbers. Do NOT include investment suggestions or forward-looking advice. Keep each point to 1-2 sentences. Be concise and actionable.\n\n${summary}`;
-  await callAI(prompt, v => { insightsResult = v; }, v => { insightsLoading = v; }, 'mmc.insights');
-}
-
-async function getSmartAlerts() {
-  const summary = buildPortfolioSummary();
   const spending = getMonthlySpending();
   const spendingText = Object.entries(spending).map(([cur, cats]) => {
     const catLines = Object.entries(cats).filter(([k])=>k!=='_total').map(([k,v])=>`  ${k}: ${formatMoney(v,cur)}`).join('\n');
     return `${cur} total: ${formatMoney(cats._total,cur)}\n${catLines}`;
   }).join('\n');
-  const prompt = `You are a personal finance analyst. Analyze this spending data for anomalies, unusual patterns, and risks. Compare against the portfolio context. Give 3-5 specific, actionable alerts. Flag anything unusual. Be concise.\n\nCurrent month (${fmtMonth(thisMonth())}) spending:\n${spendingText}\n\nPortfolio context:\n${summary}`;
-  await callAI(prompt, v => { smartAlertsResult = v; }, v => { smartAlertsLoading = v; }, 'mmc.smartAlerts');
+  const prompt = `You are a personal finance advisor. Analyze this portfolio and current-month spending. Return ONLY a JSON array (no markdown, no code fences, no prose) of 4-6 items, most important first. Each item: {"type":"alert"|"action"|"win","title":"max 6 words","tip":"one specific actionable sentence, max 15 words, with real numbers"}. "alert" = risk or anomaly, "action" = concrete suggestion, "win" = something going well. Be specific to the numbers, no generic advice.\n\nCurrent month (${fmtMonth(thisMonth())}) spending:\n${spendingText}\n\nPortfolio:\n${summary}`;
+  await callAI(prompt, v => { insightsResult = v; }, v => { insightsLoading = v; }, 'mmc.insights');
 }
 
 function buildPortfolioSummary() {
@@ -1159,39 +1149,56 @@ function renderReports() {
   return `<div class="card">${hdr}<div class="toggle-chip-row" style="padding:4px 16px 8px;flex-wrap:wrap">${rangeChips}</div>${customInputs}${body}</div>`;
 }
 
+function parseInsightItems(txt) {
+  try {
+    const m = txt.match(/\[[\s\S]*\]/);
+    if (!m) return null;
+    const arr = JSON.parse(m[0]);
+    if (!Array.isArray(arr) || !arr.length) return null;
+    return arr.filter(i => i && i.title && i.tip).slice(0, 6);
+  } catch { return null; }
+}
+
+function renderInsightItems(items) {
+  const styles = {
+    alert:  { icon: '⚠️', color: 'var(--expense)' },
+    action: { icon: '💡', color: '#8b5cf6' },
+    win:    { icon: '✅', color: 'var(--income)' }
+  };
+  return `<div style="padding:4px 16px 8px">${items.map(i => {
+    const s = styles[i.type] || styles.action;
+    return `<div style="display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);align-items:flex-start">
+      <span style="font-size:14px;line-height:1.4">${s.icon}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:700;color:${s.color}">${esc(i.title)}</div>
+        <div style="font-size:12px;color:var(--text);line-height:1.45;margin-top:1px">${esc(i.tip)}</div>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
 function buildInsightsCards() {
   const hasKey = !!localStorage.getItem('mmc.apiKey');
   const provider = localStorage.getItem('mmc.aiProvider') || 'claude';
   const providerLabel = provider === 'gemini' ? 'Gemini' : 'Claude';
 
-  let content;
   if (!hasKey) {
-    content = `<div class="card"><div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">AI Insights</span></div><div class="sec-sub">Set up your API key in Settings</div></div></div><div class="empty"><p>Go to Settings to add your API key</p></div></div>`;
-  } else {
-    const body = insightsLoading
-      ? `<div class="empty"><p>Analyzing your portfolio...</p></div>`
+    return `<div class="card"><div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">AI Insights</span></div><div class="sec-sub">Set up your API key in Settings</div></div></div><div class="empty"><p>Go to Settings to add your API key</p></div></div>`;
+  }
+  const items = insightsResult ? parseInsightItems(insightsResult) : null;
+  const body = insightsLoading
+    ? `<div class="empty"><p>Analyzing your portfolio...</p></div>`
+    : items
+      ? renderInsightItems(items)
       : insightsResult
         ? `<div style="padding:12px 16px;font-size:12px;line-height:1.6">${formatInsights(insightsResult)}</div>`
-        : `<div class="empty"><p>Tap below to get AI-powered insights & suggestions</p></div>`;
-    content = `<div class="card">
-      <div class="sec-hdr" data-action="toggle-section" data-sec="aiInsights" style="cursor:pointer${S.secOpen.aiInsights?'':';padding-bottom:14px'}"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">AI Insights</span></div><div class="sec-sub">Powered by ${providerLabel}</div></div></div>
-      ${S.secOpen.aiInsights?`${body}<div class="add-form-btns" style="padding:12px 16px">
-        <button class="btn btn-accent" data-action="get-insights" ${insightsLoading?'disabled':''}>Get Insights</button>
-      </div>`:''}
-    </div>`;
-    const smartBody = smartAlertsLoading
-      ? `<div class="empty"><p>Analyzing spending patterns...</p></div>`
-      : smartAlertsResult
-        ? `<div style="padding:12px 16px;font-size:12px;line-height:1.6">${formatInsights(smartAlertsResult)}</div>`
-        : `<div class="empty"><p>Tap below to detect anomalies in your spending</p></div>`;
-    content += `<div class="card">
-      <div class="sec-hdr" data-action="toggle-section" data-sec="smartAlerts" style="cursor:pointer${S.secOpen.smartAlerts?'':';padding-bottom:14px'}"><div><div class="sec-title-row"><span class="sec-dot red"></span><span class="sec-title">Smart Alerts</span></div><div class="sec-sub">AI-powered anomaly detection</div></div></div>
-      ${S.secOpen.smartAlerts?`${smartBody}<div class="add-form-btns" style="padding:12px 16px">
-        <button class="btn btn-accent" data-action="get-smart-alerts" ${smartAlertsLoading?'disabled':''}>Analyze Spending</button>
-      </div>`:''}
-    </div>`;
-  }
-  return content;
+        : `<div class="empty"><p>Tap below for crisp, actionable suggestions</p></div>`;
+  return `<div class="card">
+    <div class="sec-hdr" data-action="toggle-section" data-sec="aiInsights" style="cursor:pointer${S.secOpen.aiInsights?'':';padding-bottom:14px'}"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">AI Insights</span></div><div class="sec-sub">Alerts, actions & wins · ${providerLabel}</div></div></div>
+    ${S.secOpen.aiInsights?`${body}<div class="add-form-btns" style="padding:12px 16px">
+      <button class="btn btn-accent" data-action="get-insights" ${insightsLoading?'disabled':''}>${items||insightsResult?'Refresh':'Get Insights'}</button>
+    </div>`:''}
+  </div>`;
 }
 
 function renderGoals() {
@@ -1269,7 +1276,7 @@ async function getGoalPlan(goalId) {
   const monthsLeft = Math.max(0, (deadlineDate.getFullYear()-now.getFullYear())*12 + deadlineDate.getMonth()-now.getMonth());
   const remaining = Math.max(0, goal.targetAmount - goal.savedSoFar);
   const summary = buildPortfolioSummary();
-  const prompt = `You are a personal finance advisor. Create a monthly savings plan to reach this goal. Include: monthly amount needed, where to cut spending, and which savings/investment vehicle to use. Be specific to the numbers. Keep it to 5-6 bullet points.\n\nGoal: ${goal.name}\nTarget: ${formatMoney(goal.targetAmount, goal.currency)}\nSaved so far: ${formatMoney(goal.savedSoFar, goal.currency)}\nRemaining: ${formatMoney(remaining, goal.currency)}\nDeadline: ${goal.deadline} (${monthsLeft} months left)\n\nPortfolio context:\n${summary}`;
+  const prompt = `You are a personal finance advisor. Create a savings plan to reach this goal. Return exactly 3 short bullets: monthly amount needed, one specific spending cut, one savings vehicle. Each bullet max 12 words, with real numbers. No preamble.\n\nGoal: ${goal.name}\nTarget: ${formatMoney(goal.targetAmount, goal.currency)}\nSaved so far: ${formatMoney(goal.savedSoFar, goal.currency)}\nRemaining: ${formatMoney(remaining, goal.currency)}\nDeadline: ${goal.deadline} (${monthsLeft} months left)\n\nPortfolio context:\n${summary}`;
   await callAI(prompt, v => { goal.aiPlan = v; save(); }, v => { goal.aiPlanLoading = v; }, `mmc.goalPlan.${goalId}`);
 }
 
@@ -2591,17 +2598,6 @@ function computeProjections() {
   return results;
 }
 
-async function getAIProjections() {
-  const proj = computeProjections();
-  const projText = Object.entries(proj).map(([cur, p]) =>
-    `${cur}: Monthly Income ${formatMoney(p.monthlyIncome, cur)}, Monthly Expense ${formatMoney(p.monthlyExpense, cur)}, Surplus ${formatMoney(p.monthlyIncome - p.monthlyExpense, cur)}`
-  ).join('\n');
-  const summary = buildPortfolioSummary();
-  const prompt = `You are a personal finance analyst. Based on these projections and portfolio data, provide:\n\n1. **Spending Trend Analysis** - what patterns do you see?\n2. **3 Scenarios** (Optimistic / Realistic / Pessimistic) - projected savings in 6 and 12 months\n3. **Top 3 Savings Opportunities** - specific areas to cut or optimize\n4. **Investment Allocation Advice** - where to put the surplus\n\nKeep each section to 2-3 bullet points. Be specific to the numbers.\n\nCurrent monthly projections:\n${projText}\n\nPortfolio context:\n${summary}`;
-  await callAI(prompt, v => { projectionAIResult = v; }, v => { projectionAILoading = v; renderInsights(); }, 'mmc.aiProjections');
-  renderInsights();
-}
-
 function renderProjections() {
   const proj = computeProjections();
   const curs = Object.keys(proj);
@@ -2628,19 +2624,7 @@ function renderProjections() {
       return `<span style="color:${s>=0?'var(--income)':'var(--expense)'}">${s<0?'−':''}${formatMoney(Math.abs(s), cur)}</span>`;
     });
   }
-  const hasKey = !!localStorage.getItem('mmc.apiKey');
-  let aiSection = '';
-  if (hasKey) {
-    const aiBody = projectionAILoading
-      ? `<div class="empty"><p>Analyzing projections...</p></div>`
-      : projectionAIResult
-        ? `<div style="padding:12px 16px;font-size:12px;line-height:1.6">${formatInsights(projectionAIResult)}</div>`
-        : '';
-    aiSection = `${aiBody}<div class="add-form-btns" style="padding:12px 16px">
-      <button class="btn btn-accent" data-action="get-ai-projections" ${projectionAILoading?'disabled':''}>✨ AI Analysis</button>
-    </div>`;
-  }
-  return `<div class="card">${hdr}${body}${aiSection}</div>`;
+  return `<div class="card">${hdr}${body}</div>`;
 }
 
 function renderActivity() {
@@ -4088,8 +4072,6 @@ function handleClick(e) {
     bs.style.display = ''; return;
   }
   if (action==='get-insights') { getInsights(); return; }
-  if (action==='get-smart-alerts') { getSmartAlerts(); return; }
-  if (action==='get-ai-projections') { getAIProjections(); return; }
   if (action==='show-add-goal') { S.addingGoal = true; renderInsights(); return; }
   if (action==='cancel-add-goal') { S.addingGoal = false; renderInsights(); return; }
   if (action==='update-goal-progress') { S.updatingGoalId = btn.dataset.id; renderInsights(); return; }
