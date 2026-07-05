@@ -544,6 +544,51 @@ const S = {
   },
 };
 
+function buildBackupPayload() {
+  return {
+    version: 4,
+    transactions: S.transactions, portfolio: S.portfolio, recurring: S.recurring,
+    goals: S.goals, budgets: JSON.parse(localStorage.getItem('mmc.budgets')||'{}'),
+    settings: {
+      txCurrency: S.txCurrency,
+      theme: localStorage.getItem('mmc.theme') || undefined,
+      sectionOrder: S.sectionOrder,
+      secOpen: S.secOpen,
+      marketBriefEnabled: localStorage.getItem('mmc.marketBriefEnabled') || undefined,
+      aiProvider: localStorage.getItem('mmc.aiProvider') || undefined,
+      apiUrl: localStorage.getItem('mmc.apiUrl') || undefined
+    }
+  };
+}
+
+function applyBackupData(data) {
+  S.transactions = data.transactions || [];
+  S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[],insurance:[]}, data.portfolio || {});
+  S.recurring = Object.assign({items:[],creditCards:[]}, data.recurring || {});
+  if (data.goals) S.goals = data.goals;
+  if (data.budgets) localStorage.setItem('mmc.budgets', JSON.stringify(data.budgets));
+  const st = data.settings;
+  if (st) {
+    if (st.txCurrency) { S.txCurrency = st.txCurrency; }
+    if (st.theme) { localStorage.setItem('mmc.theme', st.theme); document.body.classList.toggle('dark', st.theme === 'dark'); }
+    if (st.sectionOrder) {
+      for (const tab of Object.keys(S.sectionOrder)) {
+        const valid = S.sectionOrder[tab];
+        const s = (st.sectionOrder[tab] || []).filter(k => valid.includes(k));
+        const missing = valid.filter(k => !s.includes(k));
+        S.sectionOrder[tab] = [...s, ...missing];
+      }
+      localStorage.setItem('mmc.sectionOrder.v1', JSON.stringify(S.sectionOrder));
+    }
+    if (st.secOpen) { Object.assign(S.secOpen, st.secOpen); localStorage.setItem('mmc.secOpen', JSON.stringify(S.secOpen)); }
+    if (st.marketBriefEnabled) localStorage.setItem('mmc.marketBriefEnabled', st.marketBriefEnabled);
+    if (st.aiProvider) localStorage.setItem('mmc.aiProvider', st.aiProvider);
+    if (st.apiUrl) localStorage.setItem('mmc.apiUrl', st.apiUrl);
+  }
+  save();
+  renderDashboard(); renderPortfolio(); renderRecurring(); renderInsights(); renderSettings();
+}
+
 function save() {
   try {
     localStorage.setItem('mmc.tx.v1', JSON.stringify(S.transactions));
@@ -551,8 +596,7 @@ function save() {
     localStorage.setItem('mmc.recurring.v1', JSON.stringify(S.recurring));
     localStorage.setItem('mmc.lastCurrency.v1', S.txCurrency);
     localStorage.setItem('mmc.goals.v1', JSON.stringify(S.goals));
-    const backup = JSON.stringify({version:3, transactions:S.transactions, portfolio:S.portfolio, recurring:S.recurring, goals:S.goals, budgets:JSON.parse(localStorage.getItem('mmc.budgets')||'{}')});
-    localStorage.setItem('mmc.backup', backup);
+    localStorage.setItem('mmc.backup', JSON.stringify(buildBackupPayload()));
     localStorage.setItem('mmc.backup.time', new Date().toISOString());
   } catch(e) {}
 }
@@ -4221,11 +4265,7 @@ function handleClick(e) {
     const raw = localStorage.getItem('mmc.backup');
     if (!raw) { toast('No backup found'); return; }
     try {
-      const data = JSON.parse(raw);
-      S.transactions = data.transactions || [];
-      S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[],insurance:[]}, data.portfolio||{});
-      S.recurring = Object.assign({items:[],creditCards:[]}, data.recurring||{});
-      save(); renderDashboard(); renderPortfolio(); renderRecurring(); renderSettings();
+      applyBackupData(JSON.parse(raw));
       toast('Restored from backup');
     } catch(e) { toast('Backup corrupted'); }
     return;
@@ -4295,8 +4335,7 @@ function showSyncModal(title, bodyHtml) {
 
 async function copySyncCode() {
   try {
-    const budgets = JSON.parse(localStorage.getItem('mmc.budgets')||'{}');
-    const payload = JSON.stringify({version:3, transactions:S.transactions, portfolio:S.portfolio, recurring:S.recurring, goals:S.goals, budgets, syncedAt:new Date().toISOString()});
+    const payload = JSON.stringify({...buildBackupPayload(), syncedAt:new Date().toISOString()});
     const blob = new Blob([payload]);
     const cs = new CompressionStream('gzip');
     const stream = blob.stream().pipeThrough(cs);
@@ -4348,22 +4387,15 @@ function pasteSyncCode() {
       const goalCount = (data.goals||[]).length;
       const syncTime = data.syncedAt ? new Date(data.syncedAt).toLocaleString() : 'unknown';
       if (!confirm(`Restore sync from ${syncTime}?\n${txCount} transactions, ${goalCount} goals.\nThis will overwrite current data.`)) return;
-      S.transactions = data.transactions || [];
-      S.portfolio = Object.assign({savings:[],loans:[],goldLoans:[],investments:[],insurance:[]}, data.portfolio || {});
-      S.recurring = Object.assign({items:[],creditCards:[]}, data.recurring || {});
-      S.goals = data.goals || [];
-      if (data.budgets) localStorage.setItem('mmc.budgets', JSON.stringify(data.budgets));
-      save();
+      applyBackupData(data);
       modal.remove();
-      renderDashboard(); renderPortfolio(); renderRecurring(); renderInsights(); renderSettings();
       toast('Data restored from sync code');
     } catch(e) { toast('Paste failed: ' + (e.message || e)); }
   });
 }
 
 function exportJSON() {
-  const budgets = JSON.parse(localStorage.getItem('mmc.budgets')||'{}');
-  const payload = JSON.stringify({version:3,transactions:S.transactions,portfolio:S.portfolio,recurring:S.recurring,goals:S.goals,budgets},null,2);
+  const payload = JSON.stringify(buildBackupPayload(),null,2);
   const fname = 'my-money.json';
   const blob = new Blob([payload],{type:'application/json'}), url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href=url; a.download=fname;
@@ -4375,19 +4407,9 @@ document.getElementById('file-input').addEventListener('change', async function(
   const file = e.target.files[0]; if (!file) return;
   try {
     const data = JSON.parse(await file.text());
-    let transactions, portfolio, recurring;
-    if (Array.isArray(data)) { transactions=data; portfolio={savings:[],loans:[],goldLoans:[]}; recurring={items:[],creditCards:[]}; }
-    else {
-      transactions=data.transactions||[];
-      portfolio=Object.assign({savings:[],loans:[],goldLoans:[]},data.portfolio||{});
-      recurring=Object.assign({items:[],creditCards:[]},data.recurring||{});
-    }
-    S.transactions=transactions; S.portfolio=portfolio; S.recurring=recurring;
-    if (!Array.isArray(data)) {
-      if (data.goals) S.goals = data.goals;
-      if (data.budgets) localStorage.setItem('mmc.budgets', JSON.stringify(data.budgets));
-    }
-    save(); renderDashboard(); renderPortfolio(); renderRecurring(); renderSettings(); toast(`Imported ${transactions.length} transactions`);
+    if (Array.isArray(data)) applyBackupData({transactions: data});
+    else applyBackupData(data);
+    toast(`Imported ${S.transactions.length} transactions`);
   } catch(err) { toast('Import failed — invalid JSON'); }
   this.value='';
 });
