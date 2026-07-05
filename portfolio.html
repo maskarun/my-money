@@ -1067,14 +1067,15 @@ function renderMarketBrief() {
     watch: { icon: '👀', color: '#f59e0b' },
     tip:   { icon: '💡', color: '#8b5cf6' }
   };
-  const rows = stored.items.map(i => {
+  const rows = stored.items.map((i, idx) => {
     const s = styles[i.type] || styles.tip;
-    return `<div style="display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);align-items:flex-start">
+    return `<div data-action="market-brief-detail" data-idx="${idx}" style="display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);align-items:flex-start;cursor:pointer">
       <span style="font-size:14px;line-height:1.4">${s.icon}</span>
       <div style="flex:1;min-width:0">
         <div style="font-size:12px;font-weight:700;color:${s.color}">${esc(i.title)}</div>
         <div style="font-size:12px;color:var(--text);line-height:1.45;margin-top:1px">${esc(i.tip)}</div>
       </div>
+      <span style="color:var(--muted-fg);font-size:16px;line-height:1.3">›</span>
     </div>`;
   }).join('');
   return `<div class="card" style="border-left:3px solid #0ea5e9">
@@ -1082,6 +1083,55 @@ function renderMarketBrief() {
       <button class="ibtn" data-action="dismiss-market-brief" title="Dismiss for today" style="width:28px;height:28px;flex-shrink:0">✕</button></div>
     <div style="padding:0 16px 8px">${rows}</div>
   </div>`;
+}
+
+function renderMarketBriefDetailSheet(item, body) {
+  const icons = { buy:'📈', watch:'👀', tip:'💡' };
+  return `<div class="add-form-title">${icons[item.type]||'💡'} ${esc(item.title)}</div>
+    <div style="font-size:12px;color:var(--muted-fg);margin:-4px 0 10px">${esc(item.tip)}</div>
+    ${body}
+    <div style="font-size:10px;color:var(--muted-fg);margin-top:12px">AI-generated · Not financial advice</div>
+    <div class="add-form-btns" style="margin-top:10px"><button type="button" class="btn btn-outline" data-action="close-market-brief-detail">Close</button></div>`;
+}
+
+async function getMarketBriefDetail(idx) {
+  let stored = {};
+  try { stored = JSON.parse(localStorage.getItem('mmc.marketBrief')||'{}'); } catch {}
+  const item = stored.items?.[idx];
+  if (!item) return;
+  const bs = document.getElementById('bottom-sheet'), bsc = document.getElementById('bottom-sheet-content');
+  bs.style.display = '';
+  if (item.detail) {
+    bsc.innerHTML = renderMarketBriefDetailSheet(item, `<div style="font-size:12px;line-height:1.6">${formatInsights(item.detail)}</div>`);
+    return;
+  }
+  bsc.innerHTML = renderMarketBriefDetailSheet(item, `<div class="empty"><p>Researching current market data...</p></div>`);
+  const apiKey = localStorage.getItem('mmc.apiKey');
+  if (!apiKey) { bsc.innerHTML = renderMarketBriefDetailSheet(item, `<div class="empty"><p>Set your API key in Settings</p></div>`); return; }
+  try {
+    const provider = localStorage.getItem('mmc.aiProvider') || 'claude';
+    const defaultUrl = provider === 'gemini' ? 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent' : 'https://api.anthropic.com/v1/messages';
+    const apiUrl = localStorage.getItem('mmc.apiUrl') || defaultUrl;
+    const prompt = `Explain this financial suggestion in detail for a personal finance app user. Suggestion: "${item.title} — ${item.tip}". Search the web for the current market data behind it. Cover: 1) Why now (the market condition, with numbers), 2) How it fits this portfolio, 3) Risks & what would change the call, 4) One concrete next step. Keep it under 150 words, use short bullets. Not financial advice.\n\nPortfolio:\n${buildPortfolioSummary()}`;
+    let text;
+    if (provider === 'gemini') {
+      const resp = await fetchWithRetry(apiUrl, { method:'POST', headers:{ 'Content-Type':'application/json', 'X-goog-api-key':apiKey }, body: JSON.stringify({ contents:[{parts:[{text:prompt}]}], tools:[{google_search:{}}] }) });
+      if (!resp.ok) throw new Error('API error: '+resp.status);
+      const data = await resp.json();
+      text = data.candidates?.[0]?.content?.parts?.map(p=>p.text).filter(Boolean).join('\n') || '';
+    } else {
+      const resp = await fetchWithRetry(apiUrl, { method:'POST', headers:{ 'Content-Type':'application/json', 'x-api-key':apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' }, body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1024, tools:[{type:'web_search_20250305', name:'web_search', max_uses:3}], messages:[{role:'user',content:prompt}] }) });
+      if (!resp.ok) throw new Error('API error: '+resp.status);
+      const data = await resp.json();
+      text = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+    }
+    if (!text) throw new Error('Empty response');
+    item.detail = text;
+    localStorage.setItem('mmc.marketBrief', JSON.stringify(stored));
+    if (bs.style.display !== 'none') bsc.innerHTML = renderMarketBriefDetailSheet(item, `<div style="font-size:12px;line-height:1.6">${formatInsights(text)}</div>`);
+  } catch(e) {
+    if (bs.style.display !== 'none') bsc.innerHTML = renderMarketBriefDetailSheet(item, `<div class="empty"><p>Could not load details: ${esc(e.message||String(e))}</p></div>`);
+  }
 }
 
 function buildPortfolioSummary() {
@@ -3823,6 +3873,8 @@ function handleClick(e) {
     if (!on) getMarketBrief();
     return;
   }
+  if (action==='market-brief-detail') { getMarketBriefDetail(parseInt(btn.dataset.idx)); return; }
+  if (action==='close-market-brief-detail') { document.getElementById('bottom-sheet').style.display='none'; return; }
   if (action==='dismiss-market-brief') {
     localStorage.setItem('mmc.marketBriefDismissed', todayISO()); renderDashboard(); return;
   }
