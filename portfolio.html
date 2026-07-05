@@ -1019,6 +1019,71 @@ async function getInsights() {
   await callAI(prompt, v => { insightsResult = v; }, v => { insightsLoading = v; }, 'mmc.insights');
 }
 
+let marketBriefLoading = false;
+async function getMarketBrief(force) {
+  if (localStorage.getItem('mmc.marketBriefEnabled') !== '1') return;
+  const apiKey = localStorage.getItem('mmc.apiKey');
+  if (!apiKey || marketBriefLoading) return;
+  let stored = {};
+  try { stored = JSON.parse(localStorage.getItem('mmc.marketBrief')||'{}'); } catch {}
+  if (!force && stored.date === todayISO()) return;
+  marketBriefLoading = true;
+  try {
+    const provider = localStorage.getItem('mmc.aiProvider') || 'claude';
+    const defaultUrl = provider === 'gemini' ? 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent' : 'https://api.anthropic.com/v1/messages';
+    const apiUrl = localStorage.getItem('mmc.apiUrl') || defaultUrl;
+    const summary = buildPortfolioSummary();
+    const prompt = `You are a personal finance advisor. Search the web for today's market conditions (major indices, interest rates, gold prices, notable movers relevant to this portfolio's currencies). Then return ONLY a JSON array (no markdown, no code fences, no prose) of 3-5 items: {"type":"buy"|"watch"|"tip","title":"max 6 words","tip":"one actionable sentence, max 18 words, citing the market condition"}. Suggestions must fit this portfolio's currencies and monthly surplus. This is informational, not personalized financial advice.\n\nPortfolio:\n${summary}`;
+    let text;
+    if (provider === 'gemini') {
+      const resp = await fetchWithRetry(apiUrl, { method:'POST', headers:{ 'Content-Type':'application/json', 'X-goog-api-key':apiKey }, body: JSON.stringify({ contents:[{parts:[{text:prompt}]}], tools:[{google_search:{}}] }) });
+      if (!resp.ok) throw new Error('API error: '+resp.status);
+      const data = await resp.json();
+      text = data.candidates?.[0]?.content?.parts?.map(p=>p.text).filter(Boolean).join('\n') || '';
+    } else {
+      const resp = await fetchWithRetry(apiUrl, { method:'POST', headers:{ 'Content-Type':'application/json', 'x-api-key':apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' }, body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:2048, tools:[{type:'web_search_20250305', name:'web_search', max_uses:3}], messages:[{role:'user',content:prompt}] }) });
+      if (!resp.ok) throw new Error('API error: '+resp.status);
+      const data = await resp.json();
+      text = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+    }
+    const items = parseInsightItems(text || '');
+    if (!items) throw new Error('Could not parse market brief');
+    localStorage.setItem('mmc.marketBrief', JSON.stringify({date: todayISO(), items}));
+    localStorage.removeItem('mmc.marketBriefDismissed');
+    renderDashboard();
+    toast('📈 Daily market brief ready');
+  } catch(e) { console.warn('Market brief failed:', e); }
+  marketBriefLoading = false;
+}
+
+function renderMarketBrief() {
+  if (localStorage.getItem('mmc.marketBriefEnabled') !== '1') return '';
+  let stored = {};
+  try { stored = JSON.parse(localStorage.getItem('mmc.marketBrief')||'{}'); } catch {}
+  if (!stored.items?.length) return '';
+  if (localStorage.getItem('mmc.marketBriefDismissed') === todayISO()) return '';
+  const styles = {
+    buy:   { icon: '📈', color: 'var(--income)' },
+    watch: { icon: '👀', color: '#f59e0b' },
+    tip:   { icon: '💡', color: '#8b5cf6' }
+  };
+  const rows = stored.items.map(i => {
+    const s = styles[i.type] || styles.tip;
+    return `<div style="display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);align-items:flex-start">
+      <span style="font-size:14px;line-height:1.4">${s.icon}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:700;color:${s.color}">${esc(i.title)}</div>
+        <div style="font-size:12px;color:var(--text);line-height:1.45;margin-top:1px">${esc(i.tip)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  return `<div class="card" style="border-left:3px solid #0ea5e9">
+    <div class="sec-hdr" style="padding-bottom:6px"><div><div class="sec-title-row"><span class="sec-dot" style="background:#0ea5e9"></span><span class="sec-title">Daily Market Brief</span></div><div class="sec-sub">${fmtDate(stored.date)} · AI-generated, not financial advice</div></div>
+      <button class="ibtn" data-action="dismiss-market-brief" title="Dismiss for today" style="width:28px;height:28px;flex-shrink:0">✕</button></div>
+    <div style="padding:0 16px 8px">${rows}</div>
+  </div>`;
+}
+
 function buildPortfolioSummary() {
   const lines = [];
   const allCurs = new Set();
@@ -2014,7 +2079,7 @@ function renderOrderedSections(tabKey) {
 }
 
 function renderDashboard() {
-  document.getElementById('tab-dashboard').innerHTML = renderOrderedSections('dashboard');
+  document.getElementById('tab-dashboard').innerHTML = renderMarketBrief() + renderOrderedSections('dashboard');
   updateHeaderMonthNav();
 }
 
@@ -3107,6 +3172,7 @@ function renderSettings() {
   const apiUrl = localStorage.getItem('mmc.apiUrl') || '';
   const defaultApiUrl = aiProvider === 'gemini' ? 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent' : 'https://api.anthropic.com/v1/messages';
   const maskedKey = apiKey ? '••••••••' + apiKey.slice(-4) : '';
+  const marketBriefOn = localStorage.getItem('mmc.marketBriefEnabled') === '1';
   const keyPlaceholder = aiProvider === 'gemini' ? 'AIza...' : 'sk-ant-...';
   const aiCard = `<div class="card">
     <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">AI Insights</span></div><div class="sec-sub">Connect to AI for recommendations</div></div></div>
@@ -3126,6 +3192,12 @@ function renderSettings() {
         <button type="submit" class="btn btn-accent" style="font-size:10px;padding:4px 10px;width:auto;flex:none;margin-top:6px">Save</button>
       </form>
       ${maskedKey?`<div class="p-row-sub" style="margin-top:4px;max-width:none">Current: ${maskedKey}</div>`:''}
+    </div>
+    <div class="p-row" data-action="toggle-market-brief" style="cursor:pointer">
+      <div class="p-row-meta"><div class="p-row-name">Daily Market Brief</div><div class="p-row-sub">Investment suggestions from live market conditions, once a day. ${marketBriefOn?'On':'Off'}</div></div>
+      <div style="width:44px;height:24px;border-radius:12px;background:${marketBriefOn?'var(--accent)':'var(--muted-fg)'};position:relative;transition:background .2s;flex-shrink:0">
+        <div style="width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:2px;${marketBriefOn?'right:2px':'left:2px'};transition:all .2s"></div>
+      </div>
     </div>
   </div>`;
 
@@ -3744,6 +3816,16 @@ function handleClick(e) {
   }
   if (action==='filter-activity-cur') { S.activityCurFilter = btn.dataset.cur || null; renderDashboard(); return; }
   if (action==='filter-activity-cat') { S.activityCatFilter = btn.dataset.cat || null; renderDashboard(); return; }
+  if (action==='toggle-market-brief') {
+    const on = localStorage.getItem('mmc.marketBriefEnabled') === '1';
+    if (on) localStorage.removeItem('mmc.marketBriefEnabled'); else localStorage.setItem('mmc.marketBriefEnabled','1');
+    renderSettings(); renderDashboard();
+    if (!on) getMarketBrief();
+    return;
+  }
+  if (action==='dismiss-market-brief') {
+    localStorage.setItem('mmc.marketBriefDismissed', todayISO()); renderDashboard(); return;
+  }
   if (action==='toggle-theme') { document.body.classList.toggle('dark'); localStorage.setItem('mmc.theme', document.body.classList.contains('dark')?'dark':'light'); renderSettings(); return; }
   if (action==='set-report-range') { S.reportRange = btn.dataset.range; renderDashboard(); return; }
   if (action==='toggle-add-entry') { S.addEntryType = S.addEntryType ? null : 'tx-expense'; renderQuickAddContent(); return; }
@@ -4270,6 +4352,7 @@ document.addEventListener('change', function(e) {
 const savedTheme = localStorage.getItem('mmc.theme');
 if (savedTheme==='dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) document.body.classList.add('dark');
 load(); renderDashboard(); renderPortfolio(); renderRecurring(); renderInsights(); renderSettings();
+setTimeout(getMarketBrief, 2000);
 
 // Swipe-to-reveal actions (bidirectional)
 (function() {
