@@ -876,6 +876,7 @@ function formatInsights(txt) {
     const line = raw.trim();
     if (!line) { html += '<div style="height:8px"></div>'; continue; }
     let s = esc(line);
+    s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1');
     s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
     s = s.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, '<em>$1</em>');
     if (/^#{1,3}\s/.test(line)) {
@@ -1087,11 +1088,13 @@ function renderMarketBrief() {
 
 function renderMarketBriefDetailSheet(item, body) {
   const icons = { buy:'📈', watch:'👀', tip:'💡' };
-  return `<div class="add-form-title">${icons[item.type]||'💡'} ${esc(item.title)}</div>
-    <div style="font-size:12px;color:var(--muted-fg);margin:-4px 0 10px">${esc(item.tip)}</div>
-    ${body}
-    <div style="font-size:10px;color:var(--muted-fg);margin-top:12px">AI-generated · Not financial advice</div>
-    <div class="add-form-btns" style="margin-top:10px"><button type="button" class="btn btn-outline" data-action="close-market-brief-detail">Close</button></div>`;
+  return `<div style="padding:0 16px;overflow-wrap:anywhere;word-break:break-word">
+    <div class="add-form-title" style="margin-bottom:6px">${icons[item.type]||'💡'} ${esc(item.title)}</div>
+    <div style="font-size:12px;color:var(--muted-fg);line-height:1.5;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)">${esc(item.tip)}</div>
+    <div style="font-size:12.5px;line-height:1.65;color:var(--text)">${body}</div>
+    <div style="font-size:10px;color:var(--muted-fg);margin-top:14px;text-align:center">AI-generated · Not financial advice</div>
+    <div class="add-form-btns" style="margin-top:10px"><button type="button" class="btn btn-outline" data-action="close-market-brief-detail">Close</button></div>
+  </div>`;
 }
 
 async function getMarketBriefDetail(idx) {
@@ -1102,7 +1105,7 @@ async function getMarketBriefDetail(idx) {
   const bs = document.getElementById('bottom-sheet'), bsc = document.getElementById('bottom-sheet-content');
   bs.style.display = '';
   if (item.detail) {
-    bsc.innerHTML = renderMarketBriefDetailSheet(item, `<div style="font-size:12px;line-height:1.6">${formatInsights(item.detail)}</div>`);
+    bsc.innerHTML = renderMarketBriefDetailSheet(item, formatInsights(item.detail));
     return;
   }
   bsc.innerHTML = renderMarketBriefDetailSheet(item, `<div class="empty"><p>Researching current market data...</p></div>`);
@@ -1112,7 +1115,7 @@ async function getMarketBriefDetail(idx) {
     const provider = localStorage.getItem('mmc.aiProvider') || 'claude';
     const defaultUrl = provider === 'gemini' ? 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent' : 'https://api.anthropic.com/v1/messages';
     const apiUrl = localStorage.getItem('mmc.apiUrl') || defaultUrl;
-    const prompt = `Explain this financial suggestion in detail for a personal finance app user. Suggestion: "${item.title} — ${item.tip}". Search the web for the current market data behind it. Cover: 1) Why now (the market condition, with numbers), 2) How it fits this portfolio, 3) Risks & what would change the call, 4) One concrete next step. Keep it under 150 words, use short bullets. Not financial advice.\n\nPortfolio:\n${buildPortfolioSummary()}`;
+    const prompt = `Explain this financial suggestion in detail for a personal finance app user. Suggestion: "${item.title} — ${item.tip}". Search the web for the current market data behind it. Cover: 1) Why now (the market condition, with numbers), 2) How it fits this portfolio, 3) Risks & what would change the call, 4) One concrete next step. Keep it under 150 words, use short bullets. Not financial advice. Do not include URLs or citations in the text.\n\nPortfolio:\n${buildPortfolioSummary()}`;
     let text;
     if (provider === 'gemini') {
       const resp = await fetchWithRetry(apiUrl, { method:'POST', headers:{ 'Content-Type':'application/json', 'X-goog-api-key':apiKey }, body: JSON.stringify({ contents:[{parts:[{text:prompt}]}], tools:[{google_search:{}}] }) });
@@ -1128,7 +1131,7 @@ async function getMarketBriefDetail(idx) {
     if (!text) throw new Error('Empty response');
     item.detail = text;
     localStorage.setItem('mmc.marketBrief', JSON.stringify(stored));
-    if (bs.style.display !== 'none') bsc.innerHTML = renderMarketBriefDetailSheet(item, `<div style="font-size:12px;line-height:1.6">${formatInsights(text)}</div>`);
+    if (bs.style.display !== 'none') bsc.innerHTML = renderMarketBriefDetailSheet(item, formatInsights(text));
   } catch(e) {
     if (bs.style.display !== 'none') bsc.innerHTML = renderMarketBriefDetailSheet(item, `<div class="empty"><p>Could not load details: ${esc(e.message||String(e))}</p></div>`);
   }
