@@ -485,6 +485,7 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 <button id="fab" class="fab" data-action="toggle-fab" title="Add Entry">
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 </button>
+<div id="lock-screen" style="display:none;position:fixed;inset:0;z-index:500;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;padding:24px"></div>
 <div id="bottom-sheet" class="bottom-sheet-overlay" style="display:none" data-action="close-fab-backdrop">
   <div class="bottom-sheet">
     <div class="bottom-sheet-handle"></div>
@@ -635,6 +636,66 @@ function load() {
 
 
 const uid = () => { try { return crypto.randomUUID(); } catch(e) { return Math.random().toString(36).slice(2)+Date.now().toString(36); } };
+
+// ---- App lock ----
+const lockCfg = () => ({
+  enabled: localStorage.getItem('mmc.lock.enabled') === '1',
+  hash: localStorage.getItem('mmc.lock.pinHash') || '',
+  salt: localStorage.getItem('mmc.lock.salt') || '',
+  credId: localStorage.getItem('mmc.lock.credId') || ''
+});
+async function pinHash(pin, salt) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(salt + ':' + pin));
+  return [...new Uint8Array(buf)].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+const bytesToB64 = b => btoa(String.fromCharCode(...new Uint8Array(b)));
+const b64ToBytes = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const biometricAvailable = () => !!(window.PublicKeyCredential && navigator.credentials);
+
+function showLockScreen() {
+  const cfg = lockCfg();
+  const el = document.getElementById('lock-screen');
+  el.innerHTML = `
+    <div style="font-size:40px;margin-bottom:10px">🔒</div>
+    <div style="font-size:17px;font-weight:800;margin-bottom:2px">My Money is locked</div>
+    <div style="font-size:12px;color:var(--muted-fg);margin-bottom:20px">Enter your PIN to continue</div>
+    <form data-action="unlock-pin" style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:240px">
+      <input class="input" type="password" name="pin" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="PIN" style="text-align:center;font-size:20px;letter-spacing:8px" autofocus>
+      <div id="lock-error" style="font-size:11px;color:var(--expense);text-align:center;min-height:14px"></div>
+      <button type="submit" class="btn btn-accent">Unlock</button>
+      ${cfg.credId && biometricAvailable() ? `<button type="button" class="btn btn-outline" data-action="unlock-bio">👆 Use Biometrics</button>` : ''}
+    </form>`;
+  el.style.display = 'flex';
+  const inp = el.querySelector('input[name=pin]'); if (inp) setTimeout(() => inp.focus(), 100);
+  if (cfg.credId && biometricAvailable()) tryBiometricUnlock();
+}
+function hideLockScreen() { document.getElementById('lock-screen').style.display = 'none'; }
+async function tryBiometricUnlock() {
+  const cfg = lockCfg();
+  if (!cfg.credId || !biometricAvailable()) return;
+  try {
+    const challenge = crypto.getRandomValues(new Uint8Array(32));
+    const cred = await navigator.credentials.get({ publicKey: {
+      challenge, allowCredentials: [{ type: 'public-key', id: b64ToBytes(cfg.credId) }],
+      userVerification: 'required', timeout: 60000
+    }});
+    if (cred) hideLockScreen();
+  } catch(e) { /* user cancelled or not available — PIN remains */ }
+}
+async function enrollBiometric() {
+  try {
+    const challenge = crypto.getRandomValues(new Uint8Array(32));
+    const userId = crypto.getRandomValues(new Uint8Array(16));
+    const cred = await navigator.credentials.create({ publicKey: {
+      challenge, rp: { name: 'My Money' },
+      user: { id: userId, name: 'my-money-user', displayName: 'My Money' },
+      pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+      authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
+      timeout: 60000
+    }});
+    if (cred) { localStorage.setItem('mmc.lock.credId', bytesToB64(cred.rawId)); toast('Biometric unlock enabled'); renderSettings(); }
+  } catch(e) { toast('Biometric setup failed: ' + (e.name === 'NotAllowedError' ? 'cancelled' : (e.message || e))); }
+}
 const todayISO = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const getCur = t => t.currency || 'USD';
 
@@ -3298,6 +3359,42 @@ function renderSettings() {
     </div>
   </div>`;
 
+  const lc = lockCfg();
+  const bioSupported = biometricAvailable();
+  let lockBody;
+  if (!lc.hash) {
+    lockBody = `<form data-action="set-app-pin" style="padding:10px 16px">
+      <div class="p-row-sub" style="margin-bottom:8px;max-width:none">Protect the app with a PIN. Asked every time the app opens.</div>
+      <div class="form-row-2" style="margin-bottom:8px">
+        <div><label class="form-label">New PIN</label><input class="input" type="password" name="pin" inputmode="numeric" maxlength="8" minlength="4" required style="font-size:12px;padding:6px 8px"></div>
+        <div><label class="form-label">Confirm PIN</label><input class="input" type="password" name="pin2" inputmode="numeric" maxlength="8" minlength="4" required style="font-size:12px;padding:6px 8px"></div>
+      </div>
+      <button type="submit" class="btn btn-accent" style="font-size:11px;padding:6px 12px">Enable App Lock</button>
+    </form>`;
+  } else {
+    lockBody = `<div style="padding:10px 16px">
+      <div class="p-row-sub" style="margin-bottom:10px;max-width:none">App lock is <strong>on</strong>. PIN required on every open.</div>
+      ${bioSupported ? (lc.credId
+        ? `<button class="btn btn-outline" data-action="remove-biometric" style="font-size:11px;padding:6px 12px;margin-bottom:10px">Remove Biometric Unlock</button>`
+        : `<button class="btn btn-outline" data-action="enroll-biometric" style="font-size:11px;padding:6px 12px;margin-bottom:10px">👆 Enable Biometric Unlock</button>`) : ''}
+      <form data-action="change-app-pin" style="margin-bottom:10px">
+        <div class="form-row-2" style="margin-bottom:8px">
+          <div><label class="form-label">Current PIN</label><input class="input" type="password" name="cur" inputmode="numeric" maxlength="8" required style="font-size:12px;padding:6px 8px"></div>
+          <div><label class="form-label">New PIN</label><input class="input" type="password" name="pin" inputmode="numeric" maxlength="8" minlength="4" required style="font-size:12px;padding:6px 8px"></div>
+        </div>
+        <button type="submit" class="btn btn-outline" style="font-size:11px;padding:6px 12px">Change PIN</button>
+      </form>
+      <form data-action="disable-app-lock" style="display:flex;gap:8px;align-items:flex-end">
+        <div style="flex:1"><label class="form-label">Current PIN</label><input class="input" type="password" name="cur" inputmode="numeric" maxlength="8" required style="font-size:12px;padding:6px 8px"></div>
+        <button type="submit" class="btn btn-outline" style="font-size:11px;padding:6px 12px;color:var(--expense)">Turn Off</button>
+      </form>
+    </div>`;
+  }
+  const lockCard = `<div class="card">
+    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#f43f5e"></span><span class="sec-title">App Lock</span></div><div class="sec-sub">PIN & biometric protection</div></div></div>
+    ${lockBody}
+  </div>`;
+
   const isDark = document.body.classList.contains('dark');
   const themeCard = `<div class="card">
     <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#6366f1"></span><span class="sec-title">Appearance</span></div><div class="sec-sub">Customize the look and feel</div></div></div>
@@ -3320,7 +3417,7 @@ function renderSettings() {
       <div class="add-form-btns" style="padding:8px 0 0"><button type="submit" class="btn btn-accent" style="font-size:11px">Save Budgets</button></div>
     </form>
   </div>`;
-  document.getElementById('tab-settings').innerHTML = aboutCard + themeCard + budgetCard + dataCard + aiCard;
+  document.getElementById('tab-settings').innerHTML = aboutCard + themeCard + lockCard + budgetCard + dataCard + aiCard;
 }
 
 function investmentForm(item) {
@@ -3548,6 +3645,51 @@ function handleSubmit(e) {
   if (!action) return; e.preventDefault();
   const d = formData(form);
 
+  if (action==='unlock-pin') {
+    (async () => {
+      const cfg = lockCfg();
+      const h = await pinHash(d.pin || '', cfg.salt);
+      if (h === cfg.hash) hideLockScreen();
+      else { const err = document.getElementById('lock-error'); if (err) err.textContent = 'Wrong PIN'; form.reset(); }
+    })();
+    return;
+  }
+  if (action==='set-app-pin') {
+    if ((d.pin||'').length < 4) return toast('PIN must be at least 4 digits');
+    if (d.pin !== d.pin2) return toast('PINs do not match');
+    (async () => {
+      const salt = uid();
+      localStorage.setItem('mmc.lock.salt', salt);
+      localStorage.setItem('mmc.lock.pinHash', await pinHash(d.pin, salt));
+      localStorage.setItem('mmc.lock.enabled', '1');
+      toast('App lock enabled'); renderSettings();
+    })();
+    return;
+  }
+  if (action==='change-app-pin') {
+    (async () => {
+      const cfg = lockCfg();
+      if (await pinHash(d.cur||'', cfg.salt) !== cfg.hash) return toast('Current PIN is wrong');
+      if ((d.pin||'').length < 4) return toast('New PIN must be at least 4 digits');
+      const salt = uid();
+      localStorage.setItem('mmc.lock.salt', salt);
+      localStorage.setItem('mmc.lock.pinHash', await pinHash(d.pin, salt));
+      toast('PIN changed'); renderSettings();
+    })();
+    return;
+  }
+  if (action==='disable-app-lock') {
+    (async () => {
+      const cfg = lockCfg();
+      if (await pinHash(d.cur||'', cfg.salt) !== cfg.hash) return toast('Current PIN is wrong');
+      localStorage.removeItem('mmc.lock.enabled');
+      localStorage.removeItem('mmc.lock.pinHash');
+      localStorage.removeItem('mmc.lock.salt');
+      localStorage.removeItem('mmc.lock.credId');
+      toast('App lock disabled'); renderSettings();
+    })();
+    return;
+  }
   if (action==='save-recurring-from-savings') {
     const saving = S.portfolio.savings.find(i => i.id === form.dataset.id);
     if (!saving) return;
@@ -3913,6 +4055,9 @@ function handleClick(e) {
   }
   if (action==='filter-activity-cur') { S.activityCurFilter = btn.dataset.cur || null; renderDashboard(); return; }
   if (action==='filter-activity-cat') { S.activityCatFilter = btn.dataset.cat || null; renderDashboard(); return; }
+  if (action==='unlock-bio') { tryBiometricUnlock(); return; }
+  if (action==='enroll-biometric') { enrollBiometric(); return; }
+  if (action==='remove-biometric') { localStorage.removeItem('mmc.lock.credId'); toast('Biometric unlock removed'); renderSettings(); return; }
   if (action==='toggle-market-brief') {
     const on = localStorage.getItem('mmc.marketBriefEnabled') === '1';
     if (on) localStorage.removeItem('mmc.marketBriefEnabled'); else localStorage.setItem('mmc.marketBriefEnabled','1');
@@ -4429,6 +4574,7 @@ document.addEventListener('change', function(e) {
 const savedTheme = localStorage.getItem('mmc.theme');
 if (savedTheme==='dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) document.body.classList.add('dark');
 load(); renderDashboard(); renderPortfolio(); renderRecurring(); renderInsights(); renderSettings();
+if (lockCfg().enabled && lockCfg().hash) showLockScreen();
 setTimeout(getMarketBrief, 2000);
 
 // Swipe-to-reveal actions (bidirectional)
