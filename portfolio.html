@@ -1320,8 +1320,10 @@ async function getMarketBriefDetail(idx) {
 
 function buildPortfolioSummary() {
   const lines = [];
+  const mon = thisMonth();
+  const recActive = i => !i.closed && (!i.startMonth || mon >= i.startMonth) && (!i.endMonth || mon <= i.endMonth);
   const allCurs = new Set();
-  S.transactions.forEach(t => allCurs.add(getCur(t)));
+  S.transactions.forEach(t => { if (t.currency) allCurs.add(t.currency); });
   [...S.portfolio.savings,...S.portfolio.loans,...S.portfolio.goldLoans,...S.portfolio.investments,...(S.portfolio.insurance||[])].forEach(i => allCurs.add(getCur(i)));
 
   for (const cur of allCurs) {
@@ -1330,19 +1332,18 @@ function buildPortfolioSummary() {
     if (sav) lines.push(`Savings: ${formatMoney(sav,cur)}`);
 
     let txInc=0, txExp=0;
-    const mon = thisMonth();
-    S.transactions.filter(t=>t.type!=='transfer'&&getCur(t)===cur&&localTxMonth(t.date)===mon).forEach(t=>{
+    S.transactions.filter(t=>t.type!=='transfer'&&t.currency===cur&&localTxMonth(t.date)===mon).forEach(t=>{
       if(t.type==='income') txInc+=t.amount; else txExp+=t.amount;
     });
     if (txInc||txExp) lines.push(`This month: Income ${formatMoney(txInc,cur)}, Expenses ${formatMoney(txExp,cur)}`);
 
-    const recInc = (S.recurring?.items||[]).filter(i=>i.type==='income'&&getCur(i)===cur);
+    const recInc = (S.recurring?.items||[]).filter(i=>i.type==='income'&&getCur(i)===cur&&recActive(i));
     if (recInc.length) lines.push(`Recurring income: ${recInc.map(i=>`${i.name} ${formatMoney(i.amount,cur)}`).join(', ')}`);
 
-    const recExp = (S.recurring?.items||[]).filter(i=>i.type==='expense'&&getCur(i)===cur);
+    const recExp = (S.recurring?.items||[]).filter(i=>i.type==='expense'&&getCur(i)===cur&&recActive(i));
     if (recExp.length) lines.push(`Recurring bills: ${recExp.map(i=>`${i.name} ${formatMoney(i.amount||0,cur)}`).join(', ')}`);
 
-    const loans = S.portfolio.loans.filter(i=>getCur(i)===cur);
+    const loans = S.portfolio.loans.filter(i=>getCur(i)===cur&&!i.closed);
     if (loans.length) lines.push(`Loans: ${loans.map(l=>`${l.name} outstanding ${formatMoney(computeOutstanding(l),cur)} @ ${l.interestRate}%`).join(', ')}`);
 
     const gold = S.portfolio.goldLoans.filter(i=>getCur(i)===cur&&!i.closed);
