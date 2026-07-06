@@ -435,6 +435,7 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
   margin: 0 auto 8px;
 }
 @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+@keyframes mmcspin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
 @keyframes slideUp { from { transform: translateY(100%) } to { transform: translateY(0) } }
 .drag-sec { transition: transform 0.2s ease; }
 .drag-sec.dragging { opacity: 0.5; transform: scale(0.97); pointer-events: none; }
@@ -1210,6 +1211,7 @@ async function getMarketBrief(force) {
   try { stored = JSON.parse(localStorage.getItem('mmc.marketBrief')||'{}'); } catch {}
   if (!force && stored.date === todayISO()) return;
   marketBriefLoading = true;
+  renderDashboard();
   try {
     const provider = localStorage.getItem('mmc.aiProvider') || 'claude';
     const defaultUrl = provider === 'gemini' ? 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent' : 'https://api.anthropic.com/v1/messages';
@@ -1236,6 +1238,7 @@ async function getMarketBrief(force) {
     toast('📈 Daily market brief ready');
   } catch(e) { console.warn('Market brief failed:', e); }
   marketBriefLoading = false;
+  renderDashboard();
 }
 
 function renderMarketBrief() {
@@ -1266,7 +1269,10 @@ function renderMarketBrief() {
   }).join('');
   return `<div class="card" style="border-left:3px solid #0ea5e9">
     <div class="sec-hdr" style="padding-bottom:6px"><div><div class="sec-title-row"><span class="sec-dot" style="background:#0ea5e9"></span><span class="sec-title">Daily Market Brief</span></div><div class="sec-sub">${fmtDate(stored.date)} · AI-generated, not financial advice</div></div>
-      <button class="ibtn" data-action="dismiss-market-brief" title="Dismiss for today" style="width:28px;height:28px;flex-shrink:0">✕</button></div>
+      <div style="display:flex;gap:4px;flex-shrink:0">
+        <button class="ibtn" data-action="refresh-market-brief" title="Refresh now" ${marketBriefLoading?'disabled':''} style="width:28px;height:28px${marketBriefLoading?';opacity:.5;animation:mmcspin 1s linear infinite':''}">↻</button>
+        <button class="ibtn" data-action="dismiss-market-brief" title="Dismiss for today" style="width:28px;height:28px">✕</button>
+      </div></div>
     <div style="padding:0 16px 8px">${rows}</div>
   </div>`;
 }
@@ -4163,6 +4169,7 @@ function handleClick(e) {
   }
   if (action==='market-brief-detail') { getMarketBriefDetail(parseInt(btn.dataset.idx)); return; }
   if (action==='close-market-brief-detail') { document.getElementById('bottom-sheet').style.display='none'; return; }
+  if (action==='refresh-market-brief') { toast('Refreshing market brief…'); getMarketBrief(true); return; }
   if (action==='dismiss-market-brief') {
     localStorage.setItem('mmc.marketBriefDismissed', todayISO()); renderDashboard(); return;
   }
