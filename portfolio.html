@@ -1217,7 +1217,7 @@ async function getMarketBrief(force) {
     const defaultUrl = provider === 'gemini' ? 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent' : 'https://api.anthropic.com/v1/messages';
     const apiUrl = localStorage.getItem('mmc.apiUrl') || defaultUrl;
     const summary = buildPortfolioSummary();
-    const prompt = `You are a personal finance advisor. Search the web for today's market data relevant to this portfolio's currencies (e.g. India NSE/BSE and US markets for INR/USD). Then return ONLY a JSON array (no markdown, no code fences, no prose) of 5-7 items covering ALL of these:\n1) one "gold" item: today's gold price and whether it's a good time to buy,\n2) one "index" item: the best-performing major index today with its % move,\n3) 1-2 "fund" items: specific index funds or mutual funds worth investing in now, with 1-year return numbers,\n4) 1-2 "momentum" items: stocks or index funds showing clear upside momentum today, with the % move,\n5) optionally one "tip" item: portfolio-specific action given the monthly surplus.\nEach item: {"type":"gold"|"index"|"fund"|"momentum"|"tip","title":"max 6 words","tip":"one actionable sentence, max 18 words, with real numbers from today"}.\nSuggestions must fit this portfolio's currencies and surplus. Informational only, not personalized financial advice.\n\nPortfolio:\n${summary}`;
+    const prompt = `You are a personal finance advisor. Search the web for today's market data relevant to this portfolio's currencies (e.g. India NSE/BSE and US markets for INR/USD). Then return ONLY a JSON array (no markdown, no code fences, no prose) of 6-8 items covering ALL of these:\n1) one "fx" item FIRST: today's USD to INR exchange rate with the day's change/trend,\n2) one "gold" item: today's gold price and whether it's a good time to buy,\n3) one "index" item: the best-performing major index today with its % move,\n4) 1-2 "fund" items: specific index funds or mutual funds worth investing in now, with 1-year return numbers,\n5) 1-2 "momentum" items: stocks or index funds showing clear upside momentum today, with the % move,\n6) optionally one "tip" item: portfolio-specific action given the monthly surplus.\nEach item: {"type":"fx"|"gold"|"index"|"fund"|"momentum"|"tip","title":"max 6 words","tip":"one actionable sentence, max 18 words, with real numbers from today"}.\nSuggestions must fit this portfolio's currencies and surplus. Informational only, not personalized financial advice.\n\nPortfolio:\n${summary}`;
     let text;
     if (provider === 'gemini') {
       const resp = await fetchWithRetry(apiUrl, { method:'POST', headers:{ 'Content-Type':'application/json', 'X-goog-api-key':apiKey }, body: JSON.stringify({ contents:[{parts:[{text:prompt}]}], tools:[{google_search:{}}] }) });
@@ -1248,6 +1248,7 @@ function renderMarketBrief() {
   if (!stored.items?.length) return '';
   if (localStorage.getItem('mmc.marketBriefDismissed') === todayISO()) return '';
   const styles = {
+    fx:       { icon: '💱', color: '#0ea5e9' },
     gold:     { icon: '🪙', color: '#f59e0b' },
     index:    { icon: '📊', color: '#0ea5e9' },
     fund:     { icon: '🏦', color: '#8b5cf6' },
@@ -1278,7 +1279,7 @@ function renderMarketBrief() {
 }
 
 function renderMarketBriefDetailSheet(item, body) {
-  const icons = { gold:'🪙', index:'📊', fund:'🏦', momentum:'📈', buy:'📈', watch:'👀', tip:'💡' };
+  const icons = { fx:'💱', gold:'🪙', index:'📊', fund:'🏦', momentum:'📈', buy:'📈', watch:'👀', tip:'💡' };
   return `<div style="padding:0 16px;overflow-wrap:anywhere;word-break:break-word">
     <div class="add-form-title" style="margin-bottom:6px">${icons[item.type]||'💡'} ${esc(item.title)}</div>
     <div style="font-size:12px;color:var(--muted-fg);line-height:1.5;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)">${esc(item.tip)}</div>
@@ -1465,7 +1466,7 @@ function parseInsightItems(txt) {
     if (!m) return null;
     const arr = JSON.parse(m[0]);
     if (!Array.isArray(arr) || !arr.length) return null;
-    return arr.filter(i => i && i.title && i.tip).slice(0, 8);
+    return arr.filter(i => i && i.title && i.tip).slice(0, 9);
   } catch { return null; }
 }
 
