@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#f0f4ff">
+<title>Markets · My Money</title>
+<style>
+:root {
+  --bg: #f0f4ff; --fg: #0f172a; --card: #ffffff; --border: #e0e7ff;
+  --muted: #f0f4ff; --muted-fg: #94a3b8; --accent: #0284c7;
+  --income: #059669; --expense: #e11d48; --gold: #d97706;
+  --radius: 16px; --shadow: 0 1px 8px rgba(14,165,233,.07);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+body.dark {
+  --bg: #0f172a; --fg: #e2e8f0; --card: #1e293b; --border: #334155;
+  --muted: #1e293b; --muted-fg: #64748b; --shadow: 0 1px 8px rgba(0,0,0,.2);
+}
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg); color: var(--fg); min-height: 100vh;
+  -webkit-tap-highlight-color: transparent; -webkit-font-smoothing: antialiased;
+}
+button { cursor: pointer; border: none; background: none; font-family: inherit; color: inherit; }
+a { color: inherit; text-decoration: none; }
+#header {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: calc(var(--safe-top) + 10px) 16px 10px;
+  background: var(--card); border-bottom: 1px solid var(--border);
+}
+.header-title { font-size: 17px; font-weight: 900; letter-spacing: -.5px; }
+.hbtn {
+  width: 32px; height: 32px; border-radius: 10px; background: var(--muted);
+  display: flex; align-items: center; justify-content: center; font-size: 15px;
+}
+#main { padding: calc(var(--safe-top) + 64px) 12px calc(var(--safe-bottom) + 24px); max-width: 560px; margin: 0 auto; overflow-wrap: anywhere; word-break: break-word; }
+.card { background: var(--card); border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 12px; overflow: hidden; box-shadow: var(--shadow); }
+.sec-hdr { padding: 14px 16px 10px; }
+.sec-title { font-size: 15px; font-weight: 800; letter-spacing: -.3px; }
+.sec-sub { font-size: 10px; color: var(--muted-fg); margin-top: 2px; }
+.empty { text-align: center; padding: 28px 16px; color: var(--muted-fg); font-size: 13px; }
+.badge { font-size: 9px; font-weight: 800; letter-spacing: .6px; padding: 3px 8px; border-radius: 6px; text-transform: uppercase; flex-shrink: 0; }
+.badge.buy { background: rgba(5,150,105,.12); color: var(--income); }
+.badge.sell { background: rgba(225,29,72,.12); color: var(--expense); }
+.badge.watch { background: rgba(217,119,6,.12); color: var(--gold); }
+#toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+  background: var(--fg); color: var(--bg); font-size: 12px; font-weight: 600;
+  padding: 10px 18px; border-radius: 99px; opacity: 0; transition: all .25s; z-index: 300; max-width: 88vw;
+}
+#toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+@keyframes spin { from { transform: rotate(0) } to { transform: rotate(360deg) } }
+.spinning { animation: spin 1s linear infinite; opacity: .5; }
+</style>
+</head>
+<body>
+<div id="header">
+  <div style="display:flex;align-items:center;gap:10px">
+    <a class="hbtn" href="portfolio.html" title="Back">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </a>
+    <span class="header-title">Markets</span>
+  </div>
+  <button class="hbtn" id="fetch-btn" title="Fetch latest">
+    <svg id="fetch-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+  </button>
+</div>
+<div id="main"></div>
+<div id="toast"></div>
+
+<script>
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+if (localStorage.getItem('mmc.theme') === 'dark') document.body.classList.add('dark');
+
+function getCurrencies() {
+  try { const c = JSON.parse(localStorage.getItem('mmc.marketCurrencies') || '[]'); if (c.length) return c; } catch {}
+  const last = localStorage.getItem('mmc.lastCurrency.v1');
+  return [...new Set([last, 'USD'].filter(Boolean))];
+}
+
+async function fetchWithRetry(url, opts) {
+  for (let i = 0; i < 3; i++) {
+    const resp = await fetch(url, opts);
+    if (resp.status === 503 && i < 2) { await new Promise(r => setTimeout(r, (i + 1) * 2000)); continue; }
+    return resp;
+  }
+}
+
+let loading = false;
+async function fetchMarkets() {
+  if (loading) return;
+  const apiKey = localStorage.getItem('mmc.apiKey');
+  if (!apiKey) { toast('Set your API key in the app Settings first'); return; }
+  loading = true;
+  document.getElementById('fetch-icon').classList.add('spinning');
+  try {
+    const provider = localStorage.getItem('mmc.aiProvider') || 'claude';
+    const defaultUrl = provider === 'gemini' ? 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent' : 'https://api.anthropic.com/v1/messages';
+    const apiUrl = localStorage.getItem('mmc.apiUrl') || defaultUrl;
+    const curs = getCurrencies();
+    const prompt = `Search the web for today's market news and data. Return ONLY JSON (no markdown, no code fences, no prose):\n{"map":[{"currency":"INR","direction":"up"|"down"|"flat","headline":"max 8 words","reasons":["news-based reason with numbers, max 18 words","..2-3 reasons"]}],\n"suggestions":[{"action":"buy"|"sell"|"watch","name":"stock or fund name","reason":"one sentence with numbers, max 18 words"}]}\nThe "map" array must contain exactly one entry per currency in this list: ${curs.join(', ')} — covering each currency's home market (INR = NSE/BSE India, USD = US markets, etc): is that market likely to move up or down today/near-term and why, based on current news.\nThe "suggestions" array must contain exactly 5 investment suggestions (stocks or index/mutual funds) across those markets.\nInformational only, not financial advice. No URLs or citations.`;
+    let text;
+    if (provider === 'gemini') {
+      const resp = await fetchWithRetry(apiUrl, { method:'POST', headers:{ 'Content-Type':'application/json', 'X-goog-api-key':apiKey }, body: JSON.stringify({ contents:[{parts:[{text:prompt}]}], tools:[{google_search:{}}] }) });
+      if (!resp.ok) throw new Error('API error: ' + resp.status);
+      const data = await resp.json();
+      text = data.candidates?.[0]?.content?.parts?.map(p=>p.text).filter(Boolean).join('\n') || '';
+    } else {
+      const resp = await fetchWithRetry(apiUrl, { method:'POST', headers:{ 'Content-Type':'application/json', 'x-api-key':apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' }, body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:3072, tools:[{type:'web_search_20250305', name:'web_search', max_uses:5}], messages:[{role:'user',content:prompt}] }) });
+      if (!resp.ok) throw new Error('API error: ' + resp.status);
+      const data = await resp.json();
+      text = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+    }
+    const m = (text||'').match(/\{[\s\S]*\}/);
+    if (!m) throw new Error('Could not parse response');
+    const parsed = JSON.parse(m[0]);
+    if (!parsed.map?.length && !parsed.suggestions?.length) throw new Error('Empty response');
+    const stored = { fetchedAt: new Date().toISOString(), map: parsed.map || [], suggestions: (parsed.suggestions || []).slice(0, 5) };
+    localStorage.setItem('mmc.marketsPage', JSON.stringify(stored));
+    render();
+    toast('Markets updated');
+  } catch(e) { toast('Fetch failed: ' + (e.message || e)); }
+  loading = false;
+  document.getElementById('fetch-icon').classList.remove('spinning');
+}
+
+function render() {
+  const main = document.getElementById('main');
+  let stored = null;
+  try { stored = JSON.parse(localStorage.getItem('mmc.marketsPage') || 'null'); } catch {}
+  if (!stored) {
+    main.innerHTML = `<div class="card"><div class="empty">Tap the ↻ icon above to fetch today's market outlook<br><br><span style="font-size:11px">Uses your AI key from the app's Settings · web search for live news</span></div></div>`;
+    return;
+  }
+  const dirMeta = {
+    up:   { arrow: '▲', color: 'var(--income)', label: 'Likely up' },
+    down: { arrow: '▼', color: 'var(--expense)', label: 'Likely down' },
+    flat: { arrow: '▬', color: 'var(--muted-fg)', label: 'Sideways' }
+  };
+  const asOf = new Date(stored.fetchedAt).toLocaleString();
+  const mapCards = (stored.map || []).map(mo => {
+    const d = dirMeta[mo.direction] || dirMeta.flat;
+    const reasons = (mo.reasons || []).map(r => `<div style="display:flex;gap:8px;padding:4px 0;font-size:12px;line-height:1.5"><span style="color:var(--muted-fg)">•</span><span>${esc(r)}</span></div>`).join('');
+    return `<div class="card" style="border-left:3px solid ${d.color}">
+      <div style="padding:12px 16px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+          <span style="font-size:18px;color:${d.color}">${d.arrow}</span>
+          <span style="font-weight:800;font-size:14px">${esc(mo.currency)}</span>
+          <span style="font-size:10px;font-weight:700;color:${d.color};text-transform:uppercase;letter-spacing:.5px">${d.label}</span>
+        </div>
+        <div style="font-size:12.5px;font-weight:700;margin-bottom:4px">${esc(mo.headline || '')}</div>
+        ${reasons}
+      </div>
+    </div>`;
+  }).join('');
+  const sugRows = (stored.suggestions || []).map(s => {
+    const act = ['buy','sell','watch'].includes(s.action) ? s.action : 'watch';
+    return `<div style="display:flex;gap:10px;padding:10px 16px;border-top:1px solid var(--border);align-items:flex-start">
+      <span class="badge ${act}">${act}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12.5px;font-weight:700">${esc(s.name)}</div>
+        <div style="font-size:12px;line-height:1.5;margin-top:1px;color:var(--fg)">${esc(s.reason)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  main.innerHTML = `
+    <div style="font-size:10px;color:var(--muted-fg);margin:0 4px 10px">As of ${esc(asOf)} · AI-generated with live web search · Not financial advice</div>
+    <div class="card"><div class="sec-hdr"><div class="sec-title">Market Movement Map</div><div class="sec-sub">Per-currency outlook from today's news</div></div></div>
+    ${mapCards || '<div class="card"><div class="empty">No market data</div></div>'}
+    <div class="card" style="margin-top:16px">
+      <div class="sec-hdr"><div class="sec-title">Top 5 Suggestions</div><div class="sec-sub">Buy / sell / watch across your markets</div></div>
+      ${sugRows || '<div class="empty">No suggestions</div>'}
+    </div>`;
+}
+
+document.getElementById('fetch-btn').addEventListener('click', fetchMarkets);
+render();
+</script>
+</body>
+</html>

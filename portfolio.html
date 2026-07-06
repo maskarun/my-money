@@ -470,6 +470,9 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
   </div>
   <div id="header-month-nav"></div>
   <div class="header-actions">
+    <a class="hbtn" href="markets.html" title="Markets" style="display:flex;align-items:center;justify-content:center;text-decoration:none">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+    </a>
     <button class="hbtn" data-action="switch-tab" data-tab="insights" title="AI Insights">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 017 7c0 3-2 5-3 6.5S15 18 15 19H9c0-1-1-2.5-2-3.5S5 12 5 9a7 7 0 017-7z"/><path d="M9 19v1a3 3 0 006 0v-1"/><path d="M10 2.5a4 4 0 013 0"/></svg>
     </button>
@@ -594,6 +597,9 @@ function applyBackupData(data) {
 function save() {
   try {
     localStorage.setItem('mmc.lastCurrency.v1', S.txCurrency);
+    const mktCurs = new Set(S.transactions.map(t => t.currency).filter(Boolean));
+    [...S.portfolio.savings, ...S.portfolio.loans, ...S.portfolio.goldLoans, ...S.portfolio.investments, ...(S.portfolio.insurance||[])].forEach(i => { if (i.currency) mktCurs.add(i.currency); });
+    localStorage.setItem('mmc.marketCurrencies', JSON.stringify([...mktCurs]));
     if (localStorage.getItem('mmc.lock.enabled') === '1' && localStorage.getItem('mmc.lock.dekPin')) {
       if (encDek) persistEncrypted();
       return;
