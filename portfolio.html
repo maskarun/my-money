@@ -1273,7 +1273,7 @@ function renderMarketBrief() {
     </div>`;
   }).join('');
   return `<div class="card" style="border-left:3px solid #0ea5e9">
-    <div class="sec-hdr" style="padding-bottom:6px"><div><div class="sec-title-row"><span class="sec-dot" style="background:#0ea5e9"></span><span class="sec-title">Market Brief</span></div><div class="sec-sub">${fmtDate(stored.date)} · AI-generated, not financial advice</div></div>
+    <div class="sec-hdr" style="padding-bottom:6px"><div><div class="sec-title-row"><span class="sec-dot" style="background:#0ea5e9"></span><span class="sec-title">Market Brief</span></div><div class="sec-sub">AI-generated, not financial advice</div></div>
       <div style="display:flex;gap:4px;flex-shrink:0">
         <button class="ibtn" data-action="refresh-market-brief" title="Refresh now" ${marketBriefLoading?'disabled':''} style="width:28px;height:28px${marketBriefLoading?';opacity:.5;animation:mmcspin 1s linear infinite':''}">↻</button>
         <button class="ibtn" data-action="dismiss-market-brief" title="Dismiss for today" style="width:28px;height:28px">✕</button>
@@ -1487,11 +1487,11 @@ function renderMarkets() {
   if (!el) return;
   let stored = null;
   try { stored = JSON.parse(localStorage.getItem('mmc.marketsPage') || 'null'); } catch {}
-  const fetchBtn = `<div class="add-form-btns" style="padding:0 4px 12px">
+  const fetchBtn = `<div class="add-form-btns" style="padding:12px 4px 4px">
     <button class="btn btn-accent" data-action="fetch-markets" ${marketsLoading?'disabled':''}>${marketsLoading?'Fetching live market data…':(stored?'↻ Refresh Markets':'Fetch Today\'s Markets')}</button>
   </div>`;
   if (!stored) {
-    el.innerHTML = `${renderMarketBrief()}${fetchBtn}<div class="card"><div class="empty"><p>Per-currency market outlook and top 5 buy/sell/watch suggestions from live news.<br><br>Tap the button above to fetch.</p></div></div>${marketsWatchCard()}${marketsHoldingsCard()}`;
+    el.innerHTML = `${renderMarketBrief()}<div class="card"><div class="empty"><p>Per-currency market outlook and top 5 buy/sell/watch suggestions from live news.<br><br>Tap the button below to fetch.</p></div></div>${marketsWatchCard()}${marketsHoldingsCard()}${fetchBtn}`;
     return;
   }
   const dirMeta = {
@@ -1535,15 +1535,16 @@ function renderMarkets() {
   const sugRows = Object.entries(sugByCur).map(([cur, rows]) =>
     `<div style="padding:10px 16px 4px;border-top:1px solid var(--border);font-size:11px;font-weight:800;letter-spacing:.5px;color:var(--muted-fg)">${esc(cur)}${cur==='Other'?'':' MARKET'}</div>${rows.join('')}`
   ).join('');
-  el.innerHTML = `${renderMarketBrief()}${fetchBtn}
-    <div style="font-size:10px;color:var(--muted-fg);margin:0 4px 10px">As of ${esc(new Date(stored.fetchedAt).toLocaleString())} · AI-generated with live web search · Not financial advice</div>
+  el.innerHTML = `<div style="font-size:10px;color:var(--muted-fg);margin:0 4px 10px">As of ${esc(new Date(stored.fetchedAt).toLocaleString())} · AI-generated with live web search · Not financial advice</div>
+    ${renderMarketBrief()}
     ${mapCards || '<div class="card"><div class="empty"><p>No market data</p></div></div>'}
     <div class="card" style="margin-top:16px">
       <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">Top Suggestions</span></div><div class="sec-sub">5 buy / sell / watch picks per market</div></div></div>
       ${sugRows || '<div class="empty"><p>No suggestions</p></div>'}
     </div>
     ${marketsWatchCard()}
-    ${marketsHoldingsCard()}`;
+    ${marketsHoldingsCard()}
+    ${fetchBtn}`;
 }
 
 function marketsWatchCard() {
