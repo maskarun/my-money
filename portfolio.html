@@ -1620,11 +1620,14 @@ function marketsHoldingsCard() {
     </div>`;
   }).join('') : '';
   const hasInv = (S.portfolio.investments||[]).length > 0;
+  const body = !hasInv
+    ? '<div class="empty"><p>Add investments in the Portfolio tab to check them here</p></div>'
+    : hcRows || `<div class="empty"><p>${holdingsLoading?'Checking holdings…':'Tap ↻ to get an AI verdict per holding vs today\'s market'}</p></div>`;
   return `<div class="card" style="margin-top:16px">
-      <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#16a34a"></span><span class="sec-title">My Holdings Check</span></div><div class="sec-sub">${hc?`As of ${esc(new Date(hc.fetchedAt).toLocaleString())}`:'AI verdict per holding vs today\'s market'}</div></div></div>
-      ${hasInv ? `${hcRows}<div class="add-form-btns" style="padding:12px 16px">
-        <button class="btn btn-accent" data-action="fetch-holdings-check" ${holdingsLoading?'disabled':''}>${holdingsLoading?'Checking holdings…':(hc?'↻ Re-check Holdings':'Check My Holdings')}</button>
-      </div>` : '<div class="empty"><p>Add investments in the Portfolio tab to check them here</p></div>'}
+      <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#16a34a"></span><span class="sec-title">My Holdings Check</span></div><div class="sec-sub">${hc?`As of ${esc(new Date(hc.fetchedAt).toLocaleString())}`:'AI verdict per holding vs today\'s market'}</div></div>
+        ${hasInv?`<button class="ibtn" data-action="fetch-holdings-check" title="Check holdings" ${holdingsLoading?'disabled':''} style="width:28px;height:28px;flex-shrink:0${holdingsLoading?';opacity:.5;animation:mmcspin 1s linear infinite':''}">↻</button>`:''}
+      </div>
+      ${body}
     </div>`;
 }
 
