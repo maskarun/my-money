@@ -470,9 +470,9 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
   </div>
   <div id="header-month-nav"></div>
   <div class="header-actions">
-    <a class="hbtn" href="markets.html" title="Markets" style="display:flex;align-items:center;justify-content:center;text-decoration:none">
+    <button class="hbtn" data-action="switch-tab" data-tab="markets" title="Markets">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-    </a>
+    </button>
     <button class="hbtn" data-action="switch-tab" data-tab="insights" title="AI Insights">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 017 7c0 3-2 5-3 6.5S15 18 15 19H9c0-1-1-2.5-2-3.5S5 12 5 9a7 7 0 017-7z"/><path d="M9 19v1a3 3 0 006 0v-1"/><path d="M10 2.5a4 4 0 013 0"/></svg>
     </button>
@@ -484,6 +484,7 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
   <div id="tab-portfolio" class="tab-panel"></div>
   <div id="tab-recurring" class="tab-panel"></div>
   <div id="tab-insights" class="tab-panel"></div>
+  <div id="tab-markets" class="tab-panel"></div>
   <div id="tab-settings" class="tab-panel"></div>
 </div>
 <button id="fab" class="fab" data-action="toggle-fab" title="Add Entry">
@@ -597,9 +598,6 @@ function applyBackupData(data) {
 function save() {
   try {
     localStorage.setItem('mmc.lastCurrency.v1', S.txCurrency);
-    const mktCurs = new Set(S.transactions.map(t => t.currency).filter(Boolean));
-    [...S.portfolio.savings, ...S.portfolio.loans, ...S.portfolio.goldLoans, ...S.portfolio.investments, ...(S.portfolio.insurance||[])].forEach(i => { if (i.currency) mktCurs.add(i.currency); });
-    localStorage.setItem('mmc.marketCurrencies', JSON.stringify([...mktCurs]));
     if (localStorage.getItem('mmc.lock.enabled') === '1' && localStorage.getItem('mmc.lock.dekPin')) {
       if (encDek) persistEncrypted();
       return;
@@ -1333,6 +1331,100 @@ async function getMarketBriefDetail(idx) {
   } catch(e) {
     if (bs.style.display !== 'none') bsc.innerHTML = renderMarketBriefDetailSheet(item, `<div class="empty"><p>Could not load details: ${esc(e.message||String(e))}</p></div>`);
   }
+}
+
+// ---- Markets tab ----
+let marketsLoading = false;
+function marketsCurrencies() {
+  const curs = new Set(S.transactions.map(t => t.currency).filter(Boolean));
+  [...S.portfolio.savings, ...S.portfolio.loans, ...S.portfolio.goldLoans, ...S.portfolio.investments, ...(S.portfolio.insurance||[])].forEach(i => { if (i.currency) curs.add(i.currency); });
+  if (!curs.size) curs.add(S.txCurrency || 'USD');
+  return [...curs];
+}
+async function fetchMarketsPage() {
+  if (marketsLoading) return;
+  const apiKey = localStorage.getItem('mmc.apiKey');
+  if (!apiKey) { toast('Set your API key in Settings first'); return; }
+  marketsLoading = true; renderMarkets();
+  try {
+    const provider = localStorage.getItem('mmc.aiProvider') || 'claude';
+    const defaultUrl = provider === 'gemini' ? 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent' : 'https://api.anthropic.com/v1/messages';
+    const apiUrl = localStorage.getItem('mmc.apiUrl') || defaultUrl;
+    const curs = marketsCurrencies();
+    const prompt = `Search the web for today's market news and data. Return ONLY JSON (no markdown, no code fences, no prose):\n{"map":[{"currency":"INR","direction":"up"|"down"|"flat","headline":"max 8 words","reasons":["news-based reason with numbers, max 18 words","..2-3 reasons"]}],\n"suggestions":[{"action":"buy"|"sell"|"watch","name":"stock or fund name","reason":"one sentence with numbers, max 18 words"}]}\nThe "map" array must contain exactly one entry per currency in this list: ${curs.join(', ')} — covering each currency's home market (INR = NSE/BSE India, USD = US markets, etc): is that market likely to move up or down today/near-term and why, based on current news.\nThe "suggestions" array must contain exactly 5 investment suggestions (stocks or index/mutual funds) across those markets.\nInformational only, not financial advice. No URLs or citations.`;
+    let text;
+    if (provider === 'gemini') {
+      const resp = await fetchWithRetry(apiUrl, { method:'POST', headers:{ 'Content-Type':'application/json', 'X-goog-api-key':apiKey }, body: JSON.stringify({ contents:[{parts:[{text:prompt}]}], tools:[{google_search:{}}] }) });
+      if (!resp.ok) throw new Error('API error: ' + resp.status);
+      const data = await resp.json();
+      text = data.candidates?.[0]?.content?.parts?.map(p=>p.text).filter(Boolean).join('\n') || '';
+    } else {
+      const resp = await fetchWithRetry(apiUrl, { method:'POST', headers:{ 'Content-Type':'application/json', 'x-api-key':apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' }, body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:3072, tools:[{type:'web_search_20250305', name:'web_search', max_uses:5}], messages:[{role:'user',content:prompt}] }) });
+      if (!resp.ok) throw new Error('API error: ' + resp.status);
+      const data = await resp.json();
+      text = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+    }
+    const m = (text||'').match(/\{[\s\S]*\}/);
+    if (!m) throw new Error('Could not parse response');
+    const parsed = JSON.parse(m[0]);
+    if (!parsed.map?.length && !parsed.suggestions?.length) throw new Error('Empty response');
+    localStorage.setItem('mmc.marketsPage', JSON.stringify({ fetchedAt: new Date().toISOString(), map: parsed.map || [], suggestions: (parsed.suggestions || []).slice(0, 5) }));
+    toast('Markets updated');
+  } catch(e) { toast('Fetch failed: ' + (e.message || e)); }
+  marketsLoading = false;
+  renderMarkets();
+}
+function renderMarkets() {
+  const el = document.getElementById('tab-markets');
+  if (!el) return;
+  let stored = null;
+  try { stored = JSON.parse(localStorage.getItem('mmc.marketsPage') || 'null'); } catch {}
+  const fetchBtn = `<div class="add-form-btns" style="padding:0 4px 12px">
+    <button class="btn btn-accent" data-action="fetch-markets" ${marketsLoading?'disabled':''}>${marketsLoading?'Fetching live market data…':(stored?'↻ Refresh Markets':'Fetch Today\'s Markets')}</button>
+  </div>`;
+  if (!stored) {
+    el.innerHTML = `${fetchBtn}<div class="card"><div class="empty"><p>Per-currency market outlook and top 5 buy/sell/watch suggestions from live news.<br><br>Tap the button above to fetch.</p></div></div>`;
+    return;
+  }
+  const dirMeta = {
+    up:   { arrow: '▲', color: 'var(--income)', label: 'Likely up' },
+    down: { arrow: '▼', color: 'var(--expense)', label: 'Likely down' },
+    flat: { arrow: '▬', color: 'var(--muted-fg)', label: 'Sideways' }
+  };
+  const mapCards = (stored.map || []).map(mo => {
+    const dm = dirMeta[mo.direction] || dirMeta.flat;
+    const reasons = (mo.reasons || []).map(r => `<div style="display:flex;gap:8px;padding:4px 0;font-size:12px;line-height:1.5"><span style="color:var(--muted-fg)">•</span><span>${esc(r)}</span></div>`).join('');
+    return `<div class="card" style="border-left:3px solid ${dm.color}">
+      <div style="padding:12px 16px;overflow-wrap:anywhere">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+          <span style="font-size:18px;color:${dm.color}">${dm.arrow}</span>
+          <span style="font-weight:800;font-size:14px">${esc(mo.currency)}</span>
+          <span style="font-size:10px;font-weight:700;color:${dm.color};text-transform:uppercase;letter-spacing:.5px">${dm.label}</span>
+        </div>
+        <div style="font-size:12.5px;font-weight:700;margin-bottom:4px">${esc(mo.headline || '')}</div>
+        ${reasons}
+      </div>
+    </div>`;
+  }).join('');
+  const badgeStyle = { buy:'background:rgba(5,150,105,.12);color:var(--income)', sell:'background:rgba(225,29,72,.12);color:var(--expense)', watch:'background:rgba(217,119,6,.12);color:var(--gold)' };
+  const sugRows = (stored.suggestions || []).map(s => {
+    const act = ['buy','sell','watch'].includes(s.action) ? s.action : 'watch';
+    return `<div style="display:flex;gap:10px;padding:10px 16px;border-top:1px solid var(--border);align-items:flex-start;overflow-wrap:anywhere">
+      <span style="font-size:9px;font-weight:800;letter-spacing:.6px;padding:3px 8px;border-radius:6px;text-transform:uppercase;flex-shrink:0;${badgeStyle[act]}">${act}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12.5px;font-weight:700">${esc(s.name)}</div>
+        <div style="font-size:12px;line-height:1.5;margin-top:1px">${esc(s.reason)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  el.innerHTML = `${fetchBtn}
+    <div style="font-size:10px;color:var(--muted-fg);margin:0 4px 10px">As of ${esc(new Date(stored.fetchedAt).toLocaleString())} · AI-generated with live web search · Not financial advice</div>
+    <div class="card"><div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#0ea5e9"></span><span class="sec-title">Market Movement Map</span></div><div class="sec-sub">Per-currency outlook from today's news</div></div></div></div>
+    ${mapCards || '<div class="card"><div class="empty"><p>No market data</p></div></div>'}
+    <div class="card" style="margin-top:16px">
+      <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">Top 5 Suggestions</span></div><div class="sec-sub">Buy / sell / watch across your markets</div></div></div>
+      ${sugRows || '<div class="empty"><p>No suggestions</p></div>'}
+    </div>`;
 }
 
 function buildPortfolioSummary() {
@@ -2296,7 +2388,7 @@ function updateHeaderMonthNav() {
 function switchTab(tab) {
   const tabMap = { transactions: 'dashboard', investments: 'portfolio' };
   if (tabMap[tab]) tab = tabMap[tab];
-  if (!['dashboard','portfolio','recurring','settings','insights'].includes(tab)) tab = 'dashboard';
+  if (!['dashboard','portfolio','recurring','settings','insights','markets'].includes(tab)) tab = 'dashboard';
   S.tab = tab;
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('tab-'+S.tab).classList.add('active');
@@ -2306,6 +2398,7 @@ function switchTab(tab) {
   else if (S.tab==='recurring') renderRecurring();
   else if (S.tab==='insights') renderInsights();
   else if (S.tab==='settings') renderSettings();
+  else if (S.tab==='markets') renderMarkets();
   updateHeaderMonthNav();
   const fab = document.getElementById('fab'); if(fab) fab.classList.toggle('hidden', !['dashboard','portfolio','recurring'].includes(S.tab));
 }
@@ -4176,6 +4269,7 @@ function handleClick(e) {
   }
   if (action==='market-brief-detail') { getMarketBriefDetail(parseInt(btn.dataset.idx)); return; }
   if (action==='close-market-brief-detail') { document.getElementById('bottom-sheet').style.display='none'; return; }
+  if (action==='fetch-markets') { fetchMarketsPage(); return; }
   if (action==='refresh-market-brief') { toast('Refreshing market brief…'); getMarketBrief(true); return; }
   if (action==='dismiss-market-brief') {
     localStorage.setItem('mmc.marketBriefDismissed', todayISO()); renderDashboard(); return;
