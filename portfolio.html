@@ -1215,7 +1215,7 @@ async function getMarketBrief(force) {
   try { stored = JSON.parse(localStorage.getItem('mmc.marketBrief')||'{}'); } catch {}
   if (!force && stored.date === todayISO()) return;
   marketBriefLoading = true;
-  renderDashboard();
+  renderMarkets();
   try {
     const provider = localStorage.getItem('mmc.aiProvider') || 'claude';
     const defaultUrl = provider === 'gemini' ? 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent' : 'https://api.anthropic.com/v1/messages';
@@ -1238,11 +1238,11 @@ async function getMarketBrief(force) {
     if (!items) throw new Error('Could not parse market brief');
     localStorage.setItem('mmc.marketBrief', JSON.stringify({date: todayISO(), items}));
     localStorage.removeItem('mmc.marketBriefDismissed');
-    renderDashboard();
+    renderMarkets();
     toast('📈 Daily market brief ready');
   } catch(e) { console.warn('Market brief failed:', e); }
   marketBriefLoading = false;
-  renderDashboard();
+  renderMarkets();
 }
 
 function renderMarketBrief() {
@@ -1487,7 +1487,7 @@ function renderMarkets() {
     <button class="btn btn-accent" data-action="fetch-markets" ${marketsLoading?'disabled':''}>${marketsLoading?'Fetching live market data…':(stored?'↻ Refresh Markets':'Fetch Today\'s Markets')}</button>
   </div>`;
   if (!stored) {
-    el.innerHTML = `${fetchBtn}<div class="card"><div class="empty"><p>Per-currency market outlook and top 5 buy/sell/watch suggestions from live news.<br><br>Tap the button above to fetch.</p></div></div>${marketsWatchCard()}${marketsHoldingsCard()}`;
+    el.innerHTML = `${renderMarketBrief()}${fetchBtn}<div class="card"><div class="empty"><p>Per-currency market outlook and top 5 buy/sell/watch suggestions from live news.<br><br>Tap the button above to fetch.</p></div></div>${marketsWatchCard()}${marketsHoldingsCard()}`;
     return;
   }
   const dirMeta = {
@@ -1531,7 +1531,7 @@ function renderMarkets() {
   const sugRows = Object.entries(sugByCur).map(([cur, rows]) =>
     `<div style="padding:10px 16px 4px;border-top:1px solid var(--border);font-size:11px;font-weight:800;letter-spacing:.5px;color:var(--muted-fg)">${esc(cur)}${cur==='Other'?'':' MARKET'}</div>${rows.join('')}`
   ).join('');
-  el.innerHTML = `${fetchBtn}
+  el.innerHTML = `${renderMarketBrief()}${fetchBtn}
     <div style="font-size:10px;color:var(--muted-fg);margin:0 4px 10px">As of ${esc(new Date(stored.fetchedAt).toLocaleString())} · AI-generated with live web search · Not financial advice</div>
     <div class="card"><div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#0ea5e9"></span><span class="sec-title">Market Movement Map</span></div><div class="sec-sub">Per-currency outlook from today's news</div></div></div></div>
     ${mapCards || '<div class="card"><div class="empty"><p>No market data</p></div></div>'}
@@ -2576,7 +2576,7 @@ function renderOrderedSections(tabKey) {
 }
 
 function renderDashboard() {
-  document.getElementById('tab-dashboard').innerHTML = renderMarketBrief() + renderOrderedSections('dashboard');
+  document.getElementById('tab-dashboard').innerHTML = renderOrderedSections('dashboard');
   updateHeaderMonthNav();
 }
 
@@ -4415,7 +4415,7 @@ function handleClick(e) {
   if (action==='toggle-market-brief') {
     const on = localStorage.getItem('mmc.marketBriefEnabled') === '1';
     if (on) localStorage.removeItem('mmc.marketBriefEnabled'); else localStorage.setItem('mmc.marketBriefEnabled','1');
-    renderSettings(); renderDashboard();
+    renderSettings(); renderMarkets();
     if (!on) getMarketBrief();
     return;
   }
@@ -4427,7 +4427,7 @@ function handleClick(e) {
   if (action==='toggle-watch') { toggleWatch(btn.dataset.name); return; }
   if (action==='refresh-market-brief') { toast('Refreshing market brief…'); getMarketBrief(true); return; }
   if (action==='dismiss-market-brief') {
-    localStorage.setItem('mmc.marketBriefDismissed', todayISO()); renderDashboard(); return;
+    localStorage.setItem('mmc.marketBriefDismissed', todayISO()); renderMarkets(); return;
   }
   if (action==='toggle-theme') { document.body.classList.toggle('dark'); localStorage.setItem('mmc.theme', document.body.classList.contains('dark')?'dark':'light'); renderSettings(); return; }
   if (action==='set-report-range') { S.reportRange = btn.dataset.range; renderDashboard(); return; }
