@@ -1221,7 +1221,7 @@ async function getMarketBrief(force) {
     const defaultUrl = provider === 'gemini' ? 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent' : 'https://api.anthropic.com/v1/messages';
     const apiUrl = localStorage.getItem('mmc.apiUrl') || defaultUrl;
     const summary = buildPortfolioSummary();
-    const prompt = `You are a personal finance advisor. Search the web for today's market data relevant to this portfolio's currencies (e.g. India NSE/BSE and US markets for INR/USD). Then return ONLY a JSON array (no markdown, no code fences, no prose) of 6-8 items covering ALL of these:\n1) one "fx" item FIRST: today's USD to INR exchange rate with the day's change/trend,\n2) one "gold" item: today's gold price and whether it's a good time to buy,\n3) one "index" item: the best-performing major index today with its % move,\n4) 1-2 "fund" items: specific index funds or mutual funds worth investing in now, with 1-year return numbers,\n5) 1-2 "momentum" items: stocks or index funds showing clear upside momentum today, with the % move,\n6) optionally one "tip" item: portfolio-specific action given the monthly surplus.${getWatchlist().length?`\n7) one "watch" item per watchlist instrument (max 3) with today's move: ${getWatchlist().slice(0,3).join(', ')}.`:''}\nEach item: {"type":"fx"|"gold"|"index"|"fund"|"momentum"|"tip","title":"max 6 words","tip":"one actionable sentence, max 18 words, with real numbers from today"}.\nSuggestions must fit this portfolio's currencies and surplus. Informational only, not personalized financial advice.\n\nPortfolio:\n${summary}`;
+    const prompt = `You are a personal finance advisor. Search the web for today's market data relevant to this portfolio's currencies (e.g. India NSE/BSE and US markets for INR/USD). Then return ONLY a JSON array (no markdown, no code fences, no prose) of 6-8 items covering ALL of these:\n1) one "fx" item FIRST: today's USD to INR exchange rate with the day's change/trend,\n2) one "gold" item: today's gold price and whether it's a good time to buy,\n3) one "index" item: the best-performing major index today with its % move,\n4) 1-2 "fund" items: specific index funds or mutual funds worth investing in now, with 1-year return numbers,\n5) 1-2 "momentum" items: stocks or index funds showing clear upside momentum today, with the % move,\n6) optionally one "tip" item: portfolio-specific action given the monthly surplus.${watchNames().length?`\n7) one "watch" item per watchlist instrument (max 3) with today's move: ${watchNames().slice(0,3).join(', ')}.`:''}\nEach item: {"type":"fx"|"gold"|"index"|"fund"|"momentum"|"tip","title":"max 6 words","tip":"one actionable sentence, max 18 words, with real numbers from today"}.\nSuggestions must fit this portfolio's currencies and surplus. Informational only, not personalized financial advice.\n\nPortfolio:\n${summary}`;
     let text;
     if (provider === 'gemini') {
       const resp = await fetchWithRetry(apiUrl, { method:'POST', headers:{ 'Content-Type':'application/json', 'X-goog-api-key':apiKey }, body: JSON.stringify({ contents:[{parts:[{text:prompt}]}], tools:[{google_search:{}}] }) });
@@ -1471,15 +1471,51 @@ async function getSuggestionDetail(idx) {
 }
 
 function getWatchlist() {
-  try { return JSON.parse(localStorage.getItem('mmc.watchlist') || '[]'); } catch { return []; }
+  try {
+    const raw = JSON.parse(localStorage.getItem('mmc.watchlist') || '[]');
+    return raw.map(w => typeof w === 'string' ? { name: w } : w);
+  } catch { return []; }
 }
+const watchNames = () => getWatchlist().map(w => w.name);
 function toggleWatch(name) {
   if (!name) return;
   let list = getWatchlist();
-  if (list.includes(name)) { list = list.filter(n => n !== name); toast('Removed from watchlist'); }
-  else { list.push(name); toast('Added to watchlist'); }
+  if (list.some(w => w.name === name)) { list = list.filter(w => w.name !== name); toast('Removed from watchlist'); }
+  else { list.push({ name }); toast('Added to watchlist'); fetchWatchPrice(name); }
   localStorage.setItem('mmc.watchlist', JSON.stringify(list));
   renderMarkets();
+}
+async function fetchWatchPrice(name) {
+  const apiKey = localStorage.getItem('mmc.apiKey');
+  if (!apiKey) return;
+  try {
+    const provider = localStorage.getItem('mmc.aiProvider') || 'claude';
+    const defaultUrl = provider === 'gemini' ? 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent' : 'https://api.anthropic.com/v1/messages';
+    const apiUrl = localStorage.getItem('mmc.apiUrl') || defaultUrl;
+    const prompt = `Search the web for the current market price of "${name}". Return ONLY JSON (no prose, no fences): {"price":"formatted price with currency symbol","change":"today's % change like +1.2%"}.`;
+    let text;
+    if (provider === 'gemini') {
+      const resp = await fetchWithRetry(apiUrl, { method:'POST', headers:{ 'Content-Type':'application/json', 'X-goog-api-key':apiKey }, body: JSON.stringify({ contents:[{parts:[{text:prompt}]}], tools:[{google_search:{}}] }) });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      text = data.candidates?.[0]?.content?.parts?.map(p=>p.text).filter(Boolean).join('\n') || '';
+    } else {
+      const resp = await fetchWithRetry(apiUrl, { method:'POST', headers:{ 'Content-Type':'application/json', 'x-api-key':apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' }, body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:512, tools:[{type:'web_search_20250305', name:'web_search', max_uses:2}], messages:[{role:'user',content:prompt}] }) });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      text = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+    }
+    const m = (text||'').match(/\{[\s\S]*\}/);
+    if (!m) return;
+    const p = JSON.parse(m[0]);
+    if (!p.price) return;
+    const list = getWatchlist();
+    const entry = list.find(w => w.name === name);
+    if (!entry) return;
+    entry.price = p.price; entry.change = p.change || ''; entry.asOf = todayISO();
+    localStorage.setItem('mmc.watchlist', JSON.stringify(list));
+    renderMarkets();
+  } catch(e) { console.warn('Watch price fetch failed:', e); }
 }
 
 function renderMarkets() {
@@ -1519,7 +1555,7 @@ function renderMarkets() {
   const sugByCur = {};
   (stored.suggestions || []).forEach((s, i) => {
     const act = ['buy','sell','watch'].includes(s.action) ? s.action : 'watch';
-    const watched = watchlist.includes(s.name);
+    const watched = watchlist.some(w => w.name === s.name);
     const row = `<div data-action="suggestion-detail" data-idx="${i}" style="display:flex;gap:10px;padding:10px 16px;border-top:1px solid var(--border);align-items:flex-start;overflow-wrap:anywhere;cursor:pointer">
       <span style="font-size:9px;font-weight:800;letter-spacing:.6px;padding:3px 8px;border-radius:6px;text-transform:uppercase;flex-shrink:0;${badgeStyle[act]}">${act}</span>
       <div style="flex:1;min-width:0">
@@ -1551,12 +1587,21 @@ function marketsWatchCard() {
   const watchlist = getWatchlist();
   if (!watchlist.length) return '';
   return `<div class="card" style="margin-top:16px">
-      <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#d97706"></span><span class="sec-title">Watchlist</span></div><div class="sec-sub">Tracked in your daily market brief</div></div></div>
-      ${watchlist.map(n => `<div style="display:flex;gap:10px;padding:9px 16px;border-top:1px solid var(--border);align-items:center">
-        <span style="color:var(--gold)">★</span>
-        <span style="flex:1;font-size:12.5px;font-weight:600;overflow-wrap:anywhere">${esc(n)}</span>
-        <button data-action="toggle-watch" data-name="${esc(n)}" title="Remove" style="color:var(--muted-fg);font-size:13px;padding:0 2px">✕</button>
-      </div>`).join('')}
+      <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#d97706"></span><span class="sec-title">Watchlist</span></div><div class="sec-sub">Swipe left to remove · tracked in your market brief</div></div></div>
+      ${watchlist.map(w => {
+        const chColor = (w.change||'').trim().startsWith('-') ? 'var(--expense)' : 'var(--income)';
+        return `<div class="swipe-wrap" style="--swipe-w:-48px">
+        <div class="swipe-back"><button class="sb-del" data-action="toggle-watch" data-name="${esc(w.name)}" title="Remove">✕</button></div>
+        <div class="swipe-front"><div style="display:flex;gap:10px;padding:9px 16px;align-items:center;background:var(--card)">
+          <span style="color:var(--gold)">★</span>
+          <span style="flex:1;font-size:12.5px;font-weight:600;overflow-wrap:anywhere">${esc(w.name)}</span>
+          ${w.price ? `<div style="text-align:right;flex-shrink:0">
+            <div style="font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums">${esc(w.price)}</div>
+            ${w.change ? `<div style="font-size:10.5px;font-weight:600;color:${chColor}">${esc(w.change)}</div>` : ''}
+          </div>` : `<span style="font-size:10px;color:var(--muted-fg)">fetching…</span>`}
+        </div></div>
+      </div>`;
+      }).join('')}
     </div>`;
 }
 
