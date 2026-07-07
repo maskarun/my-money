@@ -1273,7 +1273,7 @@ function renderMarketBrief() {
     </div>`;
   }).join('');
   return `<div class="card" style="border-left:3px solid #0ea5e9">
-    <div class="sec-hdr" style="padding-bottom:6px"><div><div class="sec-title-row"><span class="sec-dot" style="background:#0ea5e9"></span><span class="sec-title">Daily Market Brief</span></div><div class="sec-sub">${fmtDate(stored.date)} · AI-generated, not financial advice</div></div>
+    <div class="sec-hdr" style="padding-bottom:6px"><div><div class="sec-title-row"><span class="sec-dot" style="background:#0ea5e9"></span><span class="sec-title">Market Brief</span></div><div class="sec-sub">${fmtDate(stored.date)} · AI-generated, not financial advice</div></div>
       <div style="display:flex;gap:4px;flex-shrink:0">
         <button class="ibtn" data-action="refresh-market-brief" title="Refresh now" ${marketBriefLoading?'disabled':''} style="width:28px;height:28px${marketBriefLoading?';opacity:.5;animation:mmcspin 1s linear infinite':''}">↻</button>
         <button class="ibtn" data-action="dismiss-market-brief" title="Dismiss for today" style="width:28px;height:28px">✕</button>
@@ -1341,10 +1341,14 @@ function marketsCurrencies() {
   if (!curs.size) curs.add(S.txCurrency || 'USD');
   return [...curs];
 }
-async function fetchMarketsPage() {
+async function fetchMarketsPage(force) {
   if (marketsLoading) return;
+  if (encStored() && !encDek) return; // app still locked
   const apiKey = localStorage.getItem('mmc.apiKey');
-  if (!apiKey) { toast('Set your API key in Settings first'); return; }
+  if (!apiKey) { if (force) toast('Set your API key in Settings first'); return; }
+  let prev = null;
+  try { prev = JSON.parse(localStorage.getItem('mmc.marketsPage') || 'null'); } catch {}
+  if (!force && prev?.fetchedAt?.slice(0,10) === todayISO()) return;
   marketsLoading = true; renderMarkets();
   try {
     const provider = localStorage.getItem('mmc.aiProvider') || 'claude';
@@ -1533,7 +1537,6 @@ function renderMarkets() {
   ).join('');
   el.innerHTML = `${renderMarketBrief()}${fetchBtn}
     <div style="font-size:10px;color:var(--muted-fg);margin:0 4px 10px">As of ${esc(new Date(stored.fetchedAt).toLocaleString())} · AI-generated with live web search · Not financial advice</div>
-    <div class="card"><div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#0ea5e9"></span><span class="sec-title">Market Movement Map</span></div><div class="sec-sub">Per-currency outlook from today's news</div></div></div></div>
     ${mapCards || '<div class="card"><div class="empty"><p>No market data</p></div></div>'}
     <div class="card" style="margin-top:16px">
       <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">Top Suggestions</span></div><div class="sec-sub">5 buy / sell / watch picks per market</div></div></div>
@@ -3691,7 +3694,7 @@ function renderSettings() {
       ${maskedKey?`<div class="p-row-sub" style="margin-top:4px;max-width:none">Current: ${maskedKey}</div>`:''}
     </div>
     <div class="p-row" data-action="toggle-market-brief" style="cursor:pointer">
-      <div class="p-row-meta"><div class="p-row-name">Daily Market Brief</div><div class="p-row-sub">Investment suggestions from live market conditions, once a day. ${marketBriefOn?'On':'Off'}</div></div>
+      <div class="p-row-meta"><div class="p-row-name">Market Brief</div><div class="p-row-sub">Auto-fetch market brief & outlook once a day. ${marketBriefOn?'On':'Off'}</div></div>
       <div style="width:44px;height:24px;border-radius:12px;background:${marketBriefOn?'var(--accent)':'var(--muted-fg)'};position:relative;transition:background .2s;flex-shrink:0">
         <div style="width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:2px;${marketBriefOn?'right:2px':'left:2px'};transition:all .2s"></div>
       </div>
@@ -4416,12 +4419,12 @@ function handleClick(e) {
     const on = localStorage.getItem('mmc.marketBriefEnabled') === '1';
     if (on) localStorage.removeItem('mmc.marketBriefEnabled'); else localStorage.setItem('mmc.marketBriefEnabled','1');
     renderSettings(); renderMarkets();
-    if (!on) getMarketBrief();
+    if (!on) { getMarketBrief(); fetchMarketsPage(); }
     return;
   }
   if (action==='market-brief-detail') { getMarketBriefDetail(parseInt(btn.dataset.idx)); return; }
   if (action==='close-market-brief-detail') { document.getElementById('bottom-sheet').style.display='none'; return; }
-  if (action==='fetch-markets') { fetchMarketsPage(); return; }
+  if (action==='fetch-markets') { fetchMarketsPage(true); return; }
   if (action==='fetch-holdings-check') { fetchHoldingsCheck(); return; }
   if (action==='suggestion-detail') { getSuggestionDetail(parseInt(btn.dataset.idx)); return; }
   if (action==='toggle-watch') { toggleWatch(btn.dataset.name); return; }
@@ -4935,6 +4938,7 @@ if (savedTheme==='dark' || (!savedTheme && window.matchMedia('(prefers-color-sch
 load(); renderDashboard(); renderPortfolio(); renderRecurring(); renderInsights(); renderSettings();
 if (lockCfg().enabled && lockCfg().hash) showLockScreen();
 setTimeout(getMarketBrief, 2000);
+setTimeout(() => { if (localStorage.getItem('mmc.marketBriefEnabled') === '1') fetchMarketsPage(); }, 4000);
 
 // Swipe-to-reveal actions (bidirectional)
 (function() {
