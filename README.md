@@ -13,7 +13,7 @@ A personal finance management web app built with pure HTML, CSS, and JavaScript 
 
 ## Usage
 
-Open `cashflow.html` directly in any modern browser. No installation or server required.
+Open `portfolio.html` directly in any modern browser. No installation or server required.
 
 ## Tech Stack
 
@@ -32,5 +32,5 @@ All data is stored locally in your browser's `localStorage`. Use the Export butt
 
 ```
 my-money/
-└── cashflow.html   # Complete self-contained application
+└── portfolio.html  # Complete self-contained application
 ```
