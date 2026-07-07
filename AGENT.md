@@ -17,7 +17,7 @@ This file tracks changes made by AI agents (Claude Code) to this repository.
 
 ### Project State at Time of Changes
 
-- Single-file SPA: `cashflow.html` (1,279 lines)
+- Single-file SPA: `portfolio.html`
 - Pure HTML/CSS/Vanilla JS, no external dependencies
 - localStorage for data persistence
 - Multi-currency support (USD, INR)
