@@ -1411,6 +1411,61 @@ async function fetchHoldingsCheck() {
   renderMarkets();
 }
 
+function renderSuggestionDetailSheet(item, body) {
+  const badgeStyle = { buy:'background:rgba(5,150,105,.12);color:var(--income)', sell:'background:rgba(225,29,72,.12);color:var(--expense)', watch:'background:rgba(217,119,6,.12);color:var(--gold)' };
+  const act = ['buy','sell','watch'].includes(item.action) ? item.action : 'watch';
+  return `<div style="padding:0 16px;overflow-wrap:anywhere;word-break:break-word">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span style="font-size:9px;font-weight:800;letter-spacing:.6px;padding:3px 8px;border-radius:6px;text-transform:uppercase;${badgeStyle[act]}">${act}</span>
+      <span class="add-form-title" style="margin:0">${esc(item.name)}</span>
+    </div>
+    <div style="font-size:12px;color:var(--muted-fg);line-height:1.5;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)">${esc(item.reason)}</div>
+    <div style="font-size:12.5px;line-height:1.65;color:var(--text)">${body}</div>
+    <div style="font-size:10px;color:var(--muted-fg);margin-top:14px;text-align:center">AI-generated · Not financial advice</div>
+    <div class="add-form-btns" style="margin-top:10px"><button type="button" class="btn btn-outline" data-action="close-market-brief-detail">Close</button></div>
+  </div>`;
+}
+
+async function getSuggestionDetail(idx) {
+  let stored = null;
+  try { stored = JSON.parse(localStorage.getItem('mmc.marketsPage') || 'null'); } catch {}
+  const item = stored?.suggestions?.[idx];
+  if (!item) return;
+  const bs = document.getElementById('bottom-sheet'), bsc = document.getElementById('bottom-sheet-content');
+  bs.style.display = '';
+  if (item.detail) {
+    bsc.innerHTML = renderSuggestionDetailSheet(item, formatInsights(item.detail));
+    return;
+  }
+  bsc.innerHTML = renderSuggestionDetailSheet(item, `<div class="empty"><p>Researching ${esc(item.name)}…</p></div>`);
+  const apiKey = localStorage.getItem('mmc.apiKey');
+  if (!apiKey) { bsc.innerHTML = renderSuggestionDetailSheet(item, `<div class="empty"><p>Set your API key in Settings</p></div>`); return; }
+  try {
+    const provider = localStorage.getItem('mmc.aiProvider') || 'claude';
+    const defaultUrl = provider === 'gemini' ? 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent' : 'https://api.anthropic.com/v1/messages';
+    const apiUrl = localStorage.getItem('mmc.apiUrl') || defaultUrl;
+    const prompt = `Write a detailed analysis report on "${item.name}" for a personal finance app user, explaining the earlier suggestion to ${item.action} it ("${item.reason}"). Search the web for current data and recent news. Cover with short bullet sections: 1) Why it was picked (the case, with numbers), 2) Key stats (price, 1-year return, P/E or expense ratio, 52-week range), 3) Recent news (last few weeks, dated), 4) Risks, 5) Suggested approach (entry/SIP/wait). Under 220 words total. Not financial advice. No URLs or citations.`;
+    let text;
+    if (provider === 'gemini') {
+      const resp = await fetchWithRetry(apiUrl, { method:'POST', headers:{ 'Content-Type':'application/json', 'X-goog-api-key':apiKey }, body: JSON.stringify({ contents:[{parts:[{text:prompt}]}], tools:[{google_search:{}}] }) });
+      if (!resp.ok) throw new Error('API error: '+resp.status);
+      const data = await resp.json();
+      text = data.candidates?.[0]?.content?.parts?.map(p=>p.text).filter(Boolean).join('\n') || '';
+    } else {
+      const resp = await fetchWithRetry(apiUrl, { method:'POST', headers:{ 'Content-Type':'application/json', 'x-api-key':apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' }, body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:2048, tools:[{type:'web_search_20250305', name:'web_search', max_uses:5}], messages:[{role:'user',content:prompt}] }) });
+      if (!resp.ok) throw new Error('API error: '+resp.status);
+      const data = await resp.json();
+      text = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+    }
+    if (!text) throw new Error('Empty response');
+    item.detail = text;
+    localStorage.setItem('mmc.marketsPage', JSON.stringify(stored));
+    if (bs.style.display !== 'none') bsc.innerHTML = renderSuggestionDetailSheet(item, formatInsights(text));
+  } catch(e) {
+    if (bs.style.display !== 'none') bsc.innerHTML = renderSuggestionDetailSheet(item, `<div class="empty"><p>Could not load analysis: ${esc(e.message||String(e))}</p></div>`);
+  }
+}
+
 function getWatchlist() {
   try { return JSON.parse(localStorage.getItem('mmc.watchlist') || '[]'); } catch { return []; }
 }
@@ -1457,15 +1512,16 @@ function renderMarkets() {
   }).join('');
   const badgeStyle = { buy:'background:rgba(5,150,105,.12);color:var(--income)', sell:'background:rgba(225,29,72,.12);color:var(--expense)', watch:'background:rgba(217,119,6,.12);color:var(--gold)' };
   const watchlist = getWatchlist();
-  const sugRows = (stored.suggestions || []).map(s => {
+  const sugRows = (stored.suggestions || []).map((s, i) => {
     const act = ['buy','sell','watch'].includes(s.action) ? s.action : 'watch';
     const watched = watchlist.includes(s.name);
-    return `<div style="display:flex;gap:10px;padding:10px 16px;border-top:1px solid var(--border);align-items:flex-start;overflow-wrap:anywhere">
+    return `<div data-action="suggestion-detail" data-idx="${i}" style="display:flex;gap:10px;padding:10px 16px;border-top:1px solid var(--border);align-items:flex-start;overflow-wrap:anywhere;cursor:pointer">
       <span style="font-size:9px;font-weight:800;letter-spacing:.6px;padding:3px 8px;border-radius:6px;text-transform:uppercase;flex-shrink:0;${badgeStyle[act]}">${act}</span>
       <div style="flex:1;min-width:0">
         <div style="font-size:12.5px;font-weight:700">${esc(s.name)}</div>
         <div style="font-size:12px;line-height:1.5;margin-top:1px">${esc(s.reason)}</div>
       </div>
+      <span style="color:var(--muted-fg);font-size:16px;line-height:1.3">›</span>
       <button data-action="toggle-watch" data-name="${esc(s.name)}" title="${watched?'Remove from':'Add to'} watchlist" style="font-size:16px;color:${watched?'var(--gold)':'var(--muted-fg)'};flex-shrink:0;padding:0 2px">${watched?'★':'☆'}</button>
     </div>`;
   }).join('');
@@ -4361,6 +4417,7 @@ function handleClick(e) {
   if (action==='close-market-brief-detail') { document.getElementById('bottom-sheet').style.display='none'; return; }
   if (action==='fetch-markets') { fetchMarketsPage(); return; }
   if (action==='fetch-holdings-check') { fetchHoldingsCheck(); return; }
+  if (action==='suggestion-detail') { getSuggestionDetail(parseInt(btn.dataset.idx)); return; }
   if (action==='toggle-watch') { toggleWatch(btn.dataset.name); return; }
   if (action==='refresh-market-brief') { toast('Refreshing market brief…'); getMarketBrief(true); return; }
   if (action==='dismiss-market-brief') {
