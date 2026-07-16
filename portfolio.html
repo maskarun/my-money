@@ -2156,8 +2156,9 @@ function renderRecurringQuickAdd() {
       <div class="form-row"><label class="form-label">Card name *</label><input class="input" type="text" name="name" placeholder="e.g. HDFC Regalia" required></div>
       <div class="form-row-2">
         <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(S.txCurrency)}</select></div></div>
-        <div><label class="form-label">Due day *</label><input class="input" type="number" name="dueDay" min="1" max="31" placeholder="5" required></div>
+        <div><label class="form-label">Due day *</label><input class="input" type="number" name="dueDay" min="1" max="31" placeholder="1-31" required></div>
       </div>
+      <div class="form-row"><label class="form-label">Bill amount (this month, optional)</label><input class="input" type="number" name="amount" inputmode="decimal" min="0" step="0.01" placeholder="0.00"></div>
       <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-recurring-add">Cancel</button><button type="submit" class="btn btn-accent">Add</button></div>
     </form>`;
   }
@@ -2599,10 +2600,11 @@ function renderCreditCards() {
         <form data-action="save-card-edit" data-id="${card.id}" style="display:flex;flex-direction:column;gap:8px;padding:4px 0">
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <input class="input" type="text" name="name" value="${esc(card.name)}" placeholder="Card name" required style="flex:1;min-width:120px">
-            <input class="input" type="number" name="dueDay" value="${card.dueDay||''}" placeholder="Due day" min="1" max="31" style="width:80px">
+            <input class="input" type="number" name="dueDay" value="${card.dueDay||''}" placeholder="Due day (1-31)" min="1" max="31" style="width:80px">
           </div>
           <div style="display:flex;gap:6px;align-items:center">
             <div class="select-wrap" style="width:110px"><select class="input" name="currency">${curOptions(c)}</select></div>
+            <input class="input" type="number" name="amount" value="${paid?'':(billAmt ?? '')}" placeholder="Bill amt" inputmode="decimal" min="0" step="0.01" ${paid?'disabled title="Already paid this month"':''} style="width:90px">
             <div style="margin-left:auto;display:flex;gap:4px">
               <button type="submit" class="btn btn-accent" style="font-size:11px;padding:4px 10px">Save</button>
               <button type="button" class="btn" data-action="cancel-card-edit" style="font-size:11px;padding:4px 10px">Cancel</button>
@@ -4408,7 +4410,10 @@ function handleSubmit(e) {
   if (action==='add-credit-card') {
     if (!d.name.trim()) return toast('Card name is required');
     const dueDay = parseInt(d.dueDay); if (!dueDay||dueDay<1||dueDay>31) return toast('Enter a valid due day');
-    S.recurring.creditCards.push({id:uid(),name:d.name.trim(),currency:d.currency,dueDay,months:{},createdAt:todayISO()});
+    const cardMonths = {};
+    const billAmt = parseFloat(d.amount);
+    if (billAmt > 0) cardMonths[S.selectedMonth] = { amount: billAmt, amountSaved: true };
+    S.recurring.creditCards.push({id:uid(),name:d.name.trim(),currency:d.currency,dueDay,months:cardMonths,createdAt:todayISO()});
     if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
     S.recurringAddType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderDashboard(); renderRecurring(); toast('Card added'); return;
   }
@@ -4754,8 +4759,14 @@ function handleClick(e) {
     card.name = d.name.trim();
     if (d.dueDay) card.dueDay = parseInt(d.dueDay);
     if (d.currency) card.currency = d.currency;
+    const mon = S.selectedMonth;
+    const amt = parseFloat(d.amount);
+    if (d.amount !== undefined && d.amount !== '' && !isNaN(amt) && amt >= 0 && !card.months?.[mon]?.paid) {
+      if (!card.months) card.months = {};
+      card.months[mon] = { ...(card.months[mon]||{}), amount: amt, amountSaved: true };
+    }
     S.editingCardId = null;
-    save(); renderRecurring(); toast(card.name+' updated'); return;
+    save(); renderDashboard(); renderRecurring(); toast(card.name+' updated'); return;
   }
   if (action==='del-credit-card') {
     const card = S.recurring.creditCards.find(c=>c.id===btn.dataset.id); if (!card) return;
