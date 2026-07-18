@@ -4446,6 +4446,21 @@ function handleSubmit(e) {
     card.months[mon] = {...prev, amount, amountSaved: true, prevAmount: prev.amount};
     save(); renderRecurring(); toast(card.name+' bill amount saved'); return;
   }
+  if (action==='save-card-edit') {
+    const card = S.recurring.creditCards.find(c=>c.id===form.dataset.id); if (!card) return;
+    if (!d.name?.trim()) return toast('Name is required');
+    card.name = d.name.trim();
+    if (d.dueDay) card.dueDay = parseInt(d.dueDay);
+    if (d.currency) card.currency = d.currency;
+    const mon = S.selectedMonth;
+    const amt = parseFloat(d.amount);
+    if (d.amount !== undefined && d.amount !== '' && !isNaN(amt) && amt >= 0 && !card.months?.[mon]?.paid) {
+      if (!card.months) card.months = {};
+      card.months[mon] = { ...(card.months[mon]||{}), amount: amt, amountSaved: true };
+    }
+    S.editingCardId = null;
+    save(); renderDashboard(); renderRecurring(); toast(card.name+' updated'); return;
+  }
   if (action==='save-recurring-edit') {
     const item = S.recurring.items.find(i=>i.id===form.dataset.id); if (!item) return;
     if (!d.name.trim()) return toast('Name is required');
@@ -4752,21 +4767,6 @@ function handleClick(e) {
   }
   if (action==='cancel-card-edit') {
     S.editingCardId = null; renderRecurring(); return;
-  }
-  if (action==='save-card-edit') {
-    const card = S.recurring.creditCards.find(c=>c.id===form.dataset.id); if (!card) return;
-    if (!d.name?.trim()) return toast('Name is required');
-    card.name = d.name.trim();
-    if (d.dueDay) card.dueDay = parseInt(d.dueDay);
-    if (d.currency) card.currency = d.currency;
-    const mon = S.selectedMonth;
-    const amt = parseFloat(d.amount);
-    if (d.amount !== undefined && d.amount !== '' && !isNaN(amt) && amt >= 0 && !card.months?.[mon]?.paid) {
-      if (!card.months) card.months = {};
-      card.months[mon] = { ...(card.months[mon]||{}), amount: amt, amountSaved: true };
-    }
-    S.editingCardId = null;
-    save(); renderDashboard(); renderRecurring(); toast(card.name+' updated'); return;
   }
   if (action==='del-credit-card') {
     const card = S.recurring.creditCards.find(c=>c.id===btn.dataset.id); if (!card) return;
