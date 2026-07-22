@@ -600,7 +600,6 @@ function applyBackupData(data) {
 function save() {
   try {
     localStorage.setItem('mmc.lastCurrency.v1', S.txCurrency);
-    try { syncPushSchedule(); } catch(e) {}
     if (localStorage.getItem('mmc.lock.enabled') === '1' && localStorage.getItem('mmc.lock.dekPin')) {
       if (encDek) persistEncrypted();
       return;
@@ -1384,58 +1383,6 @@ function checkBillReminders() {
   localStorage.setItem('mmc.billNotified', JSON.stringify(log));
 }
 
-// ---- Push notifications (Cloudflare Worker backend, see push-worker/) ----
-const pushWorkerUrl = () => (localStorage.getItem('mmc.pushWorkerUrl') || '').replace(/\/$/, '');
-const buildPushSchedule = () => buildDueList().map(b => ({ name: b.name, day: b.day }));
-async function sha256b64url(str) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-  return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-}
-async function enablePush(url) {
-  if (!url) return toast('Enter your worker URL first');
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return toast('Push not supported in this browser');
-  try {
-    localStorage.setItem('mmc.pushWorkerUrl', url.replace(/\/$/, ''));
-    const perm = await Notification.requestPermission();
-    if (perm !== 'granted') return toast('Notifications blocked by browser');
-    const reg = await navigator.serviceWorker.ready;
-    const { publicKey } = await (await fetch(pushWorkerUrl() + '/vapid')).json();
-    const keyBytes = Uint8Array.from(atob(publicKey.replace(/-/g,'+').replace(/_/g,'/')), c => c.charCodeAt(0));
-    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes });
-    const resp = await fetch(pushWorkerUrl() + '/subscribe', { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ subscription: sub.toJSON(), schedule: buildPushSchedule(), tzOffsetMinutes: new Date().getTimezoneOffset() }) });
-    if (!resp.ok) throw new Error('worker error ' + resp.status);
-    const hash = await sha256b64url(sub.endpoint);
-    reg.active?.postMessage({ type:'push-config', workerUrl: pushWorkerUrl(), hash });
-    localStorage.setItem('mmc.pushEnabled', '1');
-    localStorage.setItem('mmc.pushEndpoint', sub.endpoint);
-    toast('Push notifications enabled'); renderSettings();
-  } catch(e) { toast('Push setup failed: ' + (e.message || e)); }
-}
-async function disablePush() {
-  try {
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
-    const endpoint = sub?.endpoint || localStorage.getItem('mmc.pushEndpoint');
-    if (endpoint && pushWorkerUrl()) fetch(pushWorkerUrl() + '/unsubscribe', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ endpoint }) }).catch(()=>{});
-    await sub?.unsubscribe();
-  } catch {}
-  localStorage.removeItem('mmc.pushEnabled');
-  localStorage.removeItem('mmc.pushEndpoint');
-  toast('Push notifications disabled'); renderSettings();
-}
-let pushSyncTimer;
-function syncPushSchedule() {
-  if (localStorage.getItem('mmc.pushEnabled') !== '1' || !pushWorkerUrl()) return;
-  clearTimeout(pushSyncTimer);
-  pushSyncTimer = setTimeout(() => {
-    const endpoint = localStorage.getItem('mmc.pushEndpoint');
-    if (!endpoint) return;
-    fetch(pushWorkerUrl() + '/schedule', { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ endpoint, schedule: buildPushSchedule(), tzOffsetMinutes: new Date().getTimezoneOffset() }) }).catch(()=>{});
-  }, 5000);
-}
-
 // ---- Markets tab ----
 let marketsLoading = false;
 function marketsCurrencies() {
@@ -2156,8 +2103,9 @@ function renderRecurringQuickAdd() {
       <div class="form-row"><label class="form-label">Card name *</label><input class="input" type="text" name="name" placeholder="e.g. HDFC Regalia" required></div>
       <div class="form-row-2">
         <div><label class="form-label">Currency</label><div class="select-wrap"><select class="input" name="currency">${curOptions(S.txCurrency)}</select></div></div>
-        <div><label class="form-label">Due day *</label><input class="input" type="number" name="dueDay" min="1" max="31" placeholder="5" required></div>
+        <div><label class="form-label">Due day *</label><input class="input" type="number" name="dueDay" min="1" max="31" placeholder="1-31" required></div>
       </div>
+      <div class="form-row"><label class="form-label">Bill amount (this month, optional)</label><input class="input" type="number" name="amount" inputmode="decimal" min="0" step="0.01" placeholder="0.00"></div>
       <div class="add-form-btns"><button type="button" class="btn btn-outline" data-action="cancel-recurring-add">Cancel</button><button type="submit" class="btn btn-accent">Add</button></div>
     </form>`;
   }
@@ -2599,10 +2547,11 @@ function renderCreditCards() {
         <form data-action="save-card-edit" data-id="${card.id}" style="display:flex;flex-direction:column;gap:8px;padding:4px 0">
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <input class="input" type="text" name="name" value="${esc(card.name)}" placeholder="Card name" required style="flex:1;min-width:120px">
-            <input class="input" type="number" name="dueDay" value="${card.dueDay||''}" placeholder="Due day" min="1" max="31" style="width:80px">
+            <input class="input" type="number" name="dueDay" value="${card.dueDay||''}" placeholder="Due day (1-31)" min="1" max="31" style="width:80px">
           </div>
           <div style="display:flex;gap:6px;align-items:center">
             <div class="select-wrap" style="width:110px"><select class="input" name="currency">${curOptions(c)}</select></div>
+            <input class="input" type="number" name="amount" value="${paid?'':(billAmt ?? '')}" placeholder="Bill amt" inputmode="decimal" min="0" step="0.01" ${paid?'disabled title="Already paid this month"':''} style="width:90px">
             <div style="margin-left:auto;display:flex;gap:4px">
               <button type="submit" class="btn btn-accent" style="font-size:11px;padding:4px 10px">Save</button>
               <button type="button" class="btn" data-action="cancel-card-edit" style="font-size:11px;padding:4px 10px">Cancel</button>
@@ -3826,8 +3775,6 @@ function renderSettings() {
   const maskedKey = apiKey ? '••••••••' + apiKey.slice(-4) : '';
   const marketBriefOn = localStorage.getItem('mmc.marketBriefEnabled') === '1';
   const billRemOn = localStorage.getItem('mmc.billReminders') === '1';
-  const pushOn = localStorage.getItem('mmc.pushEnabled') === '1';
-  const pushUrl = localStorage.getItem('mmc.pushWorkerUrl') || '';
   const keyPlaceholder = aiProvider === 'gemini' ? 'AIza...' : 'sk-ant-...';
   const aiCard = `<div class="card">
     <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#8b5cf6"></span><span class="sec-title">AI Insights</span></div><div class="sec-sub">Connect to AI for recommendations</div></div></div>
@@ -3859,17 +3806,6 @@ function renderSettings() {
       <div style="width:44px;height:24px;border-radius:12px;background:${billRemOn?'var(--accent)':'var(--muted-fg)'};position:relative;transition:background .2s;flex-shrink:0">
         <div style="width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:2px;${billRemOn?'right:2px':'left:2px'};transition:all .2s"></div>
       </div>
-    </div>
-    <div style="padding:10px 16px;border-top:1px solid var(--border)">
-      <div class="p-row-name" style="margin-bottom:2px">Push Notifications</div>
-      <div class="p-row-sub" style="max-width:none;margin-bottom:8px">Bill reminders even when the app is closed, via your own free Cloudflare worker (see push-worker/README). Only bill names and due days are sent.</div>
-      ${pushOn
-        ? `<div class="p-row-sub" style="max-width:none;margin-bottom:8px;color:var(--income)">✓ Enabled · ${esc(pushUrl)}</div>
-           <button class="btn btn-outline" data-action="disable-push" style="font-size:11px;padding:6px 12px;color:var(--expense)">Disable Push</button>`
-        : `<form data-action="enable-push" style="display:flex;gap:6px;align-items:center">
-             <input class="input" type="url" name="purl" value="${esc(pushUrl)}" placeholder="https://my-money-push.you.workers.dev" style="font-size:12px;padding:6px 8px;flex:1;min-width:0">
-             <button type="submit" class="btn btn-accent" style="font-size:11px;padding:6px 12px;flex:none">Enable</button>
-           </form>`}
     </div>
   </div>`;
 
@@ -4159,7 +4095,6 @@ function handleSubmit(e) {
   if (!action) return; e.preventDefault();
   const d = formData(form);
 
-  if (action==='enable-push') { enablePush((d.purl||'').trim()); return; }
   if (action==='unlock-pin') {
     (async () => {
       const cfg = lockCfg();
@@ -4408,7 +4343,10 @@ function handleSubmit(e) {
   if (action==='add-credit-card') {
     if (!d.name.trim()) return toast('Card name is required');
     const dueDay = parseInt(d.dueDay); if (!dueDay||dueDay<1||dueDay>31) return toast('Enter a valid due day');
-    S.recurring.creditCards.push({id:uid(),name:d.name.trim(),currency:d.currency,dueDay,months:{},createdAt:todayISO()});
+    const cardMonths = {};
+    const billAmt = parseFloat(d.amount);
+    if (billAmt > 0) cardMonths[S.selectedMonth] = { amount: billAmt, amountSaved: true };
+    S.recurring.creditCards.push({id:uid(),name:d.name.trim(),currency:d.currency,dueDay,months:cardMonths,createdAt:todayISO()});
     if (d.currency) { S.txCurrency=d.currency; localStorage.setItem('mmc.lastCurrency.v1',d.currency); }
     S.recurringAddType=null; document.getElementById('bottom-sheet').style.display='none'; save(); renderDashboard(); renderRecurring(); toast('Card added'); return;
   }
@@ -4440,6 +4378,21 @@ function handleSubmit(e) {
     const prev = card.months[mon] || {};
     card.months[mon] = {...prev, amount, amountSaved: true, prevAmount: prev.amount};
     save(); renderRecurring(); toast(card.name+' bill amount saved'); return;
+  }
+  if (action==='save-card-edit') {
+    const card = S.recurring.creditCards.find(c=>c.id===form.dataset.id); if (!card) return;
+    if (!d.name?.trim()) return toast('Name is required');
+    card.name = d.name.trim();
+    if (d.dueDay) card.dueDay = parseInt(d.dueDay);
+    if (d.currency) card.currency = d.currency;
+    const mon = S.selectedMonth;
+    const amt = parseFloat(d.amount);
+    if (d.amount !== undefined && d.amount !== '' && !isNaN(amt) && amt >= 0 && !card.months?.[mon]?.paid) {
+      if (!card.months) card.months = {};
+      card.months[mon] = { ...(card.months[mon]||{}), amount: amt, amountSaved: true };
+    }
+    S.editingCardId = null;
+    save(); renderDashboard(); renderRecurring(); toast(card.name+' updated'); return;
   }
   if (action==='save-recurring-edit') {
     const item = S.recurring.items.find(i=>i.id===form.dataset.id); if (!item) return;
@@ -4588,7 +4541,6 @@ function handleClick(e) {
   if (action==='unlock-bio') { tryBiometricUnlock(); return; }
   if (action==='enroll-biometric') { enrollBiometric(); return; }
   if (action==='remove-biometric') { localStorage.removeItem('mmc.lock.credId'); localStorage.removeItem('mmc.lock.dekBio'); toast('Biometric unlock removed'); renderSettings(); return; }
-  if (action==='disable-push') { disablePush(); return; }
   if (action==='toggle-bill-reminders') {
     const on = localStorage.getItem('mmc.billReminders') === '1';
     if (on) { localStorage.removeItem('mmc.billReminders'); renderSettings(); return; }
@@ -4747,15 +4699,6 @@ function handleClick(e) {
   }
   if (action==='cancel-card-edit') {
     S.editingCardId = null; renderRecurring(); return;
-  }
-  if (action==='save-card-edit') {
-    const card = S.recurring.creditCards.find(c=>c.id===form.dataset.id); if (!card) return;
-    if (!d.name?.trim()) return toast('Name is required');
-    card.name = d.name.trim();
-    if (d.dueDay) card.dueDay = parseInt(d.dueDay);
-    if (d.currency) card.currency = d.currency;
-    S.editingCardId = null;
-    save(); renderRecurring(); toast(card.name+' updated'); return;
   }
   if (action==='del-credit-card') {
     const card = S.recurring.creditCards.find(c=>c.id===btn.dataset.id); if (!card) return;
