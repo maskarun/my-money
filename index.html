@@ -531,12 +531,14 @@ textarea.input { height: 68px; padding: 10px 12px; resize: none; }
 <script>
 const EXPENSE_CATS = ['Food','Transport','Housing','Bills','Shopping','Health','Entertainment','Savings','Insurance','Investment','Loans','Other'];
 const INCOME_CATS  = ['Salary','Freelance','Investment','Gift','Other'];
-const DEFAULT_CURRENCIES = ['USD','INR','GBP'];
+const DEFAULT_CURRENCIES = ['USD','INR'];
 const validCurrencyCode = value => /^[A-Z]{3}$/.test(String(value||'').trim().toUpperCase());
 function readCustomCurrencies() {
   try {
     const saved = JSON.parse(localStorage.getItem('mmc.customCurrencies')||'[]');
-    if (Array.isArray(saved)) return [...new Set(saved.map(c=>String(c).trim().toUpperCase()).filter(c=>validCurrencyCode(c)&&!DEFAULT_CURRENCIES.includes(c)))];
+    const configured = JSON.parse(localStorage.getItem('mmc.currencies')||'[]');
+    const prior = Array.isArray(configured) ? configured : [];
+    return [...new Set([...(Array.isArray(saved)?saved:[]),...prior].map(c=>String(c).trim().toUpperCase()).filter(c=>validCurrencyCode(c)&&!DEFAULT_CURRENCIES.includes(c)))];
   } catch(e) {}
   return [];
 }
@@ -545,8 +547,7 @@ let ALL_CURRENCIES = [...DEFAULT_CURRENCIES,...CUSTOM_CURRENCIES];
 function readConfiguredCurrencies() {
   try {
     const saved = JSON.parse(localStorage.getItem('mmc.currencies')||'null');
-    const valid = ALL_CURRENCIES.filter(c=>Array.isArray(saved)&&saved.includes(c));
-    if (valid.length) return valid;
+    if (Array.isArray(saved)) return [...DEFAULT_CURRENCIES,...ALL_CURRENCIES.filter(c=>!DEFAULT_CURRENCIES.includes(c)&&saved.includes(c))];
   } catch(e) {}
   return [...ALL_CURRENCIES];
 }
@@ -609,8 +610,8 @@ function applyBackupData(data) {
       const customs = [...new Set([...(Array.isArray(st.customCurrencies)?st.customCurrencies:[]),...st.currencies.filter(c=>!DEFAULT_CURRENCIES.includes(c))].map(c=>String(c).trim().toUpperCase()).filter(c=>validCurrencyCode(c)&&!DEFAULT_CURRENCIES.includes(c)))];
       CUSTOM_CURRENCIES=customs; ALL_CURRENCIES=[...DEFAULT_CURRENCIES,...CUSTOM_CURRENCIES];
       localStorage.setItem('mmc.customCurrencies',JSON.stringify(CUSTOM_CURRENCIES));
-      const currencies = ALL_CURRENCIES.filter(c=>st.currencies.includes(c));
-      if (currencies.length) { CURRENCIES=currencies; localStorage.setItem('mmc.currencies',JSON.stringify(CURRENCIES)); }
+      const currencies = [...DEFAULT_CURRENCIES,...ALL_CURRENCIES.filter(c=>!DEFAULT_CURRENCIES.includes(c)&&st.currencies.includes(c))];
+      CURRENCIES=currencies; localStorage.setItem('mmc.currencies',JSON.stringify(CURRENCIES));
     }
     if (st.theme) { localStorage.setItem('mmc.theme', st.theme); document.body.classList.toggle('dark', st.theme === 'dark'); }
     if (st.sectionOrder) {
@@ -3668,9 +3669,9 @@ function renderSettings() {
   </div>`;
 
   const currencyCard = `<div class="card">
-    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#0ea5e9"></span><span class="sec-title">Currencies</span></div><div class="sec-sub">Choose currencies available in new entries or add a three-letter currency code</div></div></div>
+    <div class="sec-hdr"><div><div class="sec-title-row"><span class="sec-dot" style="background:#0ea5e9"></span><span class="sec-title">Currencies</span></div><div class="sec-sub">USD and INR are required. Disable or remove other currencies, or add a three-letter currency code.</div></div></div>
     <div class="toggle-chip-row" style="padding:8px 16px 14px;flex-wrap:wrap">
-      ${ALL_CURRENCIES.map(c=>`<button class="toggle-chip${CURRENCIES.includes(c)?' active':''}" data-action="toggle-currency" data-currency="${c}" aria-pressed="${CURRENCIES.includes(c)}">${CURRENCIES.includes(c)?'✓':'+'} ${c}</button>`).join('')}
+      ${ALL_CURRENCIES.map(c=>DEFAULT_CURRENCIES.includes(c)?`<span class="toggle-chip active" aria-label="${c} required">✓ ${c}</span>`:`<span style="display:inline-flex;align-items:center;gap:3px"><button class="toggle-chip${CURRENCIES.includes(c)?' active':''}" data-action="toggle-currency" data-currency="${c}" aria-pressed="${CURRENCIES.includes(c)}">${CURRENCIES.includes(c)?'✓':'+'} ${c}</button><button class="toggle-chip" data-action="remove-currency" data-currency="${c}" aria-label="Remove ${c}" title="Remove ${c}" style="padding:5px 8px">×</button></span>`).join('')}
     </div>
     <form data-action="add-currency" style="padding:0 16px 14px;display:flex;gap:8px;align-items:end">
       <div style="flex:1"><label class="form-label" for="new-currency-code">Add a currency</label><input class="input" id="new-currency-code" name="currency" type="text" inputmode="text" autocomplete="off" maxlength="3" minlength="3" pattern="[A-Za-z]{3}" placeholder="e.g. CAD" aria-label="Three-letter currency code" required></div>
@@ -4467,12 +4468,27 @@ function handleClick(e) {
   if (action==='toggle-currency') {
     const currency=btn.dataset.currency;
     if (!ALL_CURRENCIES.includes(currency)) return;
+    if (DEFAULT_CURRENCIES.includes(currency)) return;
     if (CURRENCIES.includes(currency) && CURRENCIES.length===1) return toast('Keep at least one currency enabled');
     CURRENCIES = CURRENCIES.includes(currency) ? CURRENCIES.filter(c=>c!==currency) : ALL_CURRENCIES.filter(c=>CURRENCIES.includes(c)||c===currency);
     localStorage.setItem('mmc.currencies',JSON.stringify(CURRENCIES));
     if (!CURRENCIES.includes(S.txCurrency)) S.txCurrency=CURRENCIES[0];
     if (S.activityCurFilter && !isCurrencyEnabled(S.activityCurFilter)) S.activityCurFilter=null;
     save(); renderDashboard(); renderActivityPage(); renderPortfolio(); renderRecurring(); renderInsights(); renderSettings(); renderMarkets();
+    return;
+  }
+  if (action==='remove-currency') {
+    const currency=btn.dataset.currency;
+    if (DEFAULT_CURRENCIES.includes(currency) || !CUSTOM_CURRENCIES.includes(currency)) return;
+    CUSTOM_CURRENCIES=CUSTOM_CURRENCIES.filter(c=>c!==currency);
+    ALL_CURRENCIES=[...DEFAULT_CURRENCIES,...CUSTOM_CURRENCIES];
+    CURRENCIES=CURRENCIES.filter(c=>c!==currency);
+    localStorage.setItem('mmc.customCurrencies',JSON.stringify(CUSTOM_CURRENCIES));
+    localStorage.setItem('mmc.currencies',JSON.stringify(CURRENCIES));
+    if (!CURRENCIES.includes(S.txCurrency)) S.txCurrency=CURRENCIES[0];
+    if (S.activityCurFilter===currency) S.activityCurFilter=null;
+    save(); renderDashboard(); renderActivityPage(); renderPortfolio(); renderRecurring(); renderInsights(); renderSettings(); renderMarkets();
+    toast(`${currency} removed`);
     return;
   }
   if (action==='goto-current-month') { S.selectedMonth = thisMonth(); S.monthPickerOpen = false; S.calendarSelectedDay = null; renderDashboard(); renderActivityPage(); renderRecurring(); renderPortfolio(); return; }
